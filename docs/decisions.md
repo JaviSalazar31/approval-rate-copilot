@@ -233,10 +233,14 @@ after the window), and the other 103 return identical results. Each round ran th
 again, with reworded variants of the failed ones to check that the fixes are not tied to the benchmark's
 wording (`evals/README.md`).
 
-**Result.** 13 of 20 before the changes, then 14, 15 and 18 after three rounds; the reworded variants passed 2,
-4 and 5 of 6. The third round was two more function changes, not more text: a dimension parameter on
+**Result.** 13 of 20 before the changes, then 14, 15 and 17 after three rounds; the reworded variants passed 2,
+4 and 5 of 6. The third round changed two functions and the parts of the context that point to them (their
+descriptions, one example, one line of the instructions and step 4 of the method): a dimension parameter on
 `fn_approval_drivers`, because chat mode used the function's output unfiltered, and each code across acquirers
 in `fn_decline_shift`, because a drop that moves traffic to another acquirer makes that acquirer's codes look
-like growth from zero. On 14 held-out questions, committed before the last run and run once, the agent scored
-11, and two of its three failures were chat-mode gaps of the same kind, which also call for structure: functions
-that treat a text "NULL" as NULL, and comparison results that carry the gap.
+like growth from zero. The second did what it was for. The first returned only the rows asked for, but it also
+drew chat mode to the function for whole months, where the answer is the table alone: C1 and its reworded
+variant gave both rates and never the gap, and count as failures. On 14 held-out questions, committed before the
+last run and run once, the agent scored 11, and two of its three failures were chat-mode gaps of the same kind,
+which also call for structure: functions that treat a text "NULL" as NULL, and comparison results that carry the
+gap.

@@ -472,10 +472,10 @@
    },
    {
     "run": 4,
-    "passed": 18,
+    "passed": 17,
     "total": 20,
     "chat": {
-     "passed": 8,
+     "passed": 7,
      "total": 10,
      "genie_good": 7,
      "genie_bad": 2,
@@ -499,7 +499,7 @@
      "B4": "PASS",
      "B5": "PASS",
      "B6": "PASS",
-     "C1": "PASS",
+     "C1": "FAIL",
      "C2": "PASS",
      "C3": "PASS",
      "C4": "FAIL",
@@ -530,7 +530,7 @@
      "D3": "agent",
      "D4": "agent"
     },
-    "label": "Genie run 4, a dimension parameter and a baseline across acquirers: chat 8/10, agent 10/10",
+    "label": "Genie run 4, a dimension parameter and a baseline across acquirers: chat 7/10, agent 10/10",
     "repeated_samples": {
      "B1": "2/3",
      "C3": "3/3"
@@ -557,7 +557,7 @@
    {
     "title": "It misread the retry data",
     "problem": "In run 2, B1 sized the window right in all three samples and still failed them: one blamed a code the map never retries, by policy, one called the “do not honor” declines issuer-side although they grew on one acquirer only, and one led with the calendar day's figure. In run 3, one read Acquirer B's empty baseline as Acquirer A's.",
-    "change": "The retry function now says whether the map allowed a retry, the decline function shows each code across acquirers (05 went from 4.1% to 13.7% of payments, not from zero), and the instructions define an issuer-side cause. In run 4 every B1 sample read the codes right, and B1 passed two of three; the third ended the window at midnight."
+    "change": "The retry function now says whether the map allowed a retry, the decline function shows each code across acquirers (05 went from 4.1% to 13.7% of payments, not from zero), and the instructions define an issuer-side cause. In run 4 every B1 sample read code 05 right, and B1 passed two of three; the other one ended the window at midnight."
    },
    {
     "title": "It stated numbers no query returned",
@@ -567,10 +567,10 @@
    {
     "title": "Chat mode returns a function's table, not an answer",
     "problem": "Asked to compare acquirers over July (C1) or rank issuers inside the incident window (C4), chat mode called the drivers function and returned all of its rows, across six dimensions, without filtering them.",
-    "change": "Run 4 gave the function a dimension parameter, and chat mode used it: C1 passes now, and C4 puts the right issuer first, but returns all eight issuers where the reference keeps three, which Genie's grader counts as wrong. What is left: a table with no text half answers a question in two parts (which one, and by how much: H6, V6), and a text “NULL” passed for an optional parameter emptied one result (H7)."
+    "change": "Run 4 gave the function a dimension parameter. Chat mode used it, and the rows are now the ones asked for: C4 puts the right issuer first, but returns all eight issuers where the reference keeps three, which Genie's grader counts as wrong. It also moved chat mode to the function for whole months, which its description sends to the daily tables, and the answer is the table alone: C1 and its reworded variant V6 give both rates but never say by how much, so both count as failures (V6 had stated the gap in run 3), as does the held-out H6. A text “NULL” passed for an optional parameter emptied another result (H7)."
    }
   ],
-  "table_note": "G1 to G4: the deployed agent, four runs on 29 October 2026. A1–A6, B3, C1, C2 and C4 ran in chat mode and were graded by Genie's own benchmark grader, which compares result sets (A5 was graded by hand when the grader sent it to manual review). The other ten ran in agent mode and were graded by the same judge as the offline runs. Runs 2 to 4 also asked B1 and C3 three times each: B1 passed 0, then 1, then 2 of 3; C3 passed 3 of 3 every time.",
+  "table_note": "G1 to G4: the deployed agent, four runs on 29 October 2026. A1–A6, B3, C1, C2 and C4 ran in chat mode and were graded by Genie's own benchmark grader, which compares result sets (A5 was graded by hand when the grader sent it to manual review, and C1 in run 4 counts as a failure although the grader passed it: it never says by how much). The other ten ran in agent mode and were graded by the same judge as the offline runs. Runs 2 to 4 also asked B1 and C3 three times each: B1 passed 0, then 1, then 2 of 3; C3 passed 3 of 3 every time.",
   "heldout": {
    "passed": 11,
    "total": 14,

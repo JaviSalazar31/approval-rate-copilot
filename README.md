@@ -19,10 +19,10 @@ Databricks Free Edition, with 100% synthetic data.
 |---|---|
 | **Problem** | Approval drops are found late and are slow to explain: the data is spread across an orchestrator log and three acquirer feeds with different formats, time zones and decline codes. |
 | **Product** | A chat assistant (a Databricks Genie agent) that answers in plain language and shows the SQL behind every number. Five SQL functions hold the diagnostic method. Around it: a dashboard and two alerts, one for approval drops and one for retries that stop working. |
-| **Evidence** | A 20-question benchmark (16 with ground-truth SQL, 4 guardrails) and 14 held-out questions, with every answer and verdict published. Offline, with a Claude model playing the copilot and a separate model as judge (LLM-as-a-judge): 18/20 on the first of six runs, 20/20 on each of the last three. On the deployed Genie agent: 13/20 on the first run, then 14, 15 and 18/20 after moving the method from text instructions into functions and example queries. On the held-out questions, committed before the run and run once: 11/14. Every failure is published, with its fix or the planned one. See [evals/README.md](evals/README.md). |
+| **Evidence** | A 20-question benchmark (16 with ground-truth SQL, 4 guardrails) and 14 held-out questions, with every answer and verdict published. Offline, with a Claude model playing the copilot and a separate model as judge (LLM-as-a-judge): 18/20 on the first of six runs, 20/20 on each of the last three. On the deployed Genie agent: 13/20 on the first run, then 14, 15 and 17/20 after moving the method from text instructions into functions and example queries. On the held-out questions, committed before the run and run once: 11/14. Every failure is published, with its cause and, where there is one, the fix. See [evals/README.md](evals/README.md). |
 | **My role** | Product owner of the case: I set the brief (problem, scope, deliverables and acceptance criteria) and I own the product decisions in the [decision log](docs/decisions.md) and the evaluation rules. |
 | **How it was built** | AI-assisted. Claude (Anthropic) wrote the code and the first drafts of the documents from my brief and ran the checks; I set the brief and the review bar. Quality rests on evidence, not on trust in the tool: automated tests, the 20-question evaluation with every verdict published, and every number on the page traced to SQL. |
-| **Status** | Deployed on Databricks Free Edition on 29 October 2026 through the Databricks APIs: pipeline, functions, dashboard and Genie agent. The data files match the local reference run byte for byte. The agent was then tuned in three rounds, each followed by the full benchmark on Genie, and tested once on questions it was never tuned on. Next: the chat-mode gaps the held-out set found, and a larger held-out set. To deploy it yourself: [runbook](docs/runbook_databricks.md). |
+| **Status** | Deployed on Databricks Free Edition on 29 October 2026 through the Databricks APIs: pipeline, functions, dashboard and Genie agent. The data files match the local reference run byte for byte. The agent was then tuned in three rounds, each followed by the full benchmark on Genie, and tested once on questions it was never tuned on. Next: the chat-mode gaps the benchmark and the held-out set found, and a larger held-out set. To deploy it yourself: [runbook](docs/runbook_databricks.md). |
 
 Project page: `site/index.html` (published with GitHub Pages).
 
@@ -149,10 +149,12 @@ and three time-zone conventions.
 ## Limitations
 
 - All data is synthetic. Parameters are illustrative, not market statistics; a pilot on real data is the next step.
-- On the deployed Genie agent the benchmark reached 18 of 20, the 90% bar of the PRD, on the fourth run, but the
-  benchmark questions drove the fixes. On 14 held-out questions the agent scored 11: chat mode answers with a
-  function's table and no text, so a question in two parts was half answered, and a text "NULL" passed for an
-  optional parameter emptied one result. The main diagnosis (B1) passed two of three samples in the last run.
+- On the deployed Genie agent the benchmark reached 17 of 20 on the fourth run, short of the PRD's 90% bar, and the
+  benchmark questions drove the fixes. On 14 held-out questions the agent scored 11. Chat mode answers with a
+  function's table and no text, so questions that ask by how much get both numbers and no gap (C1, and H6 held
+  out), and a text "NULL" passed for an optional parameter emptied one result (H7); one diagnosis put a whole
+  segment's lost approvals on one acquirer (H8). The main diagnosis (B1) passed two of three samples in the last
+  run.
 - The offline evaluation uses a Claude model with the same context as the Genie agent. It measures the
   design (instructions, tables, functions), not Genie's own model, and it overstated Genie: 20 of 20 offline
   against 13 on the first Genie run.
