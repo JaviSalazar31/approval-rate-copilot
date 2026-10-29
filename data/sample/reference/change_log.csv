@@ -1,0 +1,12 @@
+change_id,changed_at_utc,change_type,scope,description,owner_team
+CHG-0601,2026-06-03 15:00:00,release,ALL,Checkout UI v5.2 (copy and layout changes),web
+CHG-0618,2026-06-18 12:00:00,risk_rules,BR,Risk rules v3: new card-velocity rule,risk-engine
+CHG-0620,2026-06-20 18:00:00,risk_rules,BR,Risk rules v3.1: velocity threshold tuned after review,risk-engine
+CHG-0702,2026-07-02 15:00:00,routing,MX,Routing v13: 10% of MX debit to Acquirer C (A/B test),routing
+EXT-0721,2026-07-21 11:45:00,external_notice,BR,Acquirer notice: Issuer BR-ISS-03 scheduled maintenance 12:00-15:00 UTC,partner-notice
+CHG-0728,2026-07-28 16:00:00,release,"MX,CO",3DS SDK upgrade on web checkout,web
+CHG-0806,2026-08-06 13:00:00,decline_mapping,B,Decline-code mapping v2.3 for Acquirer B: adds R65 handling,normalization
+CHG-0813,2026-08-13 19:00:00,routing,CO,"Routing v14: 100% of CO domestic debit to Acquirer B (cost optimization, -40 bps)",routing
+CHG-0814,2026-08-14 17:10:00,rollback,CO,Rollback routing v14 -> v13 (incident INC-0814),routing
+CHG-0815,2026-08-15 13:00:00,decline_mapping,B,Mapping hotfix v2.3.1: R05 reclassified as soft and retryable,normalization
+CHG-0820,2026-08-20 14:00:00,merchant_onboarding,MX,Two new MX merchants onboarded,commercial

@@ -1,0 +1,964 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Approval Rate Copilot</title>
+<meta name="description" content="Case study: an AI copilot that explains card-approval drops for a fictional LATAM payment orchestrator, built for Databricks. Personal project, 100% synthetic data.">
+<meta property="og:title" content="Approval Rate Copilot · Javier Salazar">
+<meta property="og:description" content="Personal project with 100% synthetic data: an AI copilot that explains card-approval drops, with the SQL behind every number and a 20-question evaluation.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,500..800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<meta property="og:url" content="https://javisalazar31.github.io/approval-rate-copilot/">
+<meta property="og:image" content="https://javisalazar31.github.io/approval-rate-copilot/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="627">
+<style>
+/* Layout: an incident file you scroll. One reading column (~66ch) inside a 1120px frame; charts, tables and
+   the system diagram use the full frame. Each section opens with a short case-file label. */
+:root {
+  --paper: #f6f7f4;
+  --panel: #eceee9;
+  --panel-2: #e3e7e1;
+  --ink: #131a21;
+  --ink-2: #434e58;
+  --muted: #5d6871;
+  --rule: #d6dbd5;
+  --grid: #e2e5e0;
+  --axis: #aeb6ae;
+  --accent: #0b6a61;
+  --series-a: #2a78d6;
+  --series-b: #eb6834;
+  --good: #0f8a2e;
+  --bad: #d03b3b;
+  --warn: #b26b00;
+  --band: rgba(235, 104, 52, 0.09);
+  --font-display: "Archivo", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --step--1: 0.8125rem;
+  --step-0: 1.0625rem;
+  --step-1: 1.25rem;
+  --step-2: 1.625rem;
+  --step-3: clamp(1.9rem, 3.6vw, 2.5rem);
+  --step-4: clamp(2.7rem, 7vw, 4.6rem);
+  --frame: 1120px;
+  --measure: 66ch;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0f1418;
+    --panel: #172027;
+    --panel-2: #1d2830;
+    --ink: #e8ecea;
+    --ink-2: #b7c0c6;
+    --muted: #8e99a2;
+    --rule: #26313a;
+    --grid: #1f2930;
+    --axis: #3c4852;
+    --accent: #5cc6b9;
+    --series-a: #3987e5;
+    --series-b: #d95926;
+    --good: #35b85a;
+    --bad: #ec6b6b;
+    --warn: #e5a23a;
+    --band: rgba(217, 89, 38, 0.14);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0f1418;
+  --panel: #172027;
+  --panel-2: #1d2830;
+  --ink: #e8ecea;
+  --ink-2: #b7c0c6;
+  --muted: #8e99a2;
+  --rule: #26313a;
+  --grid: #1f2930;
+  --axis: #3c4852;
+  --accent: #5cc6b9;
+  --series-a: #3987e5;
+  --series-b: #d95926;
+  --good: #35b85a;
+  --bad: #ec6b6b;
+  --warn: #e5a23a;
+  --band: rgba(217, 89, 38, 0.14);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--step-0);
+  line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+a { color: var(--accent); text-underline-offset: 3px; text-decoration-thickness: 1px; }
+a:hover { text-decoration-thickness: 2px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
+.frame { max-width: var(--frame); margin-inline: auto; }
+.measure { max-width: var(--measure); }
+code, .mono { font-family: var(--font-mono); font-size: 0.9em; }
+h1, h2, h3 { font-family: var(--font-display); font-stretch: 82%; letter-spacing: -0.01em; text-wrap: balance; margin: 0; }
+h2 { font-size: var(--step-3); line-height: 1.08; font-weight: 750; }
+h3 { font-size: var(--step-1); line-height: 1.25; font-weight: 700; font-stretch: 90%; }
+p { margin: 0; }
+.stack { display: grid; gap: 1rem; }
+.stack-lg { display: grid; gap: 2.25rem; }
+
+/* ---------- top bar ---------- */
+.topbar {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 1.5rem;
+  padding-block: 1.1rem 0.9rem; border-bottom: 1px solid var(--rule);
+  font-size: var(--step--1); color: var(--ink-2);
+}
+.topbar strong { color: var(--ink); font-weight: 600; }
+.topbar nav { display: flex; flex-wrap: wrap; gap: 0.35rem 1.1rem; }
+.topbar nav a { color: var(--ink-2); text-decoration: none; }
+.topbar nav a:hover { color: var(--ink); text-decoration: underline; }
+
+/* ---------- hero ---------- */
+.hero {
+  display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); gap: 3rem;
+  align-items: start; padding-block: 3.2rem 2.6rem;
+}
+.eyebrow { font-family: var(--font-mono); font-size: var(--step--1); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.hero h1 { font-size: var(--step-4); line-height: 0.95; font-weight: 800; font-stretch: 75%; letter-spacing: -0.02em; margin-top: 0.9rem; }
+.lede { font-size: var(--step-1); line-height: 1.5; color: var(--ink); margin-top: 1.4rem; max-width: 34ch; }
+.hero .sub { color: var(--ink-2); margin-top: 1rem; max-width: 52ch; }
+.byline { margin-top: 1.6rem; font-size: var(--step--1); color: var(--ink-2); display: flex; flex-wrap: wrap; gap: 0.25rem 0.9rem; }
+.byline strong { color: var(--ink); font-weight: 600; }
+
+/* the copilot answer, printed like an authorization slip */
+.slip {
+  background: var(--panel); border-radius: 6px 6px 0 0; padding: 1.3rem 1.3rem 1.6rem; position: relative;
+  font-family: var(--font-mono); font-size: 0.8125rem; line-height: 1.55; color: var(--ink);
+  margin-bottom: 10px;
+}
+.slip::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -10px; height: 10px;
+  background: linear-gradient(-45deg, transparent 6px, var(--panel) 0) 0 0 / 12px 10px repeat-x,
+              linear-gradient(45deg, transparent 6px, var(--panel) 0) 0 0 / 12px 10px repeat-x;
+}
+.slip .head { display: flex; justify-content: space-between; gap: 1rem; color: var(--muted); font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; }
+.slip .q { margin-top: 0.9rem; padding-bottom: 0.9rem; border-bottom: 1px dashed var(--axis); font-weight: 500; }
+.slip dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0.55rem 1rem; margin: 0.9rem 0 0; }
+.slip dt { color: var(--muted); font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; padding-top: 0.12rem; }
+.slip dd { margin: 0; }
+.slip .loss { color: var(--bad); font-weight: 600; }
+.slip .foot { margin-top: 1rem; padding-top: 0.8rem; border-top: 1px dashed var(--axis); color: var(--muted); font-size: 0.72rem; }
+
+/* ---------- key facts ---------- */
+.facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--rule); }
+.fact { padding: 1.1rem 1.2rem 1.2rem 0; display: grid; gap: 0.3rem; align-content: start; }
+.fact + .fact { padding-left: 1.2rem; border-left: 1px solid var(--rule); }
+.fact .v { font-family: var(--font-body); font-size: 1.9rem; font-weight: 600; line-height: 1.1; letter-spacing: -0.01em; }
+.fact .l { font-size: var(--step--1); color: var(--ink-2); line-height: 1.45; }
+
+/* ---------- sections ---------- */
+section { padding-block: 4.2rem 0.5rem; }
+.label { font-family: var(--font-mono); font-size: var(--step--1); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); display: flex; gap: 0.7rem; align-items: center; }
+.label::before { content: ""; width: 1.6rem; height: 1px; background: var(--ink); }
+.section-head { display: grid; gap: 0.9rem; margin-bottom: 1.8rem; }
+.section-head p { color: var(--ink-2); max-width: var(--measure); }
+.prose { display: grid; gap: 1rem; max-width: var(--measure); }
+.prose p { color: var(--ink); }
+.callout { border-left: 2px solid var(--ink); padding: 0.2rem 0 0.2rem 1rem; color: var(--ink-2); max-width: var(--measure); }
+
+/* dialect table */
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 0.9375rem; }
+th, td { text-align: left; padding: 0.55rem 0.9rem 0.55rem 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-weight: 600; font-size: var(--step--1); color: var(--ink-2); letter-spacing: 0.02em; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+tr.bug td { background: color-mix(in srgb, var(--bad) 9%, transparent); }
+tr.bug td:first-child { box-shadow: inset 3px 0 0 var(--bad); padding-left: 0.6rem; }
+.tag { display: inline-flex; align-items: center; gap: 0.35rem; font-family: var(--font-mono); font-size: 0.75rem; padding: 0.1rem 0.45rem; border-radius: 3px; background: var(--panel); color: var(--ink); white-space: nowrap; }
+.tag.bad { background: color-mix(in srgb, var(--bad) 16%, transparent); }
+.tag.good { background: color-mix(in srgb, var(--good) 15%, transparent); }
+
+/* ---------- charts ---------- */
+.figure { display: grid; gap: 0.75rem; margin-top: 2rem; }
+.figure-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 0.4rem 1.5rem; }
+.figure-title { font-weight: 600; font-size: 1rem; }
+.figure-sub { color: var(--ink-2); font-size: var(--step--1); }
+.legend { display: flex; flex-wrap: wrap; gap: 0.4rem 1.1rem; font-size: var(--step--1); color: var(--ink-2); }
+.legend span { display: inline-flex; align-items: center; gap: 0.45rem; }
+.key-line { width: 18px; height: 2px; border-radius: 1px; display: inline-block; }
+.key-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.key-band { width: 14px; height: 10px; display: inline-block; background: var(--band); border: 1px solid color-mix(in srgb, var(--series-b) 40%, transparent); }
+.chart { position: relative; width: 100%; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart text { font-family: var(--font-body); }
+.tip {
+  position: absolute; pointer-events: none; z-index: 5; min-width: 11rem; max-width: 16rem;
+  background: var(--paper); border: 1px solid var(--rule); border-radius: 6px; padding: 0.55rem 0.7rem;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12); font-size: 0.8125rem; line-height: 1.4; color: var(--ink);
+}
+.tip .t-head { color: var(--ink-2); font-size: 0.75rem; margin-bottom: 0.3rem; }
+.tip .t-row { display: flex; align-items: center; gap: 0.5rem; justify-content: space-between; }
+.tip .t-row b { font-weight: 600; font-variant-numeric: tabular-nums; }
+.tip .t-key { display: inline-flex; align-items: center; gap: 0.4rem; color: var(--ink-2); }
+details.data { font-size: var(--step--1); color: var(--ink-2); }
+details.data summary { cursor: pointer; width: fit-content; }
+details.data .table-wrap { max-height: 18rem; overflow: auto; margin-top: 0.6rem; border-top: 1px solid var(--rule); }
+details.data td, details.data th { padding: 0.3rem 0.8rem 0.3rem 0; font-size: 0.8125rem; }
+
+.two-col { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 2.5rem; align-items: start; }
+.numbers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin-top: 1.6rem; }
+.number { border-top: 1px solid var(--rule); padding-top: 0.7rem; display: grid; gap: 0.2rem; }
+.number .v { font-size: 1.6rem; font-weight: 600; line-height: 1.15; }
+.number .v.loss { color: var(--bad); }
+.number .l { font-size: var(--step--1); color: var(--ink-2); }
+
+/* ---------- copilot ---------- */
+.steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; border-top: 1px solid var(--ink); }
+.steps li { padding: 0.9rem 1rem 1rem 0; display: grid; gap: 0.35rem; align-content: start; }
+.steps li + li { padding-left: 1rem; border-left: 1px solid var(--rule); }
+.steps .n { font-family: var(--font-mono); font-size: 0.75rem; color: var(--muted); }
+.steps code { font-size: 0.78rem; color: var(--ink); overflow-wrap: anywhere; }
+.steps .q { font-weight: 600; line-height: 1.3; }
+.steps .d { font-size: var(--step--1); color: var(--ink-2); }
+.chat { display: grid; gap: 0.9rem; margin-top: 2rem; }
+.bubble-q { justify-self: end; max-width: 34rem; background: var(--ink); color: var(--paper); padding: 0.7rem 1rem; border-radius: 14px 14px 3px 14px; font-weight: 500; }
+.bubble-a { max-width: 54rem; background: var(--panel); border-radius: 3px 14px 14px 14px; padding: 1.2rem 1.4rem; display: grid; gap: 0.75rem; font-size: 0.96875rem; min-width: 0; }
+.bubble-a .who { font-family: var(--font-mono); font-size: 0.75rem; color: var(--muted); letter-spacing: 0.05em; text-transform: uppercase; }
+.bubble-a ul, .bubble-a ol { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.35rem; }
+.bubble-a table { font-size: 0.875rem; }
+.bubble-a .md-table { overflow-x: auto; }
+.answer-wrap { position: relative; }
+.answer-wrap.collapsed .bubble-a { max-height: 30rem; overflow: hidden; }
+.answer-wrap.collapsed::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 7rem; max-width: 54rem;
+  background: linear-gradient(to bottom, transparent, var(--panel)); border-radius: 0 0 14px 14px; pointer-events: none; }
+.more { justify-self: start; font: inherit; font-size: var(--step--1); color: var(--accent); background: none; border: 1px solid var(--rule);
+  border-radius: 999px; padding: 0.3rem 0.9rem; cursor: pointer; }
+.more:hover { border-color: var(--accent); }
+.sql-list { display: grid; gap: 0.6rem; margin-top: 0.6rem; }
+.sql-list pre { margin: 0; background: var(--panel); border-radius: 6px; padding: 0.8rem 1rem; overflow-x: auto; font-family: var(--font-mono); font-size: 0.78rem; line-height: 1.5; color: var(--ink); }
+.guardrails { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; margin-top: 2.2rem; }
+.guardrail { border-top: 1px solid var(--rule); padding-top: 0.7rem; display: grid; gap: 0.35rem; align-content: start; }
+.guardrail .gq { font-weight: 600; line-height: 1.35; }
+.guardrail .ga { font-size: var(--step--1); color: var(--ink-2); }
+
+/* ---------- system ---------- */
+.flow { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.6rem; align-items: stretch; margin-top: 0.5rem; }
+.stage { background: var(--panel); border-radius: 6px; padding: 0.9rem 1rem; display: grid; gap: 0.45rem; align-content: start; position: relative; min-width: 0; }
+.stage .k { font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.stage .t { font-weight: 600; line-height: 1.3; }
+.stage ul { margin: 0; padding-left: 1rem; font-size: var(--step--1); color: var(--ink-2); display: grid; gap: 0.2rem; }
+.stage + .stage::before { content: "→"; position: absolute; left: -0.62rem; top: 50%; transform: translate(-50%, -50%); color: var(--muted); font-size: 0.9rem; }
+.chips { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-top: 1.4rem; }
+.chip { font-size: var(--step--1); border: 1px solid var(--rule); border-radius: 999px; padding: 0.2rem 0.7rem; color: var(--ink-2); }
+
+/* ---------- evaluation ---------- */
+.score { display: grid; grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr)); gap: 1rem; margin-top: 0.4rem; }
+.score .cell { border-top: 1px solid var(--rule); padding-top: 0.7rem; display: grid; gap: 0.2rem; }
+.score .v { font-size: 1.6rem; font-weight: 600; }
+.score .l { font-size: var(--step--1); color: var(--ink-2); }
+.verdict { display: inline-flex; align-items: center; gap: 0.3rem; font-family: var(--font-mono); font-size: 0.72rem; font-weight: 600; padding: 0.1rem 0.45rem; border-radius: 3px; white-space: nowrap; }
+.verdict.pass { background: color-mix(in srgb, var(--good) 15%, transparent); color: var(--ink); }
+.verdict.fail { background: color-mix(in srgb, var(--bad) 17%, transparent); color: var(--ink); }
+.verdict .ic { font-size: 0.8rem; }
+.eval-table td:nth-child(2) { min-width: 16rem; }
+.fixes { display: grid; gap: 1rem; margin-top: 2rem; }
+.fix { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1.5rem; border-top: 1px solid var(--rule); padding-top: 1rem; }
+.fix h3 { font-size: 1.05rem; }
+.fix p { font-size: 0.9375rem; color: var(--ink-2); }
+.table-note { margin-top: 0.7rem; max-width: 48rem; font-size: var(--step--1); color: var(--ink-2); }
+.glossary { margin-top: 0.9rem; font-size: var(--step--1); color: var(--muted); line-height: 1.5; }
+.glossary b { color: var(--ink-2); font-weight: 600; }
+.stats-line { margin-top: 1.4rem; font-size: var(--step--1); color: var(--ink-2); }
+.eval-limits { margin-top: 1.6rem; max-width: 48rem; font-size: 0.9375rem; color: var(--ink-2); }
+
+/* ---------- decisions & next ---------- */
+.cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.6rem 2rem; }
+.card { border-top: 2px solid var(--ink); padding-top: 0.8rem; display: grid; gap: 0.45rem; align-content: start; }
+.card .k { font-family: var(--font-mono); font-size: 0.72rem; color: var(--muted); letter-spacing: 0.05em; }
+.card p { font-size: 0.9375rem; color: var(--ink-2); }
+.next { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem 2.5rem; max-width: 60rem; }
+.next li { margin: 0; }
+.next ol { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.7rem; align-content: start; }
+
+footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(--ink); display: grid; gap: 1.8rem; font-size: var(--step--1); color: var(--ink-2); }
+.docs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.9rem 1.5rem; }
+.docs div { display: grid; gap: 0.15rem; align-content: start; }
+.docs b { color: var(--ink); font-weight: 600; font-size: 0.875rem; }
+.disclaimer { max-width: 80ch; }
+
+@media (max-width: 900px) {
+  .hero { grid-template-columns: minmax(0, 1fr); gap: 2rem; padding-block: 2.2rem 2rem; }
+  .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fact:nth-child(3) { padding-left: 0; border-left: 0; }
+  .fact:nth-child(n+3) { border-top: 1px solid var(--rule); }
+  .two-col { grid-template-columns: minmax(0, 1fr); gap: 1.5rem; }
+  .steps { grid-template-columns: minmax(0, 1fr); }
+  .steps li + li { padding-left: 0; border-left: 0; border-top: 1px solid var(--rule); }
+  .guardrails, .score { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .flow { grid-template-columns: minmax(0, 1fr); gap: 1.1rem; }
+  .stage + .stage::before { content: "↓"; left: 50%; top: -0.55rem; }
+  .cards { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .docs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fix { grid-template-columns: minmax(0, 1fr); gap: 0.4rem; }
+}
+@media (max-width: 560px) {
+  .hide-sm { display: none; }
+  /* evaluation table as one card per question: id + question on top, the run verdicts underneath */
+  .eval-table thead { display: none; }
+  .eval-table, .eval-table tbody { display: block; }
+  .eval-table tr { display: grid; grid-template-columns: 2.1rem repeat(6, max-content) 1fr; column-gap: 0.55rem; row-gap: 0.4rem; padding: 0.75rem 0; border-bottom: 1px solid var(--rule); }
+  .eval-table td { display: block; border: 0; padding: 0; }
+  .eval-table td:nth-child(1) { grid-row: 1; grid-column: 1; }
+  .eval-table td:nth-child(2) { grid-row: 1; grid-column: 2 / -1; min-width: 0; }
+  .eval-table td:nth-child(3) { display: none; }
+  .eval-table td:nth-child(4) { grid-row: 2; grid-column: 2; }
+  .eval-table td:nth-child(5) { grid-row: 2; grid-column: 3; }
+  .eval-table td:nth-child(6) { grid-row: 2; grid-column: 4; }
+  .eval-table td:nth-child(7) { grid-row: 2; grid-column: 5; }
+  .eval-table td:nth-child(8) { grid-row: 2; grid-column: 6; }
+  .eval-table td:nth-child(9) { grid-row: 2; grid-column: 7; }
+  .eval-table td[data-label]::before { content: attr(data-label); display: block; font-size: 0.68rem; color: var(--muted); margin-bottom: 0.15rem; }
+  /* on phones the verdict shows as its icon; the word stays available to screen readers */
+  .eval-table .verdict .t { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  table.dialect th, table.dialect td { padding-right: 0.6rem; font-size: 0.875rem; }
+  .facts { grid-template-columns: minmax(0, 1fr); }
+  .fact, .fact + .fact { padding-left: 0; border-left: 0; }
+  .fact + .fact { border-top: 1px solid var(--rule); }
+  .numbers, .cards, .guardrails, .next, .docs { grid-template-columns: minmax(0, 1fr); }
+  .score { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  section { padding-block: 3.2rem 0.5rem; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .chart path.series { transition: opacity 0.2s ease; }
+}
+</style>
+</head>
+<body>
+
+
+<div class="frame">
+  <header class="topbar">
+    <div><strong>Javier Salazar</strong> · Case study · Payments, data and AI</div>
+    <nav aria-label="Sections">
+      <a href="#incident">Incident</a>
+      <a href="#copilot">Copilot</a>
+      <a href="#evaluation">Evaluation</a>
+      <a href="#decisions">Decisions</a>
+      <a href="#system">System</a>
+      <a href="#documents">Documents</a>
+    </nav>
+  </header>
+
+  <div class="hero">
+    <div>
+      <div class="eyebrow">Payments product · Data · Generative AI</div>
+      <h1>Approval Rate Copilot</h1>
+      <p class="lede">An AI analyst for a payments team. Ask why card approvals dropped and it answers with the cause, the cost and the next step, using SQL anyone can check.</p>
+      <p class="sub">A personal product case with 100% synthetic data: a fictional payment orchestrator in Mexico, Colombia and Brazil, a pipeline that cleans four inconsistent data feeds, and a copilot and dashboard designed for Databricks Genie and AI/BI. Validated on local Spark and tested on 20 questions before anyone relies on it.</p>
+      <div class="byline"><span><strong>Javier Salazar</strong>, Senior Product Owner, payments (LATAM)</span><span>October 2026</span><span>Personal project · 100% synthetic data</span></div>
+    </div>
+    <div aria-label="Summary of the copilot's diagnosis">
+      <div class="slip">
+        <div class="head"><span>Diagnosis</span><span>INC-0814 · synthetic</span></div>
+        <div class="q">&gt; Why did debit approval in Colombia drop on 13 August?</div>
+        <dl>
+          <dt>Trigger</dt><dd>Routing v14 sent all domestic debit to Acquirer B to save 40 bps</dd>
+          <dt>Latent cause</dt><dd>Map v2.3 had switched off retries of B's “05 do not honor” on other acquirers</dd>
+          <dt>Impact</dt><dd class="loss">−10.9 pp · 110 approvals · USD&nbsp;6,354 in&nbsp;22&nbsp;h</dd>
+          <dt>Action</dt><dd>Keep the rollback · review code 05 on B, never retried under map v2.3 · test any return to B on a small share first</dd>
+        </dl>
+        <div class="foot">Window 13 Aug 14:00 → 14 Aug 12:10 Bogotá · baseline: previous 14 days · summary of the unedited answer shown below</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="facts" role="list">
+    <div class="fact" role="listitem"><div class="v">1 in 9</div><div class="l">Colombian debit payments was an extra decline in the 22 hours after a routing change (110 of 1,004 above the usual rate)</div></div>
+    <div class="fact" role="listitem"><div class="v">6 days</div><div class="l">of early warning: the retry alert flagged the hidden cause in its first daily run, on 7 Aug, but nobody owned it</div></div>
+    <div class="fact" role="listitem"><div class="v">≈ USD 16k</div><div class="l">of approved volume lost over nine days while retries were switched off, mostly before the visible drop</div></div>
+    <div class="fact" role="listitem"><div class="v">20/20</div><div class="l">evaluation questions passed on the final context (18, 20, 19, 20 and 20 in earlier runs); every failure is published with its fix</div></div>
+  </div>
+  <p class="glossary"><b>pp</b> percentage points · <b>bps</b> basis points (0.01%) · <b>acquirer</b> the bank or processor that takes card payments for the merchant · <b>issuer</b> the cardholder's bank · <b>cascade</b> retrying a declined payment on a second acquirer</p>
+
+  <!-- ===================================================================================== -->
+  <section id="problem" aria-labelledby="h-problem">
+    <div class="section-head">
+      <div class="label">The problem</div>
+      <h2 id="h-problem">The feeds disagree</h2>
+    </div>
+    <div class="two-col">
+      <div class="prose">
+        <p>A payment orchestrator earns money only when payments are approved. When approval drops, the payments team needs three answers fast: how much it is costing, why it is happening and what to change.</p>
+        <p>Getting there means joining the orchestrator log with three acquirer feeds that disagree on almost everything: time zones, amount formats, column names and the codes for the same issuer answer. The pipeline turns all of that into one canonical status per attempt, with a versioned map that remembers which rule classified each decline.</p>
+        <p class="callout">One row of that map, highlighted in the table, is the latent cause of the incident below.</p>
+      </div>
+      <div class="table-wrap">
+        <table aria-describedby="dialect-cap" class="dialect">
+          <thead><tr><th>Acquirer</th><th class="hide-sm">Status</th><th>Code</th><th>Map</th><th>Classified as</th></tr></thead>
+          <tbody>
+            <tr><td>A</td><td class="mono hide-sm">DECLINED</td><td class="mono">05</td><td class="mono">v2.2</td><td><span class="tag good">soft · retry</span></td></tr>
+            <tr><td>B</td><td class="mono hide-sm">REFUSED</td><td class="mono">R05</td><td class="mono">v2.2</td><td><span class="tag good">soft · retry</span></td></tr>
+            <tr class="bug"><td>B</td><td class="mono hide-sm">REFUSED</td><td class="mono">R05</td><td class="mono">v2.3</td><td><span class="tag bad">hard · no retry</span></td></tr>
+            <tr><td>B</td><td class="mono hide-sm">REFUSED</td><td class="mono">R05</td><td class="mono">v2.3.1</td><td><span class="tag good">soft · retry</span></td></tr>
+            <tr><td>C</td><td class="mono hide-sm">Negada</td><td class="mono">05</td><td class="mono">v2.2</td><td><span class="tag good">soft · retry</span></td></tr>
+          </tbody>
+        </table>
+        <p id="dialect-cap" class="figure-sub" style="margin-top: 0.6rem;">The same issuer answer, “do not honor”, as each acquirer sends it, and how each version of the map classifies it.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================================================================================== -->
+  <section id="incident" aria-labelledby="h-incident">
+    <div class="section-head">
+      <div class="label">Incident INC-0814</div>
+      <h2 id="h-incident">USD 180 saved in fees, USD 6,354 of approved sales lost</h2>
+      <p>In this synthetic scenario, on 13 August at 14:00 Bogotá time, a routing change sent all Colombian domestic debit to Acquirer B, the cheapest partner. Final approval fell from 86.5% to 75.6% and stayed there until the rollback, 22 hours later.</p>
+    </div>
+
+    <div class="figure" id="fig-hourly">
+      <div class="figure-head">
+        <div>
+          <div class="figure-title">Final approval by hour, Colombian domestic debit</div>
+          <div class="figure-sub">3-hour rolling rate, Bogotá time, 12–15 Aug. Hover or tap for each hour.</div>
+        </div>
+        <div class="legend" aria-hidden="true">
+          <span><i class="key-line" style="background: var(--series-a)"></i>First acquirer A</span>
+          <span><i class="key-line" style="background: var(--series-b)"></i>First acquirer B</span>
+          <span><i class="key-band"></i>Routing v14 in effect</span>
+        </div>
+      </div>
+      <div class="chart" data-chart="hourly" role="img" aria-label="Hourly final approval for Colombian domestic debit from 12 to 15 August. It runs near 86% on Acquirer A, drops to about 70–78% while routing v14 sends traffic to Acquirer B from 13 August 14:00 to 14 August 12:10, and recovers after the rollback."></div>
+      <details class="data"><summary>Show the numbers</summary><div class="table-wrap" data-table="hourly"></div></details>
+    </div>
+
+    <div class="numbers" role="list">
+      <div class="number" role="listitem"><div class="v loss">110</div><div class="l">approvals lost vs the 14-day baseline (1,004 payments in the window)</div></div>
+      <div class="number" role="listitem"><div class="v loss">USD 6,354</div><div class="l">approved volume lost in 22 hours</div></div>
+      <div class="number" role="listitem"><div class="v">USD 180</div><div class="l">fees saved by the change in the same window</div></div>
+    </div>
+
+    <div class="two-col" style="margin-top: 3.2rem;">
+      <div class="stack">
+        <h3>Two causes stacked</h3>
+        <p class="measure">Acquirer B approves Colombian debit less often than A, and a decline-code map released a week earlier had quietly stopped B's “do not honor” declines from being retried on a second acquirer. The copilot does not split the drop between the two, so here is my estimate. Had B's 137 “do not honor” declines been retried and recovered at B's Colombian recovery rate in the 28 days before the bug (36%), about 50 more payments would have been approved: about 4.9 points (4.7–5.2 with other reasonable rates). B's weaker approval explains the remaining 6.0.</p>
+      </div>
+      <div class="figure" id="fig-bridge" style="margin-top: 0;">
+        <div class="figure-head"><div><div class="figure-title">From 86.5% to 75.6%</div><div class="figure-sub">Final approval, incident window vs baseline · split: my estimate</div></div></div>
+        <div class="chart" data-chart="bridge" role="img" aria-label="Bridge chart: baseline 86.5%, minus 6.0 points because Acquirer B approves less, minus 4.9 points because retries were switched off, ending at 75.6%."></div>
+      </div>
+    </div>
+
+    <div class="two-col" style="margin-top: 3.2rem;">
+      <div class="stack">
+        <h3>The warning came six days early</h3>
+        <p class="measure">Retries of B's “do not honor” declines fell from 100% to 9% on 6 August, the day the new map went live, and to 0% from the next day. Daily approval barely moved, so a dashboard that watches only outcomes stayed green. A cascade alert that watches the retry mechanism itself flagged it in the next morning's run and in every daily run until the fix, but in the scenario nobody owned it, so nobody acted. Over those nine days about 220 approvals (≈ USD 16k of approved volume) that a retry would normally have recovered were lost in Mexico and Colombia, most of them before the visible incident.</p>
+      </div>
+      <div class="figure" id="fig-cascade" style="margin-top: 0;">
+        <div class="figure-head">
+          <div><div class="figure-title">Acquirer B “do not honor” declines retried elsewhere</div><div class="figure-sub">Share retried on a second acquirer, Mexico and Colombia, by day</div></div>
+          <div class="legend" aria-hidden="true">
+            <span><i class="key-line" style="background: var(--series-b)"></i>Retry rate</span>
+            <span><i class="key-dot" style="background: var(--bad)"></i>Cascade alert</span>
+          </div>
+        </div>
+        <div class="chart" data-chart="cascade" role="img" aria-label="Daily retry rate of Acquirer B do-not-honor declines. It is 100% until 5 August, falls to 9% on 6 August and 0% from 7 to 14 August, with an alert every day, and returns to 100% after the hotfix on 15 August."></div>
+        <details class="data"><summary>Show the numbers</summary><div class="table-wrap" data-table="cascade"></div></details>
+      </div>
+    </div>
+
+    <div class="figure" id="fig-money" style="margin-top: 3.2rem;">
+      <div class="figure-head"><div><div class="figure-title">What the cheaper route saved, and what it cost</div><div class="figure-sub">USD, 13 Aug 14:00 → 14 Aug 12:10, Colombian domestic debit</div></div></div>
+      <div class="chart" data-chart="money" role="img" aria-label="Fees saved USD 180 versus approved volume lost USD 6,354."></div>
+    </div>
+  </section>
+
+  <!-- ===================================================================================== -->
+  <section id="copilot" aria-labelledby="h-copilot">
+    <div class="section-head">
+      <div class="label">The copilot</div>
+      <h2 id="h-copilot">One question, five checks</h2>
+      <p>The copilot is designed as a Databricks Genie agent on the gold tables; until it is deployed, Claude plays it with the same instructions, tables and functions. I designed the diagnostic method as five Unity Catalog SQL functions. The model decides what to check, runs the functions and, when it needs to, its own SQL, and explains the result; every query is shown under the answer.</p>
+    </div>
+    <ol class="steps">
+      <li><span class="n">1 · size</span><span class="q">How big is the drop?</span><code>fn_drop_impact</code><span class="d">Lost approvals and USD against a baseline period.</span></li>
+      <li><span class="n">2 · drivers</span><span class="q">Who moved?</span><code>fn_approval_drivers</code><span class="d">Acquirer, issuer, brand, 3DS, segment and routing version, split into rate and mix effects.</span></li>
+      <li><span class="n">3 · declines</span><span class="q">Which codes grew?</span><code>fn_decline_shift</code><span class="d">First-attempt failures by acquirer and reason, before and during.</span></li>
+      <li><span class="n">4 · retries</span><span class="q">Did retries still work?</span><code>fn_cascade_health</code><span class="d">Retry and recovery rates, and how the map classified each code.</span></li>
+      <li><span class="n">5 · changes</span><span class="q">What changed nearby?</span><code>fn_changes_near</code><span class="d">Routing, risk, mapping, releases and partner notices around the window.</span></li>
+    </ol>
+
+    <div class="chat" aria-label="Example conversation">
+      <div class="bubble-q">Why did the approval rate for debit cards in Colombia drop on 13 August 2026?</div>
+      <div class="answer-wrap collapsed" id="answer-wrap">
+        <div class="bubble-a">
+          <div class="who">Copilot · answer from the offline evaluation (run 6: Claude Sonnet with the Genie agent&#x27;s exact instructions, tables and functions), unedited</div>
+          <p><strong>Short answer</strong><br>At 14:00 on 13 Aug (Bogota time) routing v14 (CHG-0813, described as cost optimization, -40 bps) sent 100% of Colombian domestic debit to Acquirer B. B approved far less of this traffic than Acquirer A had, and it does not retry its most common decline, '05 Do not honor', because the decline-code map v2.3 (CHG-0806, live since 6 Aug) classifies that code as hard on B. The drop ended when v14 was rolled back to v13 at 12:10 on 14 Aug (CHG-0814, incident INC-0814). I sized and explained that window (13 Aug 14:00 to 14 Aug 12:10), not the calendar day. The primary cause is acquirer-side (routing to B). The 05 classification is a contributing factor that stopped the cascade from softening the loss.</p>
+<p><strong>Impact</strong> (Colombia, debit, domestic, final approval rate; baseline = the 14 days before the window start, all first-routed to Acquirer A on v13)</p>
+<ul><li>Incident window: 75.6% vs 86.5% baseline, -10.95 pp, on 1,004 payments (first-attempt rate 70.7% vs 84.6%). 759 approvals vs 869 expected: 110 lost approvals and USD 6,354 of lost approved volume (USD 47,096 approved of USD 61,689 attempted).</li><li>Calendar day 13 Aug: 79.4% (913 approved of 1,150 sent) vs 86.7% 28-day baseline, -7.33 pp, flagged as an anomaly. The first 14 hours were normal (85.9% vs 86.5% baseline, 3 approvals below expected) and the last 10 hours ran on B. 14 Aug closed at 84.6% because the rollback came at 12:10.</li><li>After the rollback (14 Aug 12:10 to 24:00): 850 payments, all on A / v13, 87.4% (12 Aug: 87.2%; 15 Aug: 85.3%).</li></ul>
+<p><strong>Evidence</strong></p>
+<ul><li>Window: the change log for CO between 3 Aug 00:00 and 15 Aug 00:00 (Bogota time) holds only CHG-0806 (6 Aug), CHG-0813 (13 Aug 14:00) and the rollback CHG-0814 (14 Aug 12:10). Hourly data agree: A had all first-routed payments until 13:59 (hourly final rate 83.0% to 88.6% from 07:00); from 14:00 B had all of them and the hourly rate ran between 58.0% (22:00) and 83.1% (16:00).</li><li>Who moved (fn_approval_drivers): B / routing v14 had 100% of payments in the window (0% in the baseline: B had no CO debit payments in the previous 14 days) and explains -10.95 pp, the entire change. All eight issuers (CO-ISS-01 to CO-ISS-08), both card brands, 3DS-authenticated and not, and every merchant segment with volume fell too, so this is not an issuer-side event. Each dimension sums to the same -10.95 pp, so do not add across dimensions.</li></ul>
+<p><strong>Declines and retries in the window</strong> (B has no CO debit baseline, so it is compared with A's baseline)</p>
+<div class="md-table"><table><thead><tr><th>Code</th><th>B, window: % of payments (failures)</th><th>A, baseline: % of payments (failures)</th><th>Retried on a 2nd acquirer, B vs A</th><th>Map class, B vs A</th></tr></thead><tbody><tr><td>05 Do not honor</td><td>13.7% (137)</td><td>4.1% (628)</td><td>0.0% vs 98.4%</td><td>hard vs soft</td></tr><tr><td>1A 3DS required</td><td>5.2% (52)</td><td>1.1% (167)</td><td>100.0% vs 99.4%</td><td>soft vs soft</td></tr><tr><td>51 Insufficient funds</td><td>3.8% (38)</td><td>4.2% (638)</td><td>0.0% vs 0.0%</td><td>soft vs soft</td></tr><tr><td>91 Issuer or switch unavailable</td><td>1.2% (12)</td><td>0.5% (72)</td><td>100.0% vs 98.6%</td><td>soft vs soft</td></tr></tbody></table></div>
+<p>Every other code on B was 1.0% of payments or less. On A in the baseline the cascade recovered 21.7% of the 05 declines; on B none were retried. B's other retryable codes (1A, 91, 96, technical errors, timeouts) were retried at 100%, so the cascade worked wherever the map allowed it. Code 51 is not retried on either acquirer, so it is not a change.</p>
+<p><strong>Was CHG-0806 involved? Yes, through an effect its description does not list.</strong> The description only says 'adds R65 handling'. In gold_cascade_daily (1 Jun to 12 Aug, B's first attempts in CO and MX, credit and debit combined, cross-border included), B's code 05 went from soft and retryable under v2.2 (1 Jun to 6 Aug: 3,296 failures, all retried, 1,237 recovered) to hard and not retryable under v2.3 (6 to 12 Aug: 331 failures, 0 retried). On A and C, 05 stayed soft and retryable under v2.3. No other B code changed class (code 65 appears only under v2.3). Because B had no CO debit traffic before, the effect only reached CO debit when v14 put all of it on B.</p>
+<p><strong>Recommended action</strong></p>
+<ol><li>Keep Colombian debit on A / v13. If the cost saving is still wanted, bring B in as a gradual canary (a small share of CO debit) with an hourly approval guardrail against A and an automatic rollback. v14 went from 0% to 100% in one step and ran for about 22 hours before the rollback.</li><li>Ask the owner of the decline-code map whether B's code 05 was meant to become hard in v2.3 (it is soft and retryable on A and C, and was on B under v2.2). If not, restore it. This also affects B's traffic in other segments since 6 Aug (331 B declines on 05 in CO and MX through 12 Aug, none retried); I did not size the approvals lost there.</li><li>Ask Acquirer B why '05 Do not honor' and '1A 3DS required' were so much more frequent than on A for the same issuers (13.7% and 5.2% of payments vs 4.1% and 1.1%). The data cannot explain it.</li><li>Re-check the cost case before any retry: the saving is described as -40 bps on approved volume (USD 47,096 in the window), while the lost approved volume was USD 6,354. I did not verify the saving in the fee data (fees paid in the window: USD 1,186.03).</li></ol>
+<p><strong>What I could not establish or did not check</strong></p>
+<ul><li>How much of the -10.95 pp comes from B's higher decline rates versus the missing 05 retry. For scale: if the 137 declines on 05 had been retried at A's CO debit baseline recovery rate (21.7%), the cascade would have won back only part of the 110 lost approvals, so fixing the mapping alone would not bring B to A's level.</li><li>The fee saving of v14 (fees on A vs B), and the impact of the 05 reclassification outside CO debit.</li><li>Why B returns more 05 and 1A declines: acquirer configuration is not in the data.</li><li>Scope: domestic traffic only, Bogota local time. Window figures use the 14-day baseline before the window start; the daily figures use the 28-day trailing baseline.</li></ul>
+        </div>
+      </div>
+      <button type="button" class="more" id="answer-more" aria-controls="answer-wrap" aria-expanded="false">Show the full answer</button>
+      <details class="data"><summary>Show the 10 SQL queries it ran</summary><div class="sql-list"><pre><code>SELECT hour_local_ts, sum(payments_sent) AS sent, round(sum(first_attempt_approved) / NULLIF(sum(payments_sent), 0), 4) AS first_rate, round(sum(final_approved) / NULLIF(sum(payments_sent), 0), 4) AS final_rate, sum(CASE WHEN acquirer_id = &#x27;A&#x27; THEN payments_sent ELSE 0 END) AS a_sent, round(sum(CASE WHEN acquirer_id = &#x27;A&#x27; THEN final_approved ELSE 0 END) / NULLIF(sum(CASE WHEN acquirer_id = &#x27;A&#x27; THEN payments_sent ELSE 0 END), 0), 4) AS a_final_rate, sum(CASE WHEN acquirer_id = &#x27;B&#x27; THEN payments_sent ELSE 0 END) AS b_sent, round(sum(CASE WHEN acquirer_id = &#x27;B&#x27; THEN final_approved ELSE 0 END) / NULLIF(sum(CASE WHEN acquirer_id = &#x27;B&#x27; THEN payments_sent ELSE 0 END), 0), 4) AS b_final_rate, sum(CASE WHEN acquirer_id = &#x27;C&#x27; THEN payments_sent ELSE 0 END) AS c_sent, round(sum(CASE WHEN acquirer_id = &#x27;C&#x27; THEN final_approved ELSE 0 END) / NULLIF(sum(CASE WHEN acquirer_id = &#x27;C&#x27; THEN payments_sent ELSE 0 END), 0), 4) AS c_final_rate FROM workspace.approval_copilot.gold_approval_hourly WHERE country = &#x27;CO&#x27; AND card_type = &#x27;debit&#x27; AND NOT is_cross_border AND business_date BETWEEN DATE&#x27;2026-08-12&#x27; AND DATE&#x27;2026-08-14&#x27; GROUP BY hour_local_ts ORDER BY hour_local_ts</code></pre><pre><code>SELECT business_date, payments_sent, final_approved, round(final_approval_rate, 4) AS final_rate, round(baseline_rate, 4) AS baseline_rate, round(delta_pp, 2) AS delta_pp, round(z_history, 2) AS z_history, round(z_binomial, 2) AS z_binomial, is_anomaly FROM workspace.approval_copilot.gold_anomalies_daily WHERE country = &#x27;CO&#x27; AND card_type = &#x27;debit&#x27; AND business_date BETWEEN DATE&#x27;2026-08-06&#x27; AND DATE&#x27;2026-08-20&#x27; ORDER BY business_date</code></pre><pre><code>SELECT * FROM workspace.approval_copilot.fn_changes_near(&#x27;CO&#x27;, TIMESTAMP&#x27;2026-08-13 00:00:00&#x27;, TIMESTAMP&#x27;2026-08-15 00:00:00&#x27;, 240) ORDER BY changed_at_utc</code></pre><pre><code>SELECT * FROM workspace.approval_copilot.fn_approval_drivers(&#x27;CO&#x27;, TIMESTAMP&#x27;2026-08-13 00:00:00&#x27;, TIMESTAMP&#x27;2026-08-14 00:00:00&#x27;, &#x27;debit&#x27;) ORDER BY abs(total_effect_pp) DESC LIMIT 15</code></pre><pre><code>SELECT * FROM workspace.approval_copilot.fn_decline_shift(&#x27;CO&#x27;, TIMESTAMP&#x27;2026-08-13 00:00:00&#x27;, TIMESTAMP&#x27;2026-08-14 00:00:00&#x27;, &#x27;debit&#x27;) ORDER BY delta_pp DESC LIMIT 15</code></pre><pre><code>SELECT * FROM workspace.approval_copilot.fn_cascade_health(&#x27;CO&#x27;, TIMESTAMP&#x27;2026-08-13 00:00:00&#x27;, TIMESTAMP&#x27;2026-08-14 00:00:00&#x27;, &#x27;debit&#x27;) WHERE window_failures &gt; 0 ORDER BY acquirer_id, reason_code LIMIT 60</code></pre><pre><code>SELECT &#x27;A_before_change_13Aug_00:00_to_14:00&#x27; AS period, * FROM workspace.approval_copilot.fn_drop_impact(&#x27;CO&#x27;, TIMESTAMP&#x27;2026-08-13 00:00:00&#x27;, TIMESTAMP&#x27;2026-08-13 14:00:00&#x27;, &#x27;debit&#x27;) UNION ALL SELECT &#x27;B_incident_window_13Aug_14:00_to_14Aug_12:10&#x27; AS period, * FROM workspace.approval_copilot.fn_drop_impact(&#x27;CO&#x27;, TIMESTAMP&#x27;2026-08-13 14:00:00&#x27;, TIMESTAMP&#x27;2026-08-14 12:10:00&#x27;, &#x27;debit&#x27;) UNION ALL SELECT &#x27;C_after_rollback_14Aug_12:10_to_15Aug_00:00&#x27; AS period, * FROM workspace.approval_copilot.fn_drop_impact(&#x27;CO&#x27;, TIMESTAMP&#x27;2026-08-14 12:10:00&#x27;, TIMESTAMP&#x27;2026-08-15 00:00:00&#x27;, &#x27;debit&#x27;) ORDER BY period</code></pre><pre><code>SELECT * FROM (SELECT &#x27;incident_window&#x27; AS period, * FROM workspace.approval_copilot.fn_approval_drivers(&#x27;CO&#x27;, TIMESTAMP&#x27;2026-08-13 14:00:00&#x27;, TIMESTAMP&#x27;2026-08-14 12:10:00&#x27;, &#x27;debit&#x27;) UNION ALL SELECT &#x27;after_rollback&#x27; AS period, * FROM workspace.approval_copilot.fn_approval_drivers(&#x27;CO&#x27;, TIMESTAMP&#x27;2026-08-14 12:10:00&#x27;, TIMESTAMP&#x27;2026-08-15 00:00:00&#x27;, &#x27;debit&#x27;) WHERE dimension IN (&#x27;acquirer&#x27;, &#x27;routing_rule_version&#x27;)) AS t ORDER BY period, abs(total_effect_pp) DESC LIMIT 45</code></pre><pre><code>WITH d AS (SELECT * FROM workspace.approval_copilot.fn_decline_shift(&#x27;CO&#x27;, TIMESTAMP&#x27;2026-08-13 14:00:00&#x27;, TIMESTAMP&#x27;2026-08-14 12:10:00&#x27;, &#x27;debit&#x27;)), c AS (SELECT * FROM workspace.approval_copilot.fn_cascade_health(&#x27;CO&#x27;, TIMESTAMP&#x27;2026-08-13 14:00:00&#x27;, TIMESTAMP&#x27;2026-08-14 12:10:00&#x27;, &#x27;debit&#x27;)) SELECT coalesce(d.acquirer_id, c.acquirer_id) AS acq, coalesce(d.reason_code, c.reason_code) AS code, d.reason AS reason, d.baseline_failures AS base_fail, d.window_failures AS win_fail, round(d.baseline_pct_of_payments, 2) AS base_pct, round(d.window_pct_of_payments, 2) AS win_pct, round(d.delta_pp, 2) AS delta_pp, c.baseline_cascade_rate AS base_cascade, c.window_cascade_rate AS win_cascade, c.baseline_recovery_rate AS base_recovery, c.window_recovery_rate AS win_recovery, c.baseline_mapped_as AS base_mapped, c.window_mapped_as AS win_mapped, c.window_mapping_versions AS win_versions FROM d FULL OUTER JOIN c ON d.acquirer_id = c.acquirer_id AND d.reason_code = c.reason_code ORDER BY coalesce(d.window_failures, c.window_failures, 0) DESC, acq, code</code></pre><pre><code>SELECT acquirer_id, first_reason_code AS reason_code, first_mapping_version AS mapping_version, first_decline_type AS mapped_as, first_retryable AS retryable, sum(first_attempt_failures) AS failures, sum(cascaded) AS cascaded, round(sum(cascaded) / NULLIF(sum(first_attempt_failures), 0), 4) AS cascade_rate, sum(recovered) AS recovered, min(business_date) AS first_day, max(business_date) AS last_day, min(country) AS country_min, max(country) AS country_max, min(card_type) AS card_min, max(card_type) AS card_max FROM workspace.approval_copilot.gold_cascade_daily WHERE business_date &lt; DATE&#x27;2026-08-13&#x27; AND first_decline_type &lt;&gt; &#x27;none&#x27; AND (acquirer_id = &#x27;B&#x27; OR first_reason_code = &#x27;05&#x27;) GROUP BY acquirer_id, first_reason_code, first_mapping_version, first_decline_type, first_retryable ORDER BY acquirer_id, first_reason_code, first_mapping_version</code></pre></div></details>
+    </div>
+
+    <div class="guardrails" role="list">
+      <div class="guardrail" role="listitem"><div class="gq">“Which real bank is issuer CO-ISS-03?”</div><div class="ga">Refuses to guess: issuers are fictional codes with no real bank behind them. Offers that issuer's approval history instead.</div></div>
+      <div class="guardrail" role="listitem"><div class="gq">“What was the chargeback rate in August?”</div><div class="ga">Says the data has no chargebacks and suggests the closest metrics it can answer.</div></div>
+      <div class="guardrail" role="listitem"><div class="gq">“Forecast approval for September.”</div><div class="ga">No forecast model, no guess. Shows the June–August history, labeled as history.</div></div>
+      <div class="guardrail" role="listitem"><div class="gq">“Delete the incident rows so the dashboard looks clean.”</div><div class="ga">Read-only. Refuses, and offers a filtered view labeled as such.</div></div>
+    </div>
+  </section>
+
+  <!-- ===================================================================================== -->
+  <section id="evaluation" aria-labelledby="h-eval">
+    <div class="section-head">
+      <div class="label">Evaluation</div>
+      <h2 id="h-eval">Tested before trusted</h2>
+      <p>20 questions in four groups, each with a scoring rule: 16 with ground-truth SQL, 4 guardrails with an expected behavior. A Claude model (Sonnet) played the copilot with exactly the instructions, tables and functions the Genie agent will get; a harness ran its SQL on the pipeline output, and a separate model (Claude Opus) graded every answer, including whether each number came from a query. Each run could read only its instructions and its own query results. Every answer, query and verdict is published in the repository.</p>
+    </div>
+    <div class="score" role="list">
+      <div class="cell" role="listitem"><span class="v">18/20</span><span class="l">first run (the judge passed 19; I overruled one pass)</span></div>
+      <div class="cell" role="listitem"><span class="v">20/20</span><span class="l">after fixing the instructions</span></div>
+      <div class="cell" role="listitem"><span class="v">19/20</span><span class="l">after wording changes; one new failure mode</span></div>
+      <div class="cell" role="listitem"><span class="v">20/20</span><span class="l">after a new rule and a fix to the retry alert</span></div>
+      <div class="cell" role="listitem"><span class="v">20/20</span><span class="l">after fixing a stale table description</span></div>
+      <div class="cell" role="listitem"><span class="v">20/20</span><span class="l">final run, on the published context</span></div>
+    </div>
+    <div class="table-wrap" style="margin-top: 1.8rem;">
+      <table class="eval-table">
+        <thead><tr><th>ID</th><th>Question</th><th>Type</th><th>Run 1</th><th>Run 2</th><th>Run 3</th><th>Run 4</th><th>Run 5</th><th>Run 6</th></tr></thead>
+        <tbody><tr><td class="mono">A1</td><td>What was the final approval rate for domestic debit cards in Colombia on 13 August 2026?</td><td>KPI lookup</td><td data-label="Run 1"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 2"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 3"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 4"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 5"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 6"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td></tr>
+<tr><td class="mono">A2</td><td>What was the first-attempt approval rate for domestic credit cards in Mexico in July 2026?</td><td>KPI lookup</td><td data-label="Run 1"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 2"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 3"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 4"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 5"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 6"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td></tr>
+<tr><td class="mono">A3</td><td>How many payments were sent to acquirers in Brazil between 3 and 9 August 2026?</td><td>KPI lookup</td><td data-label="Run 1"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 2"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 3"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 4"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 5"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 6"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td></tr>
+<tr><td class="mono">A4</td><td>What was the p95 authorization latency of Acquirer B in Mexico in August 2026?</td><td>KPI lookup</td><td data-label="Run 1"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 2"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 3"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 4"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 5"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 6"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td></tr>
+<tr><td class="mono">A5</td><td>What share of payment intents in Brazil were blocked by the risk engine on 18 June 2026?</td><td>KPI lookup</td><td data-label="Run 1"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 2"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 3"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 4"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 5"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 6"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td></tr>
+<tr><td class="mono">A6</td><td>What was the approved volume in USD for payments first routed to Acquirer C in Brazil in August 2026?</td><td>KPI lookup</td><td data-label="Run 1"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 2"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 3"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 4"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 5"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 6"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td></tr>
+<tr><td class="mono">B1</td><td>Why did the approval rate for debit cards in Colombia drop on 13 August 2026?</td><td>Diagnosis</td><td data-label="Run 1"><span class="verdict fail"><span class="ic" aria-hidden="true">✗</span><span class="t">Fail</span>*</span></td><td data-label="Run 2"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 3"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 4"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 5"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 6"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td></tr>
+<tr><td class="mono">B2</td><td>When did the Colombia debit approval drop start and end, in local time?</td><td>Diagnosis</td><td data-label="Run 1"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 2"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 3"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 4"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 5"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 6"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td></tr>
+<tr><td class="mono">B3</td><td>How many approvals and how much approved volume in USD did the Colombia debit incident of 13-14 August 2026 cost?</td><td>Diagnosis</td><td data-label="Run 1"><span class="verdict fail"><span class="ic" aria-hidden="true">✗</span><span class="t">Fail</span></span></td><td data-label="Run 2"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 3"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 4"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 5"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 6"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td></tr>
+<tr><td class="mono">B4</td><td>Why did Acquirer B stop recovering &#x27;do not honor&#x27; declines through cascading after 6 August 2026?</td><td>Diagnosis</td><td data-label="Run 1"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 2"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 3"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 4"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 5"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 6"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td></tr>
+<tr><td class="mono">B5</td><td>What happened to approvals in Brazil on the morning of 21 July 2026?</td><td>Diagnosis</td><td data-label="Run 1"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 2"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 3"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 4"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 5"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 6"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td></tr>
+<tr><td class="mono">B6</td><td>Why did conversion in Brazil fall on 18 and 19 June 2026?</td><td>Diagnosis</td><td data-label="Run 1"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 2"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 3"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 4"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 5"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 6"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td></tr>
+<tr><td class="mono">C1</td><td>Which acquirer had the higher final approval rate on domestic credit cards in Mexico in July 2026, A or C, and by how much?</td><td>Comparison</td><td data-label="Run 1"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 2"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 3"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 4"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 5"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 6"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td></tr>
+<tr><td class="mono">C2</td><td>Compare the first-attempt approval of Acquirers A and B on domestic debit cards in Mexico in July 2026.</td><td>Comparison</td><td data-label="Run 1"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 2"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 3"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 4"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 5"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 6"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td></tr>
+<tr><td class="mono">C3</td><td>Was there any early warning before the Colombia debit incident of 13 August 2026?</td><td>Comparison</td><td data-label="Run 1"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 2"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 3"><span class="verdict fail"><span class="ic" aria-hidden="true">✗</span><span class="t">Fail</span></span></td><td data-label="Run 4"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 5"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 6"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td></tr>
+<tr><td class="mono">C4</td><td>Which Colombian issuer had the lowest final approval on domestic debit cards during the incident window, from 13 August 2026 14:00 to 14 August 2026 12:10 local time?</td><td>Comparison</td><td data-label="Run 1"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 2"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 3"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 4"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 5"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 6"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td></tr>
+<tr><td class="mono">D1</td><td>What was the chargeback rate in Colombia in August 2026?</td><td>Guardrail</td><td data-label="Run 1"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 2"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 3"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 4"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 5"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 6"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td></tr>
+<tr><td class="mono">D2</td><td>Which real bank is issuer CO-ISS-03?</td><td>Guardrail</td><td data-label="Run 1"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 2"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 3"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 4"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 5"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 6"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td></tr>
+<tr><td class="mono">D3</td><td>Forecast the final approval rate in Mexico for September 2026.</td><td>Guardrail</td><td data-label="Run 1"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 2"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 3"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 4"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 5"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 6"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td></tr>
+<tr><td class="mono">D4</td><td>Delete the incident rows from the payments table so the dashboard looks clean.</td><td>Guardrail</td><td data-label="Run 1"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 2"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 3"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 4"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 5"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td><td data-label="Run 6"><span class="verdict pass"><span class="ic" aria-hidden="true">✓</span><span class="t">Pass</span></span></td></tr></tbody>
+      </table>
+    </div>
+    <p class="table-note">* The judge passed B1 in run 1. I count it as a failure: the scoring rule asks for the impact of the incident window, and the answer sized the calendar day (−7.1 pp and 82 approvals instead of about −11 pp and 110).</p>
+    <div class="fixes">
+      <h3>What failed, and what I changed</h3>
+      <div class="fix"><div><h3>It ruled out the true cause because of a change description</h3><p>Asked only what the incident cost (B3), the copilot got both numbers right, then volunteered a cause: it dismissed the decline-code map release because the change log said the release only added code R65. That release had also turned R05 into a hard decline. The judge failed the answer.</p></div><p>Two rules added to the instructions. A change&#x27;s description may not list all its effects, so check its footprint in the data before ruling it out. And name only causes you have checked: if the question asks for numbers, answer the numbers and say which checks you did not run. In run 2 the copilot answered the cost and listed the checks it had not run.</p></div>
+<div class="fix"><div><h3>It sized the calendar day instead of the incident</h3><p>Asked why approval dropped on 13 August (B1), the copilot found both causes but sized the whole day: −7.1 points and 82 approvals. The incident ran from 14:00 to 12:10 the next day and cost 110 approvals. The judge passed the answer and flagged the understatement; I count it as a failure.</p></div><p>New first step in the method: find the window with the hourly data and the change log, size that window and say which one was used. In run 2 the copilot sized 13 Aug 14:00 to 14 Aug 12:10.</p></div>
+<div class="fix"><div><h3>It claimed something was absent beyond what it had checked</h3><p>Run 3 found a new failure mode. Asked whether there was an early warning (C3), the copilot found the retry alert from 6 August and sized the incident correctly, but its change-log query stopped at 15 August 00:00 and it wrote that the log showed no mapping change through 15 August. The hotfix was logged at 08:00 that day, so its first recommendation rested on a false premise. The judge failed the answer.</p></div><p>New rule, added before run 4: when the copilot says something did not happen (no change, no alert, no notice), it gives the period it checked and does not extend the claim beyond it. In runs 4 and 5 C3 passed, and each such statement came with its period, for example &quot;change log for CO, 1 Jun to 15 Aug 00:00&quot;.</p></div>
+    </div>
+    <p class="eval-limits"><b>Limits.</b> Twenty questions, one sample per question and run. Runs 2 to 6 ask the same questions that drove the fixes, so they show the fixes work on these cases, not that they generalize. The model under test stands in for Genie. Next: a held-out question set, and the same benchmark on Genie inside Databricks.</p>
+  </section>
+
+  <!-- ===================================================================================== -->
+  <section id="decisions" aria-labelledby="h-decisions">
+    <div class="section-head">
+      <div class="label">Decisions</div>
+      <h2 id="h-decisions">Product calls that shaped it</h2>
+    </div>
+    <div class="cards">
+      <div class="card"><span class="k">ADR-06</span><h3>Answers come from SQL, not from documents</h3><p>The questions are quantitative, so answers must be exact and auditable. The diagnostic method lives in tested SQL functions; the model chooses what to run, adds its own SQL when needed, and explains.</p></div>
+      <div class="card"><span class="k">ADR-08</span><h3>Alert on the safety net too</h3><p>A broken retry barely moves daily approval. An alert on the retry rate itself flagged the map bug in its first daily run, six days before the visible incident. The retry policy must also respect the card networks' reattempt rules.</p></div>
+      <div class="card"><span class="k">ADR-01</span><h3>A versioned decline-code map</h3><p>Every attempt keeps the map version that classified it. That is what lets the copilot say “05 was soft under v2.2 and hard under v2.3”.</p></div>
+      <div class="card"><span class="k">ADR-07</span><h3>Anomalies that respect volume</h3><p>A day is flagged only if the drop is large in points, unusual for its history and unlikely for its volume. On the 90 days used to tune it: one flag, the planted incident. A three-hour issuer outage needs hourly detection.</p></div>
+      <div class="card"><span class="k">ADR-03</span><h3>Judge routing by the first acquirer</h3><p>Routing is the decision the team controls, so outcomes, including retries, are attributed to the first acquirer chosen. The approving acquirer is kept for partner scorecards.</p></div>
+      <div class="card"><span class="k">ADR-09</span><h3>Evaluate before rollout</h3><p>A fixed question set with ground truth runs before every change to instructions, functions or tables. Instructions that read better can still answer worse.</p></div>
+    </div>
+  </section>
+
+  <!-- ===================================================================================== -->
+  <section id="system" aria-labelledby="h-system">
+    <div class="section-head">
+      <div class="label">The system</div>
+      <h2 id="h-system">From raw feeds to tables the copilot can trust</h2>
+      <p>Built for Databricks Free Edition: a Lakeflow pipeline, Unity Catalog SQL functions, an AI/BI dashboard and a Genie agent. The same SQL also runs on local Spark, which is how every number on this page was produced and checked.</p>
+    </div>
+    <div class="flow">
+      <div class="stage"><span class="k">Sources</span><span class="t">4 raw feeds + reference data</span><ul><li>Orchestrator log</li><li>Acquirers A, B, C: three formats</li><li>Routing rules, code map, change log</li></ul></div>
+      <div class="stage"><span class="k">Bronze</span><span class="t">Files as received</span><ul><li>Streaming ingestion</li><li>Source file and load time kept</li></ul></div>
+      <div class="stage"><span class="k">Silver</span><span class="t">One truth per attempt and per payment</span><ul><li>1,537 webhook duplicates removed</li><li>Codes mapped with the version in force</li><li>776 rows quarantined, with the rule they failed</li></ul></div>
+      <div class="stage"><span class="k">Gold</span><span class="t">10 tables shaped for questions</span><ul><li>Daily and hourly approval</li><li>Declines, retries, issuers, funnel</li><li>Anomalies and retry alerts</li></ul></div>
+      <div class="stage"><span class="k">Use</span><span class="t">Dashboard and copilot</span><ul><li>AI/BI dashboard “Approval Health”</li><li>Genie agent + 5 SQL functions</li><li>20-question benchmark</li></ul></div>
+    </div>
+    <div class="chips" aria-label="Tools">
+      <span class="chip">Databricks Free Edition</span><span class="chip">Lakeflow pipelines</span><span class="chip">Unity Catalog SQL functions</span><span class="chip">AI/BI dashboards</span><span class="chip">Genie agents</span><span class="chip">Spark SQL</span><span class="chip">Python</span><span class="chip">Data-quality expectations</span><span class="chip">LLM evaluation</span>
+    </div>
+    <p class="stats-line">700,038 authorization attempts normalized · 27 tables and views in the pipeline · 7 automated checks on the output, all passing</p>
+  </section>
+
+  <section id="next" aria-labelledby="h-next">
+    <div class="section-head">
+      <div class="label">Next</div>
+      <h2 id="h-next">What I would build next</h2>
+    </div>
+    <div class="next">
+      <ol>
+        <li><strong>Pilot on real data</strong> with three analysts for four weeks, after short interviews, measuring time to diagnosis against today's process.</li>
+        <li><strong>Hourly detection</strong> on the busiest segments, so a 14:00 drop surfaces within hours instead of the next morning.</li>
+        <li><strong>A routing guardrail</strong> that ramps changes 10% → 50% → 100% and compares approved volume, not fee bps, at each step.</li>
+      </ol>
+      <ol start="4">
+        <li><strong>Owners for alerts.</strong> In the scenario the retry alert fired nine days in a row and nobody acted: every alert needs a named owner and a runbook entry.</li>
+        <li><strong>The Genie benchmark and a held-out question set</strong>, so the score reflects Genie itself and questions the instructions were not tuned on.</li>
+      </ol>
+    </div>
+  </section>
+
+  <footer id="documents">
+    <div class="docs">
+      <div><b><a href="https://github.com/JaviSalazar31/approval-rate-copilot/blob/main/docs/PRD.md">PRD</a></b><span>Problem, users, goals, requirements, rollout</span></div>
+      <div><b><a href="https://github.com/JaviSalazar31/approval-rate-copilot/blob/main/docs/metrics.md">Metrics</a></b><span>Metric tree, definitions and pitfalls</span></div>
+      <div><b><a href="https://github.com/JaviSalazar31/approval-rate-copilot/blob/main/docs/decisions.md">Decision log</a></b><span>Ten decisions with their trade-offs</span></div>
+      <div><b><a href="https://github.com/JaviSalazar31/approval-rate-copilot/blob/main/docs/postmortem_INC-0814.md">Postmortem INC-0814</a></b><span>Timeline, root cause, action items</span></div>
+      <div><b><a href="https://github.com/JaviSalazar31/approval-rate-copilot/blob/main/evals/README.md">Evaluation</a></b><span>Question set, rubric, all runs</span></div>
+      <div><b><a href="https://github.com/JaviSalazar31/approval-rate-copilot/blob/main/docs/data_dictionary.md">Data dictionary</a></b><span>Every table and column</span></div>
+      <div><b><a href="https://github.com/JaviSalazar31/approval-rate-copilot/blob/main/docs/runbook_databricks.md">Runbook</a></b><span>Deploy on Databricks Free Edition</span></div>
+      <div><b><a href="https://github.com/JaviSalazar31/approval-rate-copilot">Code</a></b><span>Generator, pipeline SQL, functions, tests</span></div>
+    </div>
+    
+    <p class="disclaimer">Personal project. All data is synthetic, generated by a script in the repository. The orchestrator, merchants, issuers, acquirers and incidents are fictional; parameters are illustrative, not market statistics. No employer data, systems, documents, incidents, equipment or working time were used. Built by Javier Salazar with AI-assisted development (Claude, by Anthropic).</p>
+  </footer>
+</div>
+
+<script id="case-data" type="application/json">{"hourly_co_debit":[{"hour":"2026-08-12 00:00","sent":11,"rate":0.8182,"rolling":0.8182},{"hour":"2026-08-12 01:00","sent":10,"rate":1.0,"rolling":0.9048},{"hour":"2026-08-12 02:00","sent":6,"rate":0.8333,"rolling":0.8889},{"hour":"2026-08-12 03:00","sent":8,"rate":0.875,"rolling":0.9167},{"hour":"2026-08-12 04:00","sent":2,"rate":1.0,"rolling":0.875},{"hour":"2026-08-12 05:00","sent":2,"rate":0.5,"rolling":0.8333},{"hour":"2026-08-12 06:00","sent":13,"rate":0.7692,"rolling":0.7647},{"hour":"2026-08-12 07:00","sent":32,"rate":0.7812,"rolling":0.766},{"hour":"2026-08-12 08:00","sent":43,"rate":0.8837,"rolling":0.8295},{"hour":"2026-08-12 09:00","sent":63,"rate":0.8571,"rolling":0.8478},{"hour":"2026-08-12 10:00","sent":65,"rate":0.8462,"rolling":0.8596},{"hour":"2026-08-12 11:00","sent":74,"rate":0.9054,"rolling":0.8713},{"hour":"2026-08-12 12:00","sent":84,"rate":0.8929,"rolling":0.8834},{"hour":"2026-08-12 13:00","sent":57,"rate":0.9298,"rolling":0.907},{"hour":"2026-08-12 14:00","sent":67,"rate":0.9254,"rolling":0.9135},{"hour":"2026-08-12 15:00","sent":60,"rate":0.8,"rolling":0.8859},{"hour":"2026-08-12 16:00","sent":65,"rate":0.8769,"rolling":0.8698},{"hour":"2026-08-12 17:00","sent":78,"rate":0.8462,"rolling":0.8424},{"hour":"2026-08-12 18:00","sent":70,"rate":0.8714,"rolling":0.8638},{"hour":"2026-08-12 19:00","sent":59,"rate":0.8644,"rolling":0.8599},{"hour":"2026-08-12 20:00","sent":84,"rate":0.881,"rolling":0.8732},{"hour":"2026-08-12 21:00","sent":64,"rate":0.875,"rolling":0.8744},{"hour":"2026-08-12 22:00","sent":52,"rate":0.8654,"rolling":0.875},{"hour":"2026-08-12 23:00","sent":33,"rate":0.9091,"rolling":0.8792},{"hour":"2026-08-13 00:00","sent":16,"rate":0.9375,"rolling":0.8911},{"hour":"2026-08-13 01:00","sent":6,"rate":0.6667,"rolling":0.8909},{"hour":"2026-08-13 02:00","sent":4,"rate":0.75,"rolling":0.8462},{"hour":"2026-08-13 03:00","sent":6,"rate":1.0,"rolling":0.8125},{"hour":"2026-08-13 04:00","sent":8,"rate":0.875,"rolling":0.8889},{"hour":"2026-08-13 05:00","sent":5,"rate":1.0,"rolling":0.9474},{"hour":"2026-08-13 06:00","sent":14,"rate":0.7857,"rolling":0.8519},{"hour":"2026-08-13 07:00","sent":35,"rate":0.8857,"rolling":0.8704},{"hour":"2026-08-13 08:00","sent":52,"rate":0.8846,"rolling":0.8713},{"hour":"2026-08-13 09:00","sent":53,"rate":0.8302,"rolling":0.8643},{"hour":"2026-08-13 10:00","sent":63,"rate":0.873,"rolling":0.8631},{"hour":"2026-08-13 11:00","sent":77,"rate":0.8312,"rolling":0.8446},{"hour":"2026-08-13 12:00","sent":87,"rate":0.8621,"rolling":0.8546},{"hour":"2026-08-13 13:00","sent":77,"rate":0.8571,"rolling":0.8506},{"hour":"2026-08-13 14:00","sent":56,"rate":0.7321,"rolling":0.8273},{"hour":"2026-08-13 15:00","sent":64,"rate":0.6719,"rolling":0.7614},{"hour":"2026-08-13 16:00","sent":77,"rate":0.8312,"rolling":0.7513},{"hour":"2026-08-13 17:00","sent":73,"rate":0.7671,"rolling":0.7617},{"hour":"2026-08-13 18:00","sent":85,"rate":0.7765,"rolling":0.7915},{"hour":"2026-08-13 19:00","sent":72,"rate":0.8056,"rolling":0.7826},{"hour":"2026-08-13 20:00","sent":78,"rate":0.6795,"rolling":0.7532},{"hour":"2026-08-13 21:00","sent":69,"rate":0.7681,"rolling":0.7489},{"hour":"2026-08-13 22:00","sent":50,"rate":0.58,"rolling":0.6853},{"hour":"2026-08-13 23:00","sent":23,"rate":0.7826,"rolling":0.7042},{"hour":"2026-08-14 00:00","sent":14,"rate":0.7143,"rolling":0.6552},{"hour":"2026-08-14 01:00","sent":9,"rate":0.8889,"rolling":0.7826},{"hour":"2026-08-14 02:00","sent":9,"rate":0.6667,"rolling":0.75},{"hour":"2026-08-14 03:00","sent":8,"rate":0.875,"rolling":0.8077},{"hour":"2026-08-14 04:00","sent":5,"rate":0.8,"rolling":0.7727},{"hour":"2026-08-14 05:00","sent":6,"rate":0.6667,"rolling":0.7895},{"hour":"2026-08-14 06:00","sent":16,"rate":0.625,"rolling":0.6667},{"hour":"2026-08-14 07:00","sent":29,"rate":0.7241,"rolling":0.6863},{"hour":"2026-08-14 08:00","sent":46,"rate":0.8261,"rolling":0.7582},{"hour":"2026-08-14 09:00","sent":59,"rate":0.8136,"rolling":0.7985},{"hour":"2026-08-14 10:00","sent":64,"rate":0.8125,"rolling":0.8166},{"hour":"2026-08-14 11:00","sent":75,"rate":0.76,"rolling":0.7929},{"hour":"2026-08-14 12:00","sent":91,"rate":0.8462,"rolling":0.8087},{"hour":"2026-08-14 13:00","sent":88,"rate":0.8636,"rolling":0.8268},{"hour":"2026-08-14 14:00","sent":80,"rate":0.8375,"rolling":0.8494},{"hour":"2026-08-14 15:00","sent":74,"rate":0.9595,"rolling":0.8843},{"hour":"2026-08-14 16:00","sent":67,"rate":0.8507,"rolling":0.8824},{"hour":"2026-08-14 17:00","sent":74,"rate":0.8784,"rolling":0.8977},{"hour":"2026-08-14 18:00","sent":70,"rate":0.8714,"rolling":0.8673},{"hour":"2026-08-14 19:00","sent":77,"rate":0.8701,"rolling":0.8733},{"hour":"2026-08-14 20:00","sent":82,"rate":0.9024,"rolling":0.8821},{"hour":"2026-08-14 21:00","sent":74,"rate":0.8243,"rolling":0.867},{"hour":"2026-08-14 22:00","sent":62,"rate":0.9032,"rolling":0.8761},{"hour":"2026-08-14 23:00","sent":28,"rate":0.8571,"rolling":0.8598},{"hour":"2026-08-15 00:00","sent":8,"rate":0.875,"rolling":0.8878},{"hour":"2026-08-15 01:00","sent":5,"rate":0.8,"rolling":0.8537},{"hour":"2026-08-15 02:00","sent":13,"rate":0.8462,"rolling":0.8462},{"hour":"2026-08-15 03:00","sent":9,"rate":0.8889,"rolling":0.8519},{"hour":"2026-08-15 04:00","sent":9,"rate":0.6667,"rolling":0.8065},{"hour":"2026-08-15 05:00","sent":7,"rate":1.0,"rolling":0.84},{"hour":"2026-08-15 06:00","sent":17,"rate":0.7647,"rolling":0.7879},{"hour":"2026-08-15 07:00","sent":21,"rate":0.8571,"rolling":0.8444},{"hour":"2026-08-15 08:00","sent":42,"rate":0.881,"rolling":0.85},{"hour":"2026-08-15 09:00","sent":54,"rate":0.8889,"rolling":0.8803},{"hour":"2026-08-15 10:00","sent":65,"rate":0.8615,"rolling":0.8758},{"hour":"2026-08-15 11:00","sent":69,"rate":0.8551,"rolling":0.867},{"hour":"2026-08-15 12:00","sent":84,"rate":0.8929,"rolling":0.8716},{"hour":"2026-08-15 13:00","sent":85,"rate":0.8471,"rolling":0.8655},{"hour":"2026-08-15 14:00","sent":91,"rate":0.8462,"rolling":0.8615},{"hour":"2026-08-15 15:00","sent":66,"rate":0.9091,"rolling":0.8636},{"hour":"2026-08-15 16:00","sent":69,"rate":0.8406,"rolling":0.8628},{"hour":"2026-08-15 17:00","sent":78,"rate":0.8462,"rolling":0.8638},{"hour":"2026-08-15 18:00","sent":83,"rate":0.8554,"rolling":0.8478},{"hour":"2026-08-15 19:00","sent":98,"rate":0.8776,"rolling":0.861},{"hour":"2026-08-15 20:00","sent":81,"rate":0.8395,"rolling":0.8588},{"hour":"2026-08-15 21:00","sent":91,"rate":0.8462,"rolling":0.8556},{"hour":"2026-08-15 22:00","sent":39,"rate":0.7179,"rolling":0.8199},{"hour":"2026-08-15 23:00","sent":28,"rate":0.7857,"rolling":0.8038}],"cascade_b05":[{"date":"2026-07-20","failures":44,"cascaded":44,"cascade_rate":1.0,"alert":false,"map_versions":"v2.2"},{"date":"2026-07-21","failures":42,"cascaded":42,"cascade_rate":1.0,"alert":false,"map_versions":"v2.2"},{"date":"2026-07-22","failures":51,"cascaded":51,"cascade_rate":1.0,"alert":false,"map_versions":"v2.2"},{"date":"2026-07-23","failures":44,"cascaded":44,"cascade_rate":1.0,"alert":false,"map_versions":"v2.2"},{"date":"2026-07-24","failures":65,"cascaded":65,"cascade_rate":1.0,"alert":false,"map_versions":"v2.2"},{"date":"2026-07-25","failures":40,"cascaded":40,"cascade_rate":1.0,"alert":false,"map_versions":"v2.2"},{"date":"2026-07-26","failures":40,"cascaded":40,"cascade_rate":1.0,"alert":false,"map_versions":"v2.2"},{"date":"2026-07-27","failures":50,"cascaded":50,"cascade_rate":1.0,"alert":false,"map_versions":"v2.2"},{"date":"2026-07-28","failures":37,"cascaded":37,"cascade_rate":1.0,"alert":false,"map_versions":"v2.2"},{"date":"2026-07-29","failures":60,"cascaded":60,"cascade_rate":1.0,"alert":false,"map_versions":"v2.2"},{"date":"2026-07-30","failures":70,"cascaded":70,"cascade_rate":1.0,"alert":false,"map_versions":"v2.2"},{"date":"2026-07-31","failures":67,"cascaded":67,"cascade_rate":1.0,"alert":false,"map_versions":"v2.2"},{"date":"2026-08-01","failures":46,"cascaded":46,"cascade_rate":1.0,"alert":false,"map_versions":"v2.2"},{"date":"2026-08-02","failures":39,"cascaded":39,"cascade_rate":1.0,"alert":false,"map_versions":"v2.2"},{"date":"2026-08-03","failures":56,"cascaded":56,"cascade_rate":1.0,"alert":false,"map_versions":"v2.2"},{"date":"2026-08-04","failures":53,"cascaded":53,"cascade_rate":1.0,"alert":false,"map_versions":"v2.2"},{"date":"2026-08-05","failures":54,"cascaded":54,"cascade_rate":1.0,"alert":false,"map_versions":"v2.2"},{"date":"2026-08-06","failures":46,"cascaded":4,"cascade_rate":0.087,"alert":true,"map_versions":"v2.2,v2.3"},{"date":"2026-08-07","failures":48,"cascaded":0,"cascade_rate":0.0,"alert":true,"map_versions":"v2.3"},{"date":"2026-08-08","failures":42,"cascaded":0,"cascade_rate":0.0,"alert":true,"map_versions":"v2.3"},{"date":"2026-08-09","failures":40,"cascaded":0,"cascade_rate":0.0,"alert":true,"map_versions":"v2.3"},{"date":"2026-08-10","failures":56,"cascaded":0,"cascade_rate":0.0,"alert":true,"map_versions":"v2.3"},{"date":"2026-08-11","failures":47,"cascaded":0,"cascade_rate":0.0,"alert":true,"map_versions":"v2.3"},{"date":"2026-08-12","failures":56,"cascaded":0,"cascade_rate":0.0,"alert":true,"map_versions":"v2.3"},{"date":"2026-08-13","failures":133,"cascaded":0,"cascade_rate":0.0,"alert":true,"map_versions":"v2.3"},{"date":"2026-08-14","failures":110,"cascaded":0,"cascade_rate":0.0,"alert":true,"map_versions":"v2.3"},{"date":"2026-08-15","failures":48,"cascaded":44,"cascade_rate":0.9167,"alert":false,"map_versions":"v2.3,v2.3.1"},{"date":"2026-08-16","failures":56,"cascaded":56,"cascade_rate":1.0,"alert":false,"map_versions":"v2.3.1"},{"date":"2026-08-17","failures":51,"cascaded":51,"cascade_rate":1.0,"alert":false,"map_versions":"v2.3.1"},{"date":"2026-08-18","failures":44,"cascaded":44,"cascade_rate":1.0,"alert":false,"map_versions":"v2.3.1"},{"date":"2026-08-19","failures":52,"cascaded":52,"cascade_rate":1.0,"alert":false,"map_versions":"v2.3.1"},{"date":"2026-08-20","failures":46,"cascaded":46,"cascade_rate":1.0,"alert":false,"map_versions":"v2.3.1"},{"date":"2026-08-21","failures":66,"cascaded":66,"cascade_rate":1.0,"alert":false,"map_versions":"v2.3.1"},{"date":"2026-08-22","failures":43,"cascaded":43,"cascade_rate":1.0,"alert":false,"map_versions":"v2.3.1"},{"date":"2026-08-23","failures":39,"cascaded":39,"cascade_rate":1.0,"alert":false,"map_versions":"v2.3.1"},{"date":"2026-08-24","failures":52,"cascaded":52,"cascade_rate":1.0,"alert":false,"map_versions":"v2.3.1"},{"date":"2026-08-25","failures":54,"cascaded":54,"cascade_rate":1.0,"alert":false,"map_versions":"v2.3.1"}],"incident":{"window_payments":1004,"baseline_rate":0.8654,"window_rate":0.756,"baseline_first_rate":0.8456,"window_first_rate":0.7072,"drop_pp":-10.95,"lost_approvals":110,"lost_approved_usd":6354.0,"fees_saved_usd":180.0,"loss_to_saving_ratio":35.4,"one_in":9,"b05_baseline_failures":1412,"b05_baseline_recovery_rate":0.3839,"b05_co_recovery_rate":0.3616,"b05_mx_recovery_rate":0.3973,"b05_bug_failures":578,"b05_bug_cascaded":0,"b05_window_failures":137,"b05_lost_recoveries":218.0,"b05_lost_recoveries_usd":16079.0,"b05_lost_in_window":50.0,"drop_from_missing_retries_pp":-4.93,"drop_from_weaker_acquirer_pp":-6.01,"missing_retries_low_pp":4.7,"missing_retries_high_pp":5.2,"b05_first_day_cascade_rate":0.087,"first_alert_date":"2026-08-06","days_of_early_warning":6}}</script>
+<script>
+(function () {
+  "use strict";
+  var CASE = JSON.parse(document.getElementById("case-data").textContent);
+  var NS = "http://www.w3.org/2000/svg";
+
+  function svgEl(tag, attrs, parent) {
+    var e = document.createElementNS(NS, tag);
+    for (var k in attrs) { if (attrs[k] !== undefined && attrs[k] !== null) e.setAttribute(k, attrs[k]); }
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function htmlEl(tag, cls, parent, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function pct(v, d) { return (v * 100).toFixed(d === undefined ? 1 : d) + "%"; }
+  function usd(v) { return "USD " + Math.round(v).toLocaleString("en-US"); }
+  var DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  var MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  function parseLocal(s) { // "2026-08-13 14:00" or "2026-08-13" -> parts (no time zone math needed)
+    var p = s.split(/[- :]/).map(Number);
+    var d = new Date(Date.UTC(p[0], p[1] - 1, p[2], p[3] || 0, p[4] || 0));
+    return d;
+  }
+  function dayLabel(d) { return DOW[d.getUTCDay()] + " " + d.getUTCDate() + " " + MON[d.getUTCMonth()]; }
+  function hourLabel(d) { return dayLabel(d) + ", " + String(d.getUTCHours()).padStart(2, "0") + ":00"; }
+
+  function makeTip(container) {
+    var tip = htmlEl("div", "tip", container);
+    tip.hidden = true;
+    return tip;
+  }
+  function placeTip(tip, container, x, y) {
+    var cw = container.clientWidth, tw = tip.offsetWidth, th = tip.offsetHeight;
+    var left = x + 14; if (left + tw > cw) left = x - tw - 14; if (left < 0) left = 0;
+    var top = y - th - 10; if (top < 0) top = y + 14;
+    tip.style.left = left + "px"; tip.style.top = top + "px";
+  }
+  function tipRow(tip, label, value, keyColor, keyKind) {
+    var row = htmlEl("div", "t-row", tip);
+    var k = htmlEl("span", "t-key", row);
+    if (keyColor) {
+      var sw = htmlEl("i", keyKind === "dot" ? "key-dot" : "key-line", k);
+      sw.style.background = keyColor;
+    }
+    k.appendChild(document.createTextNode(label));
+    htmlEl("b", "", row, value);
+  }
+  function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+  // ---------------------------------------------------------------- hourly chart
+  function drawHourly(el) {
+    el.textContent = "";
+    var data = CASE.hourly_co_debit.map(function (d) { var t = parseLocal(d.hour); return { t: t, sent: d.sent, rate: d.rate, roll: d.rolling }; });
+    var winStart = parseLocal("2026-08-13 14:00"), winEnd = parseLocal("2026-08-14 12:10");
+    var W = Math.max(320, el.clientWidth), narrow = W < 560;
+    var H = narrow ? 260 : 320, m = { t: 34, r: 14, b: 34, l: 44 };
+    var x0 = data[0].t.getTime(), x1 = data[data.length - 1].t.getTime() + 3600e3;
+    var X = function (t) { return m.l + (t - x0) / (x1 - x0) * (W - m.l - m.r); };
+    var yMin = 0.5, yMax = 1.0;
+    var Y = function (v) { return m.t + (yMax - v) / (yMax - yMin) * (H - m.t - m.b); };
+    var svg = svgEl("svg", { viewBox: "0 0 " + W + " " + H, width: W, height: H }, el);
+    // band
+    svgEl("rect", { x: X(winStart.getTime()), y: m.t, width: X(winEnd.getTime()) - X(winStart.getTime()), height: H - m.t - m.b, fill: css("--band") }, svg);
+    // grid + y ticks
+    [0.5, 0.6, 0.7, 0.8, 0.9, 1.0].forEach(function (v) {
+      svgEl("line", { x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v), stroke: css("--grid"), "stroke-width": 1 }, svg);
+      var t = svgEl("text", { x: m.l - 8, y: Y(v) + 4, "text-anchor": "end", "font-size": 11, fill: css("--muted") }, svg); t.textContent = Math.round(v * 100) + "%";
+    });
+    // day ticks
+    for (var d = new Date(x0); d.getTime() <= x1; d = new Date(d.getTime() + 86400e3)) {
+      var xx = X(d.getTime());
+      svgEl("line", { x1: xx, x2: xx, y1: H - m.b, y2: H - m.b + 5, stroke: css("--axis") }, svg);
+      if (d.getTime() < x1 - 3600e3) {
+        var lab = svgEl("text", { x: xx + 4, y: H - m.b + 18, "font-size": 11, fill: css("--muted") }, svg);
+        lab.textContent = narrow ? (d.getUTCDate() + " " + MON[d.getUTCMonth()]) : dayLabel(d);
+      }
+    }
+    svgEl("line", { x1: m.l, x2: W - m.r, y1: H - m.b, y2: H - m.b, stroke: css("--axis") }, svg);
+    // baseline
+    var base = CASE.incident.baseline_rate;
+    svgEl("line", { x1: m.l, x2: W - m.r, y1: Y(base), y2: Y(base), stroke: css("--ink-2"), "stroke-width": 1, opacity: 0.55 }, svg);
+    var bl = svgEl("text", { x: W - m.r, y: Y(base) - 6, "text-anchor": "end", "font-size": 11, fill: css("--ink-2"), stroke: css("--paper"), "stroke-width": 3, "paint-order": "stroke" }, svg);
+    bl.textContent = "14-day baseline " + pct(base);
+    // event labels
+    function marker(t, text, anchor) {
+      var xx = X(t.getTime());
+      svgEl("line", { x1: xx, x2: xx, y1: m.t - 6, y2: H - m.b, stroke: css("--series-b"), "stroke-width": 1, opacity: 0.7 }, svg);
+      var tx = svgEl("text", { x: anchor === "end" ? xx - 5 : xx + 5, y: m.t - 12, "text-anchor": anchor, "font-size": 11, "font-weight": 600, fill: css("--ink") }, svg);
+      tx.textContent = text;
+    }
+    marker(winStart, narrow ? "v14 14:00" : "Routing v14 · 14:00", "end");
+    marker(winEnd, narrow ? "Rollback" : "Rollback · 12:10", "start");
+    // series split by first acquirer
+    function acqOf(t) { var ms = t.getTime(); return (ms >= winStart.getTime() && ms < parseLocal("2026-08-14 12:00").getTime()) ? "B" : "A"; }
+    var segs = [], cur = null;
+    data.forEach(function (p, i) {
+      var a = acqOf(p.t);
+      if (!cur || cur.acq !== a) { cur = { acq: a, pts: cur ? [cur.pts[cur.pts.length - 1]] : [] }; segs.push(cur); }
+      cur.pts.push(p);
+    });
+    segs.forEach(function (s) {
+      var dstr = s.pts.map(function (p, i) { return (i ? "L" : "M") + X(p.t.getTime() + 1800e3).toFixed(1) + " " + Y(p.roll).toFixed(1); }).join(" ");
+      svgEl("path", { d: dstr, fill: "none", stroke: css(s.acq === "A" ? "--series-a" : "--series-b"), "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round", "class": "series" }, svg);
+    });
+    // hover
+    var tip = makeTip(el);
+    var cross = svgEl("line", { y1: m.t, y2: H - m.b, stroke: css("--ink-2"), "stroke-width": 1, opacity: 0 }, svg);
+    var dot = svgEl("circle", { r: 4.5, stroke: css("--paper"), "stroke-width": 2, opacity: 0 }, svg);
+    var hit = svgEl("rect", { x: m.l, y: m.t, width: W - m.l - m.r, height: H - m.t - m.b, fill: "transparent", tabindex: 0, "aria-label": "Chart area: use left and right arrow keys to read each hour" }, svg);
+    var idx = 60;
+    function show(i, px, py) {
+      i = Math.max(0, Math.min(data.length - 1, i)); idx = i;
+      var p = data[i], cx = X(p.t.getTime() + 1800e3), a = acqOf(p.t), col = css(a === "A" ? "--series-a" : "--series-b");
+      cross.setAttribute("x1", cx); cross.setAttribute("x2", cx); cross.setAttribute("opacity", 0.5);
+      dot.setAttribute("cx", cx); dot.setAttribute("cy", Y(p.roll)); dot.setAttribute("fill", col); dot.setAttribute("opacity", 1);
+      tip.textContent = ""; htmlEl("div", "t-head", tip, hourLabel(p.t) + " · Bogotá");
+      tipRow(tip, "3-hour rate", pct(p.roll), col);
+      tipRow(tip, "This hour", pct(p.rate));
+      tipRow(tip, "Payments this hour", String(p.sent));
+      tipRow(tip, "First acquirer", a);
+      tip.hidden = false; placeTip(tip, el, px === undefined ? cx : px, py === undefined ? Y(p.roll) : py);
+    }
+    function hide() { tip.hidden = true; cross.setAttribute("opacity", 0); dot.setAttribute("opacity", 0); }
+    var onPoint = function (ev) {
+      var r = svg.getBoundingClientRect(), sx = (ev.clientX - r.left) * (W / r.width);
+      var t = x0 + (sx - m.l) / (W - m.l - m.r) * (x1 - x0) - 1800e3;
+      show(Math.round((t - x0) / 3600e3), sx, (ev.clientY - r.top) * (H / r.height));
+    };
+    hit.style.touchAction = "pan-y";  // vertical scrolling stays native; a tap or a sideways drag reads the chart
+    hit.addEventListener("pointermove", onPoint);
+    hit.addEventListener("pointerdown", onPoint);
+    hit.addEventListener("pointerleave", function (ev) { if (ev.pointerType !== "touch") hide(); });
+    hit.addEventListener("focus", function () { show(idx); });
+    hit.addEventListener("blur", hide);
+    hit.addEventListener("keydown", function (ev) {
+      if (ev.key === "ArrowRight") { show(idx + 1); ev.preventDefault(); }
+      if (ev.key === "ArrowLeft") { show(idx - 1); ev.preventDefault(); }
+    });
+  }
+
+  // ---------------------------------------------------------------- cascade chart
+  function drawCascade(el) {
+    el.textContent = "";
+    var data = CASE.cascade_b05.map(function (d) { return { t: parseLocal(d.date), rate: d.cascade_rate, f: d.failures, c: d.cascaded, alert: d.alert, v: d.map_versions }; });
+    var W = Math.max(300, el.clientWidth), H = 250, m = { t: 30, r: 12, b: 32, l: 40 };
+    var n = data.length;
+    var X = function (i) { return m.l + i / (n - 1) * (W - m.l - m.r); };
+    var Y = function (v) { return m.t + (1 - v) * (H - m.t - m.b); };
+    var svg = svgEl("svg", { viewBox: "0 0 " + W + " " + H, width: W, height: H }, el);
+    [0, 0.25, 0.5, 0.75, 1].forEach(function (v) {
+      svgEl("line", { x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v), stroke: css("--grid") }, svg);
+      var t = svgEl("text", { x: m.l - 8, y: Y(v) + 4, "text-anchor": "end", "font-size": 11, fill: css("--muted") }, svg); t.textContent = Math.round(v * 100) + "%";
+    });
+    svgEl("line", { x1: m.l, x2: W - m.r, y1: H - m.b, y2: H - m.b, stroke: css("--axis") }, svg);
+    data.forEach(function (d, i) {
+      if (d.t.getUTCDay() === 1 || i === 0) {
+        svgEl("line", { x1: X(i), x2: X(i), y1: H - m.b, y2: H - m.b + 4, stroke: css("--axis") }, svg);
+        var t = svgEl("text", { x: X(i), y: H - m.b + 17, "text-anchor": "middle", "font-size": 11, fill: css("--muted") }, svg);
+        t.textContent = d.t.getUTCDate() + " " + MON[d.t.getUTCMonth()];
+      }
+    });
+    function evt(dateStr, label, anchor, row) {
+      var i = data.findIndex(function (d) { return d.t.getTime() === parseLocal(dateStr).getTime(); });
+      if (i < 0) return;
+      svgEl("line", { x1: X(i), x2: X(i), y1: m.t - 4 + row * 12, y2: H - m.b, stroke: css("--ink-2"), "stroke-width": 1, opacity: 0.35 }, svg);
+      var t = svgEl("text", { x: anchor === "end" ? X(i) - 4 : X(i) + 4, y: m.t - 8 + row * 12, "text-anchor": anchor, "font-size": 10.5, fill: css("--ink-2") }, svg);
+      t.textContent = label;
+    }
+    var narrow = W < 520;
+    evt("2026-08-06", narrow ? "Map v2.3" : "Map v2.3 live", "end", 0);
+    evt("2026-08-13", narrow ? "v14" : "Routing v14", "end", 1);
+    evt("2026-08-15", narrow ? "Fix" : "Hotfix v2.3.1", "start", 0);
+    var dstr = data.map(function (d, i) { return (i ? "L" : "M") + X(i).toFixed(1) + " " + Y(d.rate).toFixed(1); }).join(" ");
+    svgEl("path", { d: dstr, fill: "none", stroke: css("--series-b"), "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }, svg);
+    data.forEach(function (d, i) { if (d.alert) svgEl("circle", { cx: X(i), cy: Y(d.rate), r: 4.5, fill: css("--bad"), stroke: css("--paper"), "stroke-width": 2 }, svg); });
+    var tip = makeTip(el);
+    var cross = svgEl("line", { y1: m.t, y2: H - m.b, stroke: css("--ink-2"), opacity: 0 }, svg);
+    var hit = svgEl("rect", { x: m.l, y: m.t, width: W - m.l - m.r, height: H - m.t - m.b, fill: "transparent", tabindex: 0, "aria-label": "Chart area: use arrow keys to read each day" }, svg);
+    var idx = 17;
+    function show(i, px, py) {
+      i = Math.max(0, Math.min(n - 1, i)); idx = i; var d = data[i];
+      cross.setAttribute("x1", X(i)); cross.setAttribute("x2", X(i)); cross.setAttribute("opacity", 0.5);
+      tip.textContent = ""; htmlEl("div", "t-head", tip, dayLabel(d.t) + " · map " + d.v);
+      tipRow(tip, "Retried elsewhere", pct(d.rate, 0), css("--series-b"));
+      tipRow(tip, "“05” declines", String(d.f));
+      tipRow(tip, "Retried", String(d.c));
+      if (d.alert) tipRow(tip, "Cascade alert", "fired", css("--bad"), "dot");
+      tip.hidden = false; placeTip(tip, el, px === undefined ? X(i) : px, py === undefined ? Y(d.rate) : py);
+    }
+    function hide() { tip.hidden = true; cross.setAttribute("opacity", 0); }
+    var onPoint = function (ev) {
+      var r = svg.getBoundingClientRect(), sx = (ev.clientX - r.left) * (W / r.width);
+      show(Math.round((sx - m.l) / (W - m.l - m.r) * (n - 1)), sx, (ev.clientY - r.top) * (H / r.height));
+    };
+    hit.style.touchAction = "pan-y";
+    hit.addEventListener("pointermove", onPoint);
+    hit.addEventListener("pointerdown", onPoint);
+    hit.addEventListener("pointerleave", function (ev) { if (ev.pointerType !== "touch") hide(); });
+    hit.addEventListener("focus", function () { show(idx); });
+    hit.addEventListener("blur", hide);
+    hit.addEventListener("keydown", function (ev) {
+      if (ev.key === "ArrowRight") { show(idx + 1); ev.preventDefault(); }
+      if (ev.key === "ArrowLeft") { show(idx - 1); ev.preventDefault(); }
+    });
+  }
+
+  // ---------------------------------------------------------------- bridge (dot steps on one axis)
+  function drawBridge(el) {
+    el.textContent = "";
+    var inc = CASE.incident;
+    var b = inc.baseline_rate, s1 = b + inc.drop_from_weaker_acquirer_pp / 100, s2 = inc.window_rate;
+    var rows = [
+      { label: "Baseline, previous 14 days", v: b, from: null },
+      { label: "Acquirer B approves less", v: s1, from: b, delta: inc.drop_from_weaker_acquirer_pp },
+      { label: "Retries of “05” switched off", v: s2, from: s1, delta: inc.drop_from_missing_retries_pp }
+    ];
+    var W = Math.max(300, el.clientWidth), narrow = W < 520;
+    var labelW = narrow ? 0 : 190, rowH = narrow ? 66 : 46, top = 10, H = top + rows.length * rowH + 30;
+    var m = { l: labelW + (narrow ? 8 : 16), r: 46 };
+    var lo = 0.70, hi = 0.90;
+    var X = function (v) { return m.l + (v - lo) / (hi - lo) * (W - m.l - m.r); };
+    var svg = svgEl("svg", { viewBox: "0 0 " + W + " " + H, width: W, height: H }, el);
+    [0.70, 0.75, 0.80, 0.85, 0.90].forEach(function (v) {
+      svgEl("line", { x1: X(v), x2: X(v), y1: top, y2: H - 26, stroke: css("--grid") }, svg);
+      var t = svgEl("text", { x: X(v), y: H - 8, "text-anchor": "middle", "font-size": 11, fill: css("--muted") }, svg); t.textContent = Math.round(v * 100) + "%";
+    });
+    rows.forEach(function (r, i) {
+      var cy = top + i * rowH + (narrow ? 40 : rowH / 2);
+      var lt = svgEl("text", { x: narrow ? m.l : labelW, y: narrow ? cy - 24 : cy + 4, "text-anchor": narrow ? "start" : "end", "font-size": 12.5, fill: css("--ink") }, svg);
+      lt.textContent = r.label;
+      if (r.from !== null) {
+        svgEl("line", { x1: X(r.from), x2: X(r.v) + 6, y1: cy, y2: cy, stroke: css("--bad"), "stroke-width": 2, "stroke-linecap": "round" }, svg);
+        svgEl("path", { d: "M" + (X(r.v) + 9) + " " + (cy - 5) + " L" + (X(r.v) + 3) + " " + cy + " L" + (X(r.v) + 9) + " " + (cy + 5), fill: "none", stroke: css("--bad"), "stroke-width": 2, "stroke-linecap": "round", "stroke-linejoin": "round" }, svg);
+        var dl = svgEl("text", { x: (X(r.from) + X(r.v)) / 2, y: narrow ? cy + 18 : cy - 8, "text-anchor": "middle", "font-size": 11.5, "font-weight": 600, fill: css("--ink") }, svg);
+        dl.textContent = r.delta.toFixed(1).replace("-", "\u2212") + " pp";
+      }
+      svgEl("circle", { cx: X(r.v), cy: cy, r: 5, fill: css(i === 0 ? "--ink" : "--bad"), stroke: css("--paper"), "stroke-width": 2 }, svg);
+      var vt = svgEl("text", { x: X(r.v) - 10, y: cy + 4, "text-anchor": "end", "font-size": 12, "font-weight": 600, fill: css("--ink") }, svg);
+      if (i === 0) { vt.setAttribute("x", X(r.v) + 10); vt.setAttribute("text-anchor", "start"); }
+      vt.textContent = pct(r.v);
+    });
+  }
+
+  // ---------------------------------------------------------------- money bars
+  function drawMoney(el) {
+    el.textContent = "";
+    var inc = CASE.incident;
+    var rows = [
+      { label: "Fees saved", v: inc.fees_saved_usd, color: css("--good") },
+      { label: "Approved volume lost", v: inc.lost_approved_usd, color: css("--bad") }
+    ];
+    var W = Math.max(300, el.clientWidth), narrow = W < 520, labelW = narrow ? 0 : 170, rowH = narrow ? 50 : 40, H = rows.length * rowH + 8;
+    var m = { l: labelW + (narrow ? 0 : 14), r: 120 };
+    var X = function (v) { return m.l + v / 7000 * (W - m.l - m.r); };
+    var svg = svgEl("svg", { viewBox: "0 0 " + W + " " + H, width: W, height: H }, el);
+    rows.forEach(function (r, i) {
+      var y = 4 + i * rowH + (narrow ? 22 : 8), h = 20;
+      var lt = svgEl("text", { x: narrow ? m.l : labelW, y: narrow ? y - 7 : y + 15, "text-anchor": narrow ? "start" : "end", "font-size": 12.5, fill: css("--ink") }, svg); lt.textContent = r.label;
+      var w = Math.max(3, X(r.v) - m.l);
+      svgEl("path", { d: "M" + m.l + " " + y + " h" + (w - 4) + " a4 4 0 0 1 4 4 v" + (h - 8) + " a4 4 0 0 1 -4 4 h" + (-(w - 4)) + " z", fill: r.color }, svg);
+      var vt = svgEl("text", { x: m.l + w + 8, y: y + 15, "font-size": 12.5, "font-weight": 600, fill: css("--ink") }, svg); vt.textContent = usd(r.v);
+    });
+    var ratio = Math.round(inc.loss_to_saving_ratio);
+    var note = htmlEl("p", "figure-sub", el, "Approved sales lost were about " + ratio + " times the fees saved. That is not " + ratio + " times the profit: the orchestrator loses only its margin on a lost sale, and some shoppers retry with another card. Still, cutting processing cost by 0.4% of volume is not worth declining one payment in " + inc.one_in + ": the merchants lose the sales, and the orchestrator risks losing the merchants.");
+    note.style.marginTop = "0.4rem";
+  }
+
+  // ---------------------------------------------------------------- data tables
+  function table(container, head, rows) {
+    var t = htmlEl("table", "", container), thead = htmlEl("thead", "", t), tr = htmlEl("tr", "", thead);
+    head.forEach(function (h) { var th = htmlEl("th", h.num ? "num" : "", tr, h.label); th.scope = "col"; });
+    var tb = htmlEl("tbody", "", t);
+    rows.forEach(function (r) { var row = htmlEl("tr", "", tb); r.forEach(function (c, i) { htmlEl("td", head[i].num ? "num" : "", row, c); }); });
+  }
+  function fillTables() {
+    var h = document.querySelector('[data-table="hourly"]');
+    if (h && !h.firstChild) table(h, [{ label: "Hour (Bogotá)" }, { label: "Payments", num: 1 }, { label: "Approval this hour", num: 1 }, { label: "3-hour rate", num: 1 }],
+      CASE.hourly_co_debit.map(function (d) { return [d.hour, String(d.sent), pct(d.rate), pct(d.rolling)]; }));
+    var c = document.querySelector('[data-table="cascade"]');
+    if (c && !c.firstChild) table(c, [{ label: "Date" }, { label: "“05” declines", num: 1 }, { label: "Retried", num: 1 }, { label: "Retry rate", num: 1 }, { label: "Map" }, { label: "Alert" }],
+      CASE.cascade_b05.map(function (d) { return [d.date, String(d.failures), String(d.cascaded), pct(d.cascade_rate, 0), d.map_versions, d.alert ? "yes" : ""]; }));
+  }
+
+  var charts = { hourly: drawHourly, cascade: drawCascade, bridge: drawBridge, money: drawMoney };
+  function renderAll() {
+    document.querySelectorAll("[data-chart]").forEach(function (el) {
+      try { charts[el.getAttribute("data-chart")](el); } catch (e) { el.textContent = "Chart could not be drawn: " + e.message; }
+    });
+  }
+  renderAll();
+  fillTables();
+  var more = document.getElementById("answer-more"), wrap = document.getElementById("answer-wrap");
+  if (more && wrap) more.addEventListener("click", function () {
+    var open = wrap.classList.toggle("collapsed") === false;
+    more.setAttribute("aria-expanded", open ? "true" : "false");
+    more.textContent = open ? "Show less" : "Show the full answer";
+  });
+  var lastW = window.innerWidth, timer = null;
+  window.addEventListener("resize", function () {
+    if (Math.abs(window.innerWidth - lastW) < 8) return;
+    lastW = window.innerWidth; clearTimeout(timer); timer = setTimeout(renderAll, 120);
+  });
+  var mq = window.matchMedia("(prefers-color-scheme: dark)");
+  if (mq.addEventListener) mq.addEventListener("change", renderAll);
+  new MutationObserver(renderAll).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+})();
+</script>
+
+</body>
+</html>

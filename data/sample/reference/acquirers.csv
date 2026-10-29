@@ -1,0 +1,4 @@
+acquirer_id,acquirer_name,countries,fee_bps,raw_format
+A,Acquirer A,"MX,CO,BR",290,"ISO-8601 UTC timestamps, decimal amounts, ISO response codes"
+B,Acquirer B,"MX,CO",250,"Local time + UTC offset, amounts in minor units, R-prefixed reason codes"
+C,Acquirer C,"MX,BR",270,"Epoch milliseconds, comma decimals, Portuguese status labels"

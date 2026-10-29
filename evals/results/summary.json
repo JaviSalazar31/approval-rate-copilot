@@ -1,0 +1,274 @@
+{
+ "total": 20,
+ "runs": [
+  1,
+  2,
+  3,
+  4,
+  5,
+  6
+ ],
+ "last_run": 6,
+ "passed": {
+  "1": 18,
+  "2": 20,
+  "3": 19,
+  "4": 20,
+  "5": 20,
+  "6": 20
+ },
+ "judge_passed": {
+  "1": 19,
+  "2": 20,
+  "3": 19,
+  "4": 20,
+  "5": 20,
+  "6": 20
+ },
+ "v1_passed": 18,
+ "v2_passed": 20,
+ "v3_passed": 19,
+ "v4_passed": 20,
+ "v5_passed": 20,
+ "v6_passed": 20,
+ "v1_judge_passed": 19,
+ "sql_by_run": {
+  "1": "108/108",
+  "2": "111/111",
+  "3": "111/111",
+  "4": "110/110",
+  "5": "105/105",
+  "6": "111/111"
+ },
+ "sql_ok": "111/111",
+ "guardrails": "4/4",
+ "questions": [
+  {
+   "id": "A1",
+   "v1": "PASS",
+   "v2": "PASS",
+   "v3": "PASS",
+   "v4": "PASS",
+   "v5": "PASS",
+   "v6": "PASS"
+  },
+  {
+   "id": "A2",
+   "v1": "PASS",
+   "v2": "PASS",
+   "v3": "PASS",
+   "v4": "PASS",
+   "v5": "PASS",
+   "v6": "PASS"
+  },
+  {
+   "id": "A3",
+   "v1": "PASS",
+   "v2": "PASS",
+   "v3": "PASS",
+   "v4": "PASS",
+   "v5": "PASS",
+   "v6": "PASS"
+  },
+  {
+   "id": "A4",
+   "v1": "PASS",
+   "v2": "PASS",
+   "v3": "PASS",
+   "v4": "PASS",
+   "v5": "PASS",
+   "v6": "PASS"
+  },
+  {
+   "id": "A5",
+   "v1": "PASS",
+   "v2": "PASS",
+   "v3": "PASS",
+   "v4": "PASS",
+   "v5": "PASS",
+   "v6": "PASS"
+  },
+  {
+   "id": "A6",
+   "v1": "PASS",
+   "v2": "PASS",
+   "v3": "PASS",
+   "v4": "PASS",
+   "v5": "PASS",
+   "v6": "PASS"
+  },
+  {
+   "id": "B1",
+   "v1": "FAIL",
+   "v1_override": {
+    "judge": "PASS",
+    "note": "The judge passed B1 in run 1. I count it as a failure: the scoring rule asks for the impact of the incident window, and the answer sized the calendar day (−7.1 pp and 82 approvals instead of about −11 pp and 110)."
+   },
+   "v2": "PASS",
+   "v3": "PASS",
+   "v4": "PASS",
+   "v5": "PASS",
+   "v6": "PASS"
+  },
+  {
+   "id": "B2",
+   "v1": "PASS",
+   "v2": "PASS",
+   "v3": "PASS",
+   "v4": "PASS",
+   "v5": "PASS",
+   "v6": "PASS"
+  },
+  {
+   "id": "B3",
+   "v1": "FAIL",
+   "v2": "PASS",
+   "v3": "PASS",
+   "v4": "PASS",
+   "v5": "PASS",
+   "v6": "PASS"
+  },
+  {
+   "id": "B4",
+   "v1": "PASS",
+   "v2": "PASS",
+   "v3": "PASS",
+   "v4": "PASS",
+   "v5": "PASS",
+   "v6": "PASS"
+  },
+  {
+   "id": "B5",
+   "v1": "PASS",
+   "v2": "PASS",
+   "v3": "PASS",
+   "v4": "PASS",
+   "v5": "PASS",
+   "v6": "PASS"
+  },
+  {
+   "id": "B6",
+   "v1": "PASS",
+   "v2": "PASS",
+   "v3": "PASS",
+   "v4": "PASS",
+   "v5": "PASS",
+   "v6": "PASS"
+  },
+  {
+   "id": "C1",
+   "v1": "PASS",
+   "v2": "PASS",
+   "v3": "PASS",
+   "v4": "PASS",
+   "v5": "PASS",
+   "v6": "PASS"
+  },
+  {
+   "id": "C2",
+   "v1": "PASS",
+   "v2": "PASS",
+   "v3": "PASS",
+   "v4": "PASS",
+   "v5": "PASS",
+   "v6": "PASS"
+  },
+  {
+   "id": "C3",
+   "v1": "PASS",
+   "v2": "PASS",
+   "v3": "FAIL",
+   "v4": "PASS",
+   "v5": "PASS",
+   "v6": "PASS"
+  },
+  {
+   "id": "C4",
+   "v1": "PASS",
+   "v2": "PASS",
+   "v3": "PASS",
+   "v4": "PASS",
+   "v5": "PASS",
+   "v6": "PASS"
+  },
+  {
+   "id": "D1",
+   "v1": "PASS",
+   "v2": "PASS",
+   "v3": "PASS",
+   "v4": "PASS",
+   "v5": "PASS",
+   "v6": "PASS"
+  },
+  {
+   "id": "D2",
+   "v1": "PASS",
+   "v2": "PASS",
+   "v3": "PASS",
+   "v4": "PASS",
+   "v5": "PASS",
+   "v6": "PASS"
+  },
+  {
+   "id": "D3",
+   "v1": "PASS",
+   "v2": "PASS",
+   "v3": "PASS",
+   "v4": "PASS",
+   "v5": "PASS",
+   "v6": "PASS"
+  },
+  {
+   "id": "D4",
+   "v1": "PASS",
+   "v2": "PASS",
+   "v3": "PASS",
+   "v4": "PASS",
+   "v5": "PASS",
+   "v6": "PASS"
+  }
+ ],
+ "run_labels": {
+  "1": "first run (the judge passed 19; I overruled one pass)",
+  "2": "after fixing the instructions",
+  "3": "after wording changes; one new failure mode",
+  "4": "after a new rule and a fix to the retry alert",
+  "5": "after fixing a stale table description",
+  "6": "final run, on the published context"
+ },
+ "fixes": [
+  {
+   "title": "It ruled out the true cause because of a change description",
+   "problem": "Asked only what the incident cost (B3), the copilot got both numbers right, then volunteered a cause: it dismissed the decline-code map release because the change log said the release only added code R65. That release had also turned R05 into a hard decline. The judge failed the answer.",
+   "change": "Two rules added to the instructions. A change's description may not list all its effects, so check its footprint in the data before ruling it out. And name only causes you have checked: if the question asks for numbers, answer the numbers and say which checks you did not run. In run 2 the copilot answered the cost and listed the checks it had not run."
+  },
+  {
+   "title": "It sized the calendar day instead of the incident",
+   "problem": "Asked why approval dropped on 13 August (B1), the copilot found both causes but sized the whole day: −7.1 points and 82 approvals. The incident ran from 14:00 to 12:10 the next day and cost 110 approvals. The judge passed the answer and flagged the understatement; I count it as a failure.",
+   "change": "New first step in the method: find the window with the hourly data and the change log, size that window and say which one was used. In run 2 the copilot sized 13 Aug 14:00 to 14 Aug 12:10."
+  },
+  {
+   "title": "It claimed something was absent beyond what it had checked",
+   "problem": "Run 3 found a new failure mode. Asked whether there was an early warning (C3), the copilot found the retry alert from 6 August and sized the incident correctly, but its change-log query stopped at 15 August 00:00 and it wrote that the log showed no mapping change through 15 August. The hotfix was logged at 08:00 that day, so its first recommendation rested on a false premise. The judge failed the answer.",
+   "change": "New rule, added before run 4: when the copilot says something did not happen (no change, no alert, no notice), it gives the period it checked and does not extend the claim beyond it. In runs 4 and 5 C3 passed, and each such statement came with its period, for example \"change log for CO, 1 Jun to 15 Aug 00:00\"."
+  }
+ ],
+ "showcase": {
+  "question": "Why did the approval rate for debit cards in Colombia drop on 13 August 2026?",
+  "answer": "**Short answer**\nAt 14:00 on 13 Aug (Bogota time) routing v14 (CHG-0813, described as cost optimization, -40 bps) sent 100% of Colombian domestic debit to Acquirer B. B approved far less of this traffic than Acquirer A had, and it does not retry its most common decline, '05 Do not honor', because the decline-code map v2.3 (CHG-0806, live since 6 Aug) classifies that code as hard on B. The drop ended when v14 was rolled back to v13 at 12:10 on 14 Aug (CHG-0814, incident INC-0814). I sized and explained that window (13 Aug 14:00 to 14 Aug 12:10), not the calendar day. The primary cause is acquirer-side (routing to B). The 05 classification is a contributing factor that stopped the cascade from softening the loss.\n\n**Impact** (Colombia, debit, domestic, final approval rate; baseline = the 14 days before the window start, all first-routed to Acquirer A on v13)\n- Incident window: 75.6% vs 86.5% baseline, -10.95 pp, on 1,004 payments (first-attempt rate 70.7% vs 84.6%). 759 approvals vs 869 expected: 110 lost approvals and USD 6,354 of lost approved volume (USD 47,096 approved of USD 61,689 attempted).\n- Calendar day 13 Aug: 79.4% (913 approved of 1,150 sent) vs 86.7% 28-day baseline, -7.33 pp, flagged as an anomaly. The first 14 hours were normal (85.9% vs 86.5% baseline, 3 approvals below expected) and the last 10 hours ran on B. 14 Aug closed at 84.6% because the rollback came at 12:10.\n- After the rollback (14 Aug 12:10 to 24:00): 850 payments, all on A / v13, 87.4% (12 Aug: 87.2%; 15 Aug: 85.3%).\n\n**Evidence**\n- Window: the change log for CO between 3 Aug 00:00 and 15 Aug 00:00 (Bogota time) holds only CHG-0806 (6 Aug), CHG-0813 (13 Aug 14:00) and the rollback CHG-0814 (14 Aug 12:10). Hourly data agree: A had all first-routed payments until 13:59 (hourly final rate 83.0% to 88.6% from 07:00); from 14:00 B had all of them and the hourly rate ran between 58.0% (22:00) and 83.1% (16:00).\n- Who moved (fn_approval_drivers): B / routing v14 had 100% of payments in the window (0% in the baseline: B had no CO debit payments in the previous 14 days) and explains -10.95 pp, the entire change. All eight issuers (CO-ISS-01 to CO-ISS-08), both card brands, 3DS-authenticated and not, and every merchant segment with volume fell too, so this is not an issuer-side event. Each dimension sums to the same -10.95 pp, so do not add across dimensions.\n\n**Declines and retries in the window** (B has no CO debit baseline, so it is compared with A's baseline)\n\n| Code | B, window: % of payments (failures) | A, baseline: % of payments (failures) | Retried on a 2nd acquirer, B vs A | Map class, B vs A |\n|---|---|---|---|---|\n| 05 Do not honor | 13.7% (137) | 4.1% (628) | 0.0% vs 98.4% | hard vs soft |\n| 1A 3DS required | 5.2% (52) | 1.1% (167) | 100.0% vs 99.4% | soft vs soft |\n| 51 Insufficient funds | 3.8% (38) | 4.2% (638) | 0.0% vs 0.0% | soft vs soft |\n| 91 Issuer or switch unavailable | 1.2% (12) | 0.5% (72) | 100.0% vs 98.6% | soft vs soft |\n\nEvery other code on B was 1.0% of payments or less. On A in the baseline the cascade recovered 21.7% of the 05 declines; on B none were retried. B's other retryable codes (1A, 91, 96, technical errors, timeouts) were retried at 100%, so the cascade worked wherever the map allowed it. Code 51 is not retried on either acquirer, so it is not a change.\n\n**Was CHG-0806 involved? Yes, through an effect its description does not list.** The description only says 'adds R65 handling'. In gold_cascade_daily (1 Jun to 12 Aug, B's first attempts in CO and MX, credit and debit combined, cross-border included), B's code 05 went from soft and retryable under v2.2 (1 Jun to 6 Aug: 3,296 failures, all retried, 1,237 recovered) to hard and not retryable under v2.3 (6 to 12 Aug: 331 failures, 0 retried). On A and C, 05 stayed soft and retryable under v2.3. No other B code changed class (code 65 appears only under v2.3). Because B had no CO debit traffic before, the effect only reached CO debit when v14 put all of it on B.\n\n**Recommended action**\n1. Keep Colombian debit on A / v13. If the cost saving is still wanted, bring B in as a gradual canary (a small share of CO debit) with an hourly approval guardrail against A and an automatic rollback. v14 went from 0% to 100% in one step and ran for about 22 hours before the rollback.\n2. Ask the owner of the decline-code map whether B's code 05 was meant to become hard in v2.3 (it is soft and retryable on A and C, and was on B under v2.2). If not, restore it. This also affects B's traffic in other segments since 6 Aug (331 B declines on 05 in CO and MX through 12 Aug, none retried); I did not size the approvals lost there.\n3. Ask Acquirer B why '05 Do not honor' and '1A 3DS required' were so much more frequent than on A for the same issuers (13.7% and 5.2% of payments vs 4.1% and 1.1%). The data cannot explain it.\n4. Re-check the cost case before any retry: the saving is described as -40 bps on approved volume (USD 47,096 in the window), while the lost approved volume was USD 6,354. I did not verify the saving in the fee data (fees paid in the window: USD 1,186.03).\n\n**What I could not establish or did not check**\n- How much of the -10.95 pp comes from B's higher decline rates versus the missing 05 retry. For scale: if the 137 declines on 05 had been retried at A's CO debit baseline recovery rate (21.7%), the cascade would have won back only part of the 110 lost approvals, so fixing the mapping alone would not bring B to A's level.\n- The fee saving of v14 (fees on A vs B), and the impact of the 05 reclassification outside CO debit.\n- Why B returns more 05 and 1A declines: acquirer configuration is not in the data.\n- Scope: domestic traffic only, Bogota local time. Window figures use the 14-day baseline before the window start; the daily figures use the 28-day trailing baseline.",
+  "queries": [
+   "SELECT hour_local_ts, sum(payments_sent) AS sent, round(sum(first_attempt_approved) / NULLIF(sum(payments_sent), 0), 4) AS first_rate, round(sum(final_approved) / NULLIF(sum(payments_sent), 0), 4) AS final_rate, sum(CASE WHEN acquirer_id = 'A' THEN payments_sent ELSE 0 END) AS a_sent, round(sum(CASE WHEN acquirer_id = 'A' THEN final_approved ELSE 0 END) / NULLIF(sum(CASE WHEN acquirer_id = 'A' THEN payments_sent ELSE 0 END), 0), 4) AS a_final_rate, sum(CASE WHEN acquirer_id = 'B' THEN payments_sent ELSE 0 END) AS b_sent, round(sum(CASE WHEN acquirer_id = 'B' THEN final_approved ELSE 0 END) / NULLIF(sum(CASE WHEN acquirer_id = 'B' THEN payments_sent ELSE 0 END), 0), 4) AS b_final_rate, sum(CASE WHEN acquirer_id = 'C' THEN payments_sent ELSE 0 END) AS c_sent, round(sum(CASE WHEN acquirer_id = 'C' THEN final_approved ELSE 0 END) / NULLIF(sum(CASE WHEN acquirer_id = 'C' THEN payments_sent ELSE 0 END), 0), 4) AS c_final_rate FROM workspace.approval_copilot.gold_approval_hourly WHERE country = 'CO' AND card_type = 'debit' AND NOT is_cross_border AND business_date BETWEEN DATE'2026-08-12' AND DATE'2026-08-14' GROUP BY hour_local_ts ORDER BY hour_local_ts",
+   "SELECT business_date, payments_sent, final_approved, round(final_approval_rate, 4) AS final_rate, round(baseline_rate, 4) AS baseline_rate, round(delta_pp, 2) AS delta_pp, round(z_history, 2) AS z_history, round(z_binomial, 2) AS z_binomial, is_anomaly FROM workspace.approval_copilot.gold_anomalies_daily WHERE country = 'CO' AND card_type = 'debit' AND business_date BETWEEN DATE'2026-08-06' AND DATE'2026-08-20' ORDER BY business_date",
+   "SELECT * FROM workspace.approval_copilot.fn_changes_near('CO', TIMESTAMP'2026-08-13 00:00:00', TIMESTAMP'2026-08-15 00:00:00', 240) ORDER BY changed_at_utc",
+   "SELECT * FROM workspace.approval_copilot.fn_approval_drivers('CO', TIMESTAMP'2026-08-13 00:00:00', TIMESTAMP'2026-08-14 00:00:00', 'debit') ORDER BY abs(total_effect_pp) DESC LIMIT 15",
+   "SELECT * FROM workspace.approval_copilot.fn_decline_shift('CO', TIMESTAMP'2026-08-13 00:00:00', TIMESTAMP'2026-08-14 00:00:00', 'debit') ORDER BY delta_pp DESC LIMIT 15",
+   "SELECT * FROM workspace.approval_copilot.fn_cascade_health('CO', TIMESTAMP'2026-08-13 00:00:00', TIMESTAMP'2026-08-14 00:00:00', 'debit') WHERE window_failures > 0 ORDER BY acquirer_id, reason_code LIMIT 60",
+   "SELECT 'A_before_change_13Aug_00:00_to_14:00' AS period, * FROM workspace.approval_copilot.fn_drop_impact('CO', TIMESTAMP'2026-08-13 00:00:00', TIMESTAMP'2026-08-13 14:00:00', 'debit') UNION ALL SELECT 'B_incident_window_13Aug_14:00_to_14Aug_12:10' AS period, * FROM workspace.approval_copilot.fn_drop_impact('CO', TIMESTAMP'2026-08-13 14:00:00', TIMESTAMP'2026-08-14 12:10:00', 'debit') UNION ALL SELECT 'C_after_rollback_14Aug_12:10_to_15Aug_00:00' AS period, * FROM workspace.approval_copilot.fn_drop_impact('CO', TIMESTAMP'2026-08-14 12:10:00', TIMESTAMP'2026-08-15 00:00:00', 'debit') ORDER BY period",
+   "SELECT * FROM (SELECT 'incident_window' AS period, * FROM workspace.approval_copilot.fn_approval_drivers('CO', TIMESTAMP'2026-08-13 14:00:00', TIMESTAMP'2026-08-14 12:10:00', 'debit') UNION ALL SELECT 'after_rollback' AS period, * FROM workspace.approval_copilot.fn_approval_drivers('CO', TIMESTAMP'2026-08-14 12:10:00', TIMESTAMP'2026-08-15 00:00:00', 'debit') WHERE dimension IN ('acquirer', 'routing_rule_version')) AS t ORDER BY period, abs(total_effect_pp) DESC LIMIT 45",
+   "WITH d AS (SELECT * FROM workspace.approval_copilot.fn_decline_shift('CO', TIMESTAMP'2026-08-13 14:00:00', TIMESTAMP'2026-08-14 12:10:00', 'debit')), c AS (SELECT * FROM workspace.approval_copilot.fn_cascade_health('CO', TIMESTAMP'2026-08-13 14:00:00', TIMESTAMP'2026-08-14 12:10:00', 'debit')) SELECT coalesce(d.acquirer_id, c.acquirer_id) AS acq, coalesce(d.reason_code, c.reason_code) AS code, d.reason AS reason, d.baseline_failures AS base_fail, d.window_failures AS win_fail, round(d.baseline_pct_of_payments, 2) AS base_pct, round(d.window_pct_of_payments, 2) AS win_pct, round(d.delta_pp, 2) AS delta_pp, c.baseline_cascade_rate AS base_cascade, c.window_cascade_rate AS win_cascade, c.baseline_recovery_rate AS base_recovery, c.window_recovery_rate AS win_recovery, c.baseline_mapped_as AS base_mapped, c.window_mapped_as AS win_mapped, c.window_mapping_versions AS win_versions FROM d FULL OUTER JOIN c ON d.acquirer_id = c.acquirer_id AND d.reason_code = c.reason_code ORDER BY coalesce(d.window_failures, c.window_failures, 0) DESC, acq, code",
+   "SELECT acquirer_id, first_reason_code AS reason_code, first_mapping_version AS mapping_version, first_decline_type AS mapped_as, first_retryable AS retryable, sum(first_attempt_failures) AS failures, sum(cascaded) AS cascaded, round(sum(cascaded) / NULLIF(sum(first_attempt_failures), 0), 4) AS cascade_rate, sum(recovered) AS recovered, min(business_date) AS first_day, max(business_date) AS last_day, min(country) AS country_min, max(country) AS country_max, min(card_type) AS card_min, max(card_type) AS card_max FROM workspace.approval_copilot.gold_cascade_daily WHERE business_date < DATE'2026-08-13' AND first_decline_type <> 'none' AND (acquirer_id = 'B' OR first_reason_code = '05') GROUP BY acquirer_id, first_reason_code, first_mapping_version, first_decline_type, first_retryable ORDER BY acquirer_id, first_reason_code, first_mapping_version"
+  ],
+  "run_label": "run 6: Claude Sonnet with the Genie agent's exact instructions, tables and functions"
+ },
+ "links_note": ""
+}

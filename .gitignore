@@ -1,0 +1,17 @@
+# Full generated data and local pipeline output are reproducible, not committed
+data/full/
+local/out/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.DS_Store
+spark-warehouse/
+metastore_db/
+derby.log
+.venv/
+venv/
+.pytest_cache/
+.idea/
+.vscode/
+# Copy of the page for hosted previews (built by tools/build_site.py)
+site/artifact.html

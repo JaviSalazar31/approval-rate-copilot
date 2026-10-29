@@ -1,0 +1,26 @@
+# Demo video script (2:30–3:00)
+
+Goal: a recruiter or hiring manager understands the problem, sees the copilot solve it, and sees that it was
+tested, in under three minutes. Record in English (add Spanish subtitles if you want), 1080p, browser zoom
+110%, notifications off, no personal tabs or emails on screen.
+
+Prepare before recording: dashboard open on page 1; the Genie agent open in a second tab with an empty
+conversation; the pipeline graph open in a third tab; the eval results table (README or project page) in a fourth.
+
+| Time | Screen | Voice-over |
+|---|---|---|
+| 0:00–0:12 | Dashboard, page 1. Point at the dip in the "CO debit" line | "When card approval drops, every hour of it costs approved sales, and explaining why means digging through four data sources. This is a personal project: a copilot that answers in one question." |
+| 0:12–0:30 | Pipeline graph (bronze → silver → gold), hover over the expectations on `silver_auth_attempts` | "Everything here is synthetic: a fictional payment orchestrator in Mexico, Colombia and Brazil, three acquirers, four file formats, 661 thousand payments. A Databricks pipeline cleans it, normalizes three different decline-code dialects with a versioned map, and quarantines bad rows instead of hiding them." |
+| 0:30–0:50 | Dashboard: anomaly table (13 Aug, CO debit), then page 2 hourly chart filtered to CO, 12–15 Aug | "In this synthetic scenario the dashboard flags one abnormal day: Colombian debit on 13 August. Hour by hour, approval falls at two in the afternoon, exactly when traffic switches to Acquirer B." |
+| 0:50–1:40 | Genie: type "Why did the approval rate for debit cards in Colombia drop on 13 August 2026?". Let it run; scroll the answer; open "Show code" once | "I ask the copilot why. It uses five SQL functions I designed for the diagnosis: size of the drop, who moved, which decline codes grew, whether retries still worked, and what changed. Answer: a routing change sent all Colombian debit to Acquirer B to save forty basis points. B declined more, and a decline-code map released a week earlier had stopped B's 'do not honor' declines from being retried elsewhere. Impact: about eleven points, a hundred and ten approvals and about six thousand four hundred dollars of approved sales in twenty-two hours. Every number comes from a query I can open." |
+| 1:40–2:00 | Genie: "Was there any early warning before this incident?" | "Could we have caught it earlier? Yes. Retries for B's 'do not honor' collapsed on 6 August, and the retry alert flags it in the next morning's run, six days before the visible drop. In the scenario nobody owned that alert, which is a lesson in itself." |
+| 2:00–2:12 | Genie: "Which real bank is issuer CO-ISS-03?" | "And it knows its limits: the issuers are fictional codes, so it refuses to guess, and it won't forecast or delete data either." |
+| 2:12–2:35 | Eval results table | "Before trusting it, I tested it: twenty questions, sixteen with ground-truth SQL, covering numbers, diagnoses, comparisons and guardrails. The first run missed two; I fixed the instructions and re-ran all twenty. There were six runs in all, and every failure and what I changed is in the repo." |
+| 2:35–2:50 | Project page or README top | "Next would be hourly alerts and a guardrail that judges routing changes on approved volume, not fees. The PRD, the postmortem and all the code are linked below." |
+
+## Recording tips
+
+- Run each Genie question once before recording so the warehouse is warm; then start a new conversation for the take.
+- Read Genie's answer before recording the voice-over. If its wording or numbers differ from the script, say what Genie showed, or keep the line generic ("it finds the routing change…"); never read a number it did not show.
+- Cut waiting time in editing; keep the answer on screen long enough to read (3–4 seconds per paragraph).
+- Export as MP4. For LinkedIn, upload the video natively (not as a link) and add captions.
