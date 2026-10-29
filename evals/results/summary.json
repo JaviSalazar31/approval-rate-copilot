@@ -250,7 +250,7 @@
   {
    "title": "It claimed something was absent beyond what it had checked",
    "problem": "Run 3 found a new failure mode. Asked whether there was an early warning (C3), the copilot found the retry alert from 6 August and sized the incident correctly, but its change-log query stopped at 15 August 00:00 and it wrote that the log showed no mapping change through 15 August. The hotfix was logged at 08:00 that day, so its first recommendation rested on a false premise. The judge failed the answer.",
-   "change": "New rule, added before run 4: when the copilot says something did not happen (no change, no alert, no notice), it gives the period it checked and does not extend the claim beyond it. In runs 4 and 5 C3 passed, and each such statement came with its period, for example \"change log for CO, 1 Jun to 15 Aug 00:00\"."
+   "change": "New rule, added before run 4: when the copilot says something did not happen (no change, no alert, no notice), it gives the period it checked and does not extend the claim beyond it. In runs 4 and 5 C3 passed, and each such statement came with its period, for example “change log for CO, 1 Jun to 15 Aug 00:00”."
   }
  ],
  "showcase": {
@@ -469,40 +469,136 @@
      "C3": "3/3"
     },
     "variants_passed": "4/6"
+   },
+   {
+    "run": 4,
+    "passed": 18,
+    "total": 20,
+    "chat": {
+     "passed": 8,
+     "total": 10,
+     "genie_good": 7,
+     "genie_bad": 2,
+     "needs_review": 1
+    },
+    "agent": {
+     "passed": 10,
+     "total": 10,
+     "guardrails": "4/4"
+    },
+    "verdicts": {
+     "A1": "PASS",
+     "A2": "PASS",
+     "A3": "PASS",
+     "A4": "PASS",
+     "A5": "PASS",
+     "A6": "PASS",
+     "B1": "PASS",
+     "B2": "PASS",
+     "B3": "FAIL",
+     "B4": "PASS",
+     "B5": "PASS",
+     "B6": "PASS",
+     "C1": "PASS",
+     "C2": "PASS",
+     "C3": "PASS",
+     "C4": "FAIL",
+     "D1": "PASS",
+     "D2": "PASS",
+     "D3": "PASS",
+     "D4": "PASS"
+    },
+    "modes": {
+     "A1": "chat",
+     "A2": "chat",
+     "A3": "chat",
+     "A4": "chat",
+     "A5": "chat",
+     "A6": "chat",
+     "B1": "agent",
+     "B2": "agent",
+     "B3": "chat",
+     "B4": "agent",
+     "B5": "agent",
+     "B6": "agent",
+     "C1": "chat",
+     "C2": "chat",
+     "C3": "agent",
+     "C4": "chat",
+     "D1": "agent",
+     "D2": "agent",
+     "D3": "agent",
+     "D4": "agent"
+    },
+    "label": "Genie run 4, a dimension parameter and a baseline across acquirers: chat 8/10, agent 10/10",
+    "repeated_samples": {
+     "B1": "2/3",
+     "C3": "3/3"
+    },
+    "variants_passed": "5/6"
    }
   ],
   "repeated_samples": {
-   "B1": "1/3",
+   "B1": "2/3",
    "C3": "3/3"
   },
-  "variants_passed": "4/6",
+  "variants_passed": "5/6",
   "findings": [
    {
     "title": "It sized the calendar day",
     "problem": "In run 1, asked why Colombian debit dropped on 13 August (B1), Genie found both causes, then sized 13 August as a whole day: −7.3 points and 84 approvals instead of −10.9 and 110 in the incident window.",
-    "change": "The change function now also returns the changes after a window, so the rollback is in sight, and two example queries size a window between two changes. Since then, 7 of the 8 agent-mode answers that sized the incident (B1 and its reworded variant, runs 2 and 3) used the window from 14:00 to the rollback; one ended it at midnight."
+    "change": "The change function now also returns the changes after a window, so the rollback is in sight, and two example queries size a window between two changes. Since then, 10 of the 12 agent-mode answers that sized the incident (B1 and its reworded variant, runs 2 to 4) used the window from 14:00 to the rollback; two ended it at midnight. Chat mode still sizes calendar days (B3)."
    },
    {
     "title": "It claimed more than it had checked",
     "problem": "In run 1, asked about an early warning (C3), Genie searched the retry alerts from 8 August and wrote that they started then. They started on 6 August.",
-    "change": "An example query that searches the whole period for the first flagged day, and a rule for early warnings. C3 passed all six samples of runs 2 and 3, although two in run 3 searched the alerts only from 1 August. Its reworded variant failed both times: it left out the routing change that turned the alert into the drop."
+    "change": "An example query that searches the whole period for the first flagged day, and a rule for early warnings. C3 passed all nine samples of runs 2 to 4, and its reworded variant, which had twice left out the routing change that turned the alert into the drop, passed in run 4."
    },
    {
     "title": "It misread the retry data",
-    "problem": "In run 2, B1 sized the window right in all three samples and still failed them: one blamed a code the map never retries, by policy, one called the 'do not honor' declines issuer-side although they grew on one acquirer only, and one led with the calendar day's figure.",
-    "change": "The retry function now says whether the map allowed a retry, and the instructions define an issuer-side cause. No run-3 sample repeated those errors, but B1 passed one of three: one ended the window at midnight, and one read Acquirer B's empty baseline as Acquirer A's. Next: a baseline across acquirers in the decline function, for drops that move traffic from one acquirer to another."
+    "problem": "In run 2, B1 sized the window right in all three samples and still failed them: one blamed a code the map never retries, by policy, one called the “do not honor” declines issuer-side although they grew on one acquirer only, and one led with the calendar day's figure. In run 3, one read Acquirer B's empty baseline as Acquirer A's.",
+    "change": "The retry function now says whether the map allowed a retry, the decline function shows each code across acquirers (05 went from 4.1% to 13.7% of payments, not from zero), and the instructions define an issuer-side cause. In run 4 every B1 sample read the codes right, and B1 passed two of three; the third ended the window at midnight."
    },
    {
     "title": "It stated numbers no query returned",
-    "problem": "In run 2 it stated a '2×' difference (B6) and 30 hours between two changes that are 54 hours apart (V3). In run 3, B4, which had passed twice, misread a period that mixed three map versions and estimated lost recoveries that no query returned.",
-    "change": "Rules: a duration, ratio or difference that no query returned is not stated, and each segment is compared with its own baseline. B6 and V3 passed in run 3; B4 shows the rule does not hold every time."
+    "problem": "In run 2 it stated a “2×” difference (B6) and 30 hours between two changes that are 54 hours apart (V3). In run 3, B4, which had passed twice, misread a period that mixed three map versions and estimated lost recoveries that no query returned.",
+    "change": "Rules: a duration, ratio or difference that no query returned is not stated, and each segment is compared with its own baseline. B6 and V3 passed in runs 3 and 4, and in run 4 B4 split its periods at the map changes and labeled its estimate as one."
    },
    {
-    "title": "Chat mode calls a trusted function whole",
-    "problem": "Asked to compare acquirers over July (C1) or rank issuers inside the incident window (C4), chat mode called the drivers function and returned all of its 24 or 25 rows, across six dimensions, without filtering them. Its single query never read the incident window from the change log either (B3).",
-    "change": "Next: a dimension parameter on the drivers function, so that the one call chat mode makes returns only the rows asked for, and a held-out question set, because three rounds on the same 20 questions start to fit the benchmark."
+    "title": "Chat mode returns a function's table, not an answer",
+    "problem": "Asked to compare acquirers over July (C1) or rank issuers inside the incident window (C4), chat mode called the drivers function and returned all of its rows, across six dimensions, without filtering them.",
+    "change": "Run 4 gave the function a dimension parameter, and chat mode used it: C1 passes now, and C4 puts the right issuer first, but returns all eight issuers where the reference keeps three, which Genie's grader counts as wrong. What is left: a table with no text half answers a question in two parts (which one, and by how much: H6, V6), and a text “NULL” passed for an optional parameter emptied one result (H7)."
    }
   ],
-  "table_note": "G1 to G3: the deployed agent, three runs on 29 October 2026. A1–A6, B3, C1, C2 and C4 ran in chat mode and were graded by Genie's own benchmark grader, which compares result sets (A5 was graded by hand when the grader sent it to manual review). The other ten ran in agent mode and were graded by the same judge as the offline runs. Runs 2 and 3 also asked B1 and C3 three times each: B1 passed 0 of 3, then 1 of 3; C3 passed 3 of 3 both times."
+  "table_note": "G1 to G4: the deployed agent, four runs on 29 October 2026. A1–A6, B3, C1, C2 and C4 ran in chat mode and were graded by Genie's own benchmark grader, which compares result sets (A5 was graded by hand when the grader sent it to manual review). The other ten ran in agent mode and were graded by the same judge as the offline runs. Runs 2 to 4 also asked B1 and C3 three times each: B1 passed 0, then 1, then 2 of 3; C3 passed 3 of 3 every time.",
+  "heldout": {
+   "passed": 11,
+   "total": 14,
+   "by_group": {
+    "kpi": "4/4",
+    "comparison": "1/3",
+    "diagnosis": "3/4",
+    "guardrail": "3/3"
+   },
+   "chat": "5/7",
+   "agent": "6/7",
+   "verdicts": {
+    "H1": "PASS",
+    "H2": "PASS",
+    "H3": "PASS",
+    "H4": "PASS",
+    "H5": "PASS",
+    "H6": "FAIL",
+    "H7": "FAIL",
+    "H8": "FAIL",
+    "H9": "PASS",
+    "H10": "PASS",
+    "H11": "PASS",
+    "H12": "PASS",
+    "H13": "PASS",
+    "H14": "PASS"
+   },
+   "note": "The three failures: a comparison in two parts answered with a table and no text, so “how far below the best” went unanswered (H6); a text “NULL” passed for an optional parameter, which emptied the result (H7); and a correct diagnosis that put the whole segment's lost approvals on one acquirer (H8)."
+  }
  }
 }

@@ -18,16 +18,18 @@ CREATE OR REPLACE FUNCTION fn_approval_drivers(
   p_start_local STRING COMMENT 'Window start, local time of the country, as \'YYYY-MM-DD HH:MM:SS\'',
   p_end_local STRING COMMENT 'Window end (exclusive), local time, as \'YYYY-MM-DD HH:MM:SS\'',
   p_card_type STRING DEFAULT NULL COMMENT 'credit, debit, or NULL for both',
-  p_baseline_days INT DEFAULT 14 COMMENT 'Days before the window used as baseline'
+  p_baseline_days INT DEFAULT 14 COMMENT 'Days before the window used as baseline',
+  p_dimension STRING DEFAULT NULL COMMENT 'acquirer, issuer, card_brand, three_ds_authenticated, merchant_segment or routing_rule_version; NULL for all six'
 )
 RETURNS TABLE (dimension STRING, segment_value STRING, baseline_payments BIGINT, window_payments BIGINT, baseline_share DOUBLE, window_share DOUBLE, baseline_rate DOUBLE, window_rate DOUBLE, rate_effect_pp DOUBLE, mix_effect_pp DOUBLE, total_effect_pp DOUBLE, total_change_pp DOUBLE)
-COMMENT 'Explains a change in final approval for a country (and card type) between a baseline and a window: contribution of each acquirer, issuer, card brand, 3DS, merchant segment and routing version, split into rate effect and mix effect, in percentage points. It returns one row per value of every dimension: filter on dimension to answer about one of them (for example the issuers with the lowest approval in a window) and order by window_rate to rank. Domestic payments only.'
+COMMENT 'Explains a change in final approval for a country (and card type) between a baseline and a window: contribution of each acquirer, issuer, card brand, 3DS, merchant segment and routing version, split into rate effect and mix effect, in percentage points. Pass p_dimension to get only the rows of one dimension, ordered from the lowest window_rate (for example the issuers with the lowest approval in a window); NULL returns all six dimensions. For whole days or months, compare segments with the daily tables instead. Domestic payments only.'
 RETURN
 -- Explains a change in final approval between a baseline period and a window.
 -- For each dimension value, splits its contribution into:
 --   rate_effect_pp: the segment approved more/less than before (weighted by its share in the window)
 --   mix_effect_pp:  traffic moved into/out of a segment that was better/worse than average
 -- rate_effect_pp + mix_effect_pp across the values of one dimension = total_change_pp.
+-- p_dimension keeps one dimension (NULL keeps all six); rows come ordered from the lowest window rate.
 WITH scope AS (
   SELECT *
   FROM workspace.approval_copilot.silver_payments
@@ -101,7 +103,9 @@ SELECT
 FROM agg_win w
 FULL OUTER JOIN agg_base b
   ON w.dimension = b.dimension AND w.segment_value = b.segment_value
-CROSS JOIN totals t;
+CROSS JOIN totals t
+WHERE p_dimension IS NULL OR coalesce(w.dimension, b.dimension) = p_dimension
+ORDER BY dimension, window_rate ASC NULLS LAST, segment_value;
 
 -- COMMAND ----------
 
@@ -112,10 +116,13 @@ CREATE OR REPLACE FUNCTION fn_decline_shift(
   p_card_type STRING DEFAULT NULL COMMENT 'credit, debit, or NULL for both',
   p_baseline_days INT DEFAULT 14 COMMENT 'Days before the window used as baseline'
 )
-RETURNS TABLE (acquirer_id STRING, reason_code STRING, reason STRING, baseline_failures BIGINT, window_failures BIGINT, baseline_pct_of_payments DOUBLE, window_pct_of_payments DOUBLE, delta_pp DOUBLE)
-COMMENT 'First-attempt failure reasons per acquirer as % of payments, baseline vs window, to see which decline codes grew during a drop. Domestic payments only.'
+RETURNS TABLE (acquirer_id STRING, reason_code STRING, reason STRING, baseline_failures BIGINT, window_failures BIGINT, baseline_pct_of_payments DOUBLE, window_pct_of_payments DOUBLE, delta_pp DOUBLE, all_acquirers_baseline_pct DOUBLE, all_acquirers_window_pct DOUBLE, all_acquirers_delta_pp DOUBLE)
+COMMENT 'First-attempt failure reasons per acquirer as % of the segment\'s payments, baseline vs window, to see which decline codes grew during a drop. When traffic moved from one acquirer to another, the acquirer that carried none of the segment in the baseline shows its codes growing from zero: the all_acquirers columns give the same code summed over acquirers, which is how the code itself moved. Domestic payments only.'
 RETURN
 -- Which first-attempt failure reasons grew or shrank, per acquirer, as % of payments.
+-- all_acquirers_*: the same code summed over acquirers. When traffic moved from one acquirer to another, the
+-- acquirer that carried none of the segment in the baseline shows its codes growing from zero; these columns
+-- show how the code itself moved.
 WITH scope AS (
   SELECT *
   FROM workspace.approval_copilot.silver_payments
@@ -156,7 +163,14 @@ SELECT
   coalesce(w.n, 0) AS window_failures,
   round(100 * coalesce(b.n, 0) / nullif(t.n_base, 0), 2) AS baseline_pct_of_payments,
   round(100 * coalesce(w.n, 0) / nullif(t.n_win, 0), 2) AS window_pct_of_payments,
-  round(100 * (coalesce(w.n, 0) / nullif(t.n_win, 0) - coalesce(b.n, 0) / nullif(t.n_base, 0)), 2) AS delta_pp
+  round(100 * (coalesce(w.n, 0) / nullif(t.n_win, 0) - coalesce(b.n, 0) / nullif(t.n_base, 0)), 2) AS delta_pp,
+  round(100 * sum(coalesce(b.n, 0)) OVER (PARTITION BY coalesce(w.reason_code, b.reason_code))
+            / nullif(t.n_base, 0), 2) AS all_acquirers_baseline_pct,
+  round(100 * sum(coalesce(w.n, 0)) OVER (PARTITION BY coalesce(w.reason_code, b.reason_code))
+            / nullif(t.n_win, 0), 2) AS all_acquirers_window_pct,
+  round(100 * (sum(coalesce(w.n, 0)) OVER (PARTITION BY coalesce(w.reason_code, b.reason_code)) / nullif(t.n_win, 0)
+             - sum(coalesce(b.n, 0)) OVER (PARTITION BY coalesce(w.reason_code, b.reason_code)) / nullif(t.n_base, 0)),
+        2) AS all_acquirers_delta_pp
 FROM fw w
 FULL OUTER JOIN fb b ON w.acquirer_id = b.acquirer_id AND w.reason_code = b.reason_code
 CROSS JOIN totals t;

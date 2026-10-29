@@ -95,8 +95,8 @@
           "  daily p95 values.\n",
           "- Whole days or months: compare acquirers, issuers or other segments with the daily tables, one row\n",
           "  per item, as in the examples. A window shorter than a day: use gold_approval_hourly or the\n",
-          "  functions. fn_approval_drivers returns every dimension at once, so filter it to the one asked\n",
-          "  about (WHERE dimension = 'issuer') and order by window_rate.\n",
+          "  functions. To rank one dimension with fn_approval_drivers, pass p_dimension (for example\n",
+          "  'issuer'): it returns only that dimension, ordered from the lowest window_rate.\n",
           "\n",
           "How to answer \"why\" questions about a drop\n",
           "1. Find the window. Look at gold_approval_hourly from the day before to the day after, and call\n",
@@ -111,7 +111,8 @@
           "2. Size it with fn_drop_impact, with its default 14-day baseline unless the question asks for another.\n",
           "3. Find who moved with fn_approval_drivers (look at total_effect_pp; acquirer, issuer and\n",
           "   routing_rule_version are the most informative dimensions).\n",
-          "4. Check which decline codes grew with fn_decline_shift.\n",
+          "4. Check which decline codes grew with fn_decline_shift. When traffic moved from one acquirer to\n",
+          "   another, read its all_acquirers columns: they show how each code moved across acquirers.\n",
           "5. Check whether retries still worked with fn_cascade_health: window_retryable says whether the\n",
           "   map allowed a retry, and window_cascade_rate whether it happened. A code that is not retryable in\n",
           "   either period (insufficient funds, 51) is policy, not a fault. A code the acquirer used to retry\n",
@@ -174,8 +175,8 @@
         ],
         "sql": [
           "SELECT segment_value AS card_brand, window_payments, window_rate, baseline_rate\n",
-          "FROM workspace.approval_copilot.fn_approval_drivers('BR', '2026-07-10 00:00:00', '2026-07-17 00:00:00', 'credit')\n",
-          "WHERE dimension = 'card_brand'\n",
+          "FROM workspace.approval_copilot.fn_approval_drivers(p_country => 'BR', p_start_local => '2026-07-10 00:00:00',\n",
+          "       p_end_local => '2026-07-17 00:00:00', p_card_type => 'credit', p_dimension => 'card_brand')\n",
           "ORDER BY window_rate ASC;\n"
         ]
       },

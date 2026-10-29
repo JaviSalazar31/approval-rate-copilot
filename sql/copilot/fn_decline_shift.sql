@@ -1,4 +1,7 @@
 -- Which first-attempt failure reasons grew or shrank, per acquirer, as % of payments.
+-- all_acquirers_*: the same code summed over acquirers. When traffic moved from one acquirer to another, the
+-- acquirer that carried none of the segment in the baseline shows its codes growing from zero; these columns
+-- show how the code itself moved.
 WITH scope AS (
   SELECT *
   FROM {schema}silver_payments
@@ -39,7 +42,14 @@ SELECT
   coalesce(w.n, 0) AS window_failures,
   round(100 * coalesce(b.n, 0) / nullif(t.n_base, 0), 2) AS baseline_pct_of_payments,
   round(100 * coalesce(w.n, 0) / nullif(t.n_win, 0), 2) AS window_pct_of_payments,
-  round(100 * (coalesce(w.n, 0) / nullif(t.n_win, 0) - coalesce(b.n, 0) / nullif(t.n_base, 0)), 2) AS delta_pp
+  round(100 * (coalesce(w.n, 0) / nullif(t.n_win, 0) - coalesce(b.n, 0) / nullif(t.n_base, 0)), 2) AS delta_pp,
+  round(100 * sum(coalesce(b.n, 0)) OVER (PARTITION BY coalesce(w.reason_code, b.reason_code))
+            / nullif(t.n_base, 0), 2) AS all_acquirers_baseline_pct,
+  round(100 * sum(coalesce(w.n, 0)) OVER (PARTITION BY coalesce(w.reason_code, b.reason_code))
+            / nullif(t.n_win, 0), 2) AS all_acquirers_window_pct,
+  round(100 * (sum(coalesce(w.n, 0)) OVER (PARTITION BY coalesce(w.reason_code, b.reason_code)) / nullif(t.n_win, 0)
+             - sum(coalesce(b.n, 0)) OVER (PARTITION BY coalesce(w.reason_code, b.reason_code)) / nullif(t.n_base, 0)),
+        2) AS all_acquirers_delta_pp
 FROM fw w
 FULL OUTER JOIN fb b ON w.acquirer_id = b.acquirer_id AND w.reason_code = b.reason_code
 CROSS JOIN totals t

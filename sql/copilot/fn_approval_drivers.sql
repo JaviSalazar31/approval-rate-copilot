@@ -3,6 +3,7 @@
 --   rate_effect_pp: the segment approved more/less than before (weighted by its share in the window)
 --   mix_effect_pp:  traffic moved into/out of a segment that was better/worse than average
 -- rate_effect_pp + mix_effect_pp across the values of one dimension = total_change_pp.
+-- p_dimension keeps one dimension (NULL keeps all six); rows come ordered from the lowest window rate.
 WITH scope AS (
   SELECT *
   FROM {schema}silver_payments
@@ -77,3 +78,5 @@ FROM agg_win w
 FULL OUTER JOIN agg_base b
   ON w.dimension = b.dimension AND w.segment_value = b.segment_value
 CROSS JOIN totals t
+WHERE ${p_dimension} IS NULL OR coalesce(w.dimension, b.dimension) = ${p_dimension}
+ORDER BY dimension, window_rate ASC NULLS LAST, segment_value
