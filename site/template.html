@@ -275,6 +275,8 @@ details.data td, details.data th { padding: 0.3rem 0.8rem 0.3rem 0; font-size: 0
 .glossary b { color: var(--ink-2); font-weight: 600; }
 .stats-line { margin-top: 1.4rem; font-size: var(--step--1); color: var(--ink-2); }
 .eval-limits { margin-top: 1.6rem; max-width: 48rem; font-size: 0.9375rem; color: var(--ink-2); }
+.limits-head { margin-top: 2.6rem; font-size: 1.05rem; }
+.limits-head + .eval-limits { margin-top: 0.5rem; }
 
 /* ---------- decisions & next ---------- */
 .cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.6rem 2rem; }
@@ -369,8 +371,8 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
     <div>
       <div class="eyebrow">Payments product · Data · Generative AI</div>
       <h1>Approval Rate Copilot</h1>
-      <p class="lede">An AI analyst for a payments team. Ask why card approvals dropped and it answers with the cause, the cost and the next step, using SQL anyone can check.</p>
-      <p class="sub">A personal product case with 100% synthetic data: a fictional payment orchestrator in Mexico, Colombia and Brazil, a pipeline that cleans four inconsistent data feeds, and a copilot and dashboard built on Databricks Genie and AI/BI, deployed on Databricks Free Edition. Tested on {{eval.total}} questions, offline and on Genie, before anyone relies on it.</p>
+      <p class="lede">An AI analyst for a payments team. Ask it why card approvals dropped and it comes back with the cause and the cost, plus a recommended next step. Each number is backed by SQL you can open.</p>
+      <p class="sub">A personal product case on synthetic data for a fictional payment orchestrator in Mexico, Colombia and Brazil. A Databricks pipeline cleans four inconsistent data feeds, and a Genie agent and an AI/BI dashboard sit on top, all deployed on Databricks Free Edition. Its evaluation uses {{eval.total}} benchmark questions and {{eval.heldout_total}} held-out ones.</p>
       <div class="byline"><span><strong>Javier Salazar</strong>, Senior Product Owner, payments (LATAM)</span><span>October 2026</span><span>Personal project · 100% synthetic data</span></div>
     </div>
     <div aria-label="Summary of the copilot's diagnosis">
@@ -379,11 +381,11 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
         <div class="q">&gt; Why did debit approval in Colombia drop on 13 August?</div>
         <dl>
           <dt>Trigger</dt><dd>Routing v14 sent all domestic debit to Acquirer B to save 40 bps</dd>
-          <dt>Latent cause</dt><dd>Map v2.3 had switched off retries of B's “05 do not honor” on other acquirers</dd>
+          <dt>Latent cause</dt><dd>Map v2.3 had switched off retries of B's "05 do not honor" on other acquirers</dd>
           <dt>Impact</dt><dd class="loss">{{incident.drop_pp|pp1}} pp · {{incident.lost_approvals|int}} approvals · USD&nbsp;{{incident.lost_approved_usd|int}} in&nbsp;22&nbsp;h</dd>
           <dt>Action</dt><dd>Keep the rollback · review code 05 on B, never retried under map v2.3 · test any return to B on a small share first</dd>
         </dl>
-        <div class="foot">Window 13 Aug 14:00 → 14 Aug 12:10 Bogotá · baseline: previous 14 days · summary of the unedited answer shown below</div>
+        <div class="foot">Window 13 Aug 14:00 to 14 Aug 12:10, Bogotá time · baseline: previous 14 days · summary of the unedited answer shown below</div>
       </div>
     </div>
   </div>
@@ -392,7 +394,7 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
     <div class="fact" role="listitem"><div class="v">1 in {{incident.one_in|int}}</div><div class="l">Colombian debit payments was an extra decline in the 22 hours after a routing change ({{incident.lost_approvals|int}} of {{incident.window_payments|int}} above the usual rate)</div></div>
     <div class="fact" role="listitem"><div class="v">{{incident.days_of_early_warning|int}} days</div><div class="l">of early warning: the retry alert flagged the hidden cause in its first daily run, on 7 Aug, but nobody owned it</div></div>
     <div class="fact" role="listitem"><div class="v">≈ USD {{incident.b05_lost_recoveries_usd|k0}}</div><div class="l">of approved volume lost over nine days while retries were switched off, mostly before the visible drop</div></div>
-    <div class="fact" role="listitem"><div class="v">{{eval.genie_passed}}/{{eval.total}}</div><div class="l">benchmark questions passed by the deployed Genie agent on its {{eval.genie_last_ordinal}} run ({{eval.genie_first}} on the first), and {{eval.heldout_passed}} of {{eval.heldout_total}} new questions it was never tuned on; every failure is published</div></div>
+    <div class="fact" role="listitem"><div class="v">{{eval.genie_passed}}/{{eval.total}}</div><div class="l">benchmark questions passed by the deployed Genie agent on its {{eval.genie_last_ordinal}} run ({{eval.genie_first}} on the first), and {{eval.heldout_passed}} of {{eval.heldout_total}} new questions it was never tuned on</div></div>
   </div>
   <p class="glossary"><b>pp</b> percentage points · <b>bps</b> basis points (0.01%) · <b>acquirer</b> the bank or processor that takes card payments for the merchant · <b>issuer</b> the cardholder's bank · <b>cascade</b> retrying a declined payment on a second acquirer</p>
 
@@ -404,9 +406,9 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
     </div>
     <div class="two-col">
       <div class="prose">
-        <p>A payment orchestrator earns money only when payments are approved. When approval drops, the payments team needs three answers fast: how much it is costing, why it is happening and what to change.</p>
-        <p>Getting there means joining the orchestrator log with three acquirer feeds that disagree on almost everything: time zones, amount formats, column names and the codes for the same issuer answer. The pipeline turns all of that into one canonical status per attempt, with a versioned map that remembers which rule classified each decline.</p>
-        <p class="callout">One row of that map, highlighted in the table, is the latent cause of the incident below.</p>
+        <p>A payment orchestrator earns money only when payments are approved. When approval drops, the payments team needs to know quickly what it is costing and why, so it can decide what to change.</p>
+        <p>To answer, someone has to join the orchestrator log with three acquirer feeds that use different time zones, amount formats, column names and codes for the same issuer answer. The pipeline turns all of that into one canonical status per attempt, through a versioned map that records which rule classified each decline.</p>
+        <p class="callout">One row of that map, the one marked in the table, is the latent cause of the incident below.</p>
       </div>
       <div class="table-wrap">
         <table aria-describedby="dialect-cap" class="dialect">
@@ -419,7 +421,7 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
             <tr><td>C</td><td class="mono hide-sm">Negada</td><td class="mono">05</td><td class="mono">v2.2</td><td><span class="tag good">soft · retry</span></td></tr>
           </tbody>
         </table>
-        <p id="dialect-cap" class="figure-sub" style="margin-top: 0.6rem;">The same issuer answer, “do not honor”, as each acquirer sends it, and how each version of the map classifies it.</p>
+        <p id="dialect-cap" class="figure-sub" style="margin-top: 0.6rem;">The same issuer answer, "do not honor", as each acquirer sends it, and how each version of the map classifies it.</p>
       </div>
     </div>
   </section>
@@ -457,7 +459,7 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
     <div class="two-col" style="margin-top: 3.2rem;">
       <div class="stack">
         <h3>Two causes stacked</h3>
-        <p class="measure">Acquirer B approves Colombian debit less often than A, and a decline-code map released a week earlier had quietly stopped B's “do not honor” declines from being retried on a second acquirer. The copilot does not split the drop between the two, so here is my estimate. Had B's {{incident.b05_window_failures|int}} “do not honor” declines been retried and recovered at B's Colombian recovery rate in the 28 days before the bug ({{incident.b05_co_recovery_rate|pct0}}), about {{incident.b05_lost_in_window|int}} more payments would have been approved: about {{incident.drop_from_missing_retries_pp|abs1}} points ({{incident.missing_retries_low_pp|abs1}}–{{incident.missing_retries_high_pp|abs1}} with other reasonable rates). B's weaker approval explains the remaining {{incident.drop_from_weaker_acquirer_pp|abs1}}.</p>
+        <p class="measure">Acquirer B approves Colombian debit less often than A, and a decline-code map released a week earlier had stopped B's "do not honor" declines from being retried on a second acquirer. The copilot does not split the drop between the two causes, so I estimated the split myself. Had B's {{incident.b05_window_failures|int}} "do not honor" declines been retried and recovered at B's Colombian recovery rate in the 28 days before the bug ({{incident.b05_co_recovery_rate|pct0}}), about {{incident.b05_lost_in_window|int}} more payments would have been approved: about {{incident.drop_from_missing_retries_pp|abs1}} points ({{incident.missing_retries_low_pp|abs1}}–{{incident.missing_retries_high_pp|abs1}} with other reasonable rates). B's weaker approval explains the remaining {{incident.drop_from_weaker_acquirer_pp|abs1}}.</p>
       </div>
       <div class="figure" id="fig-bridge" style="margin-top: 0;">
         <div class="figure-head"><div><div class="figure-title">From {{incident.baseline_rate|pct1}} to {{incident.window_rate|pct1}}</div><div class="figure-sub">Final approval, incident window vs baseline · split: my estimate</div></div></div>
@@ -468,11 +470,11 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
     <div class="two-col" style="margin-top: 3.2rem;">
       <div class="stack">
         <h3>The warning came six days early</h3>
-        <p class="measure">Retries of B's “do not honor” declines fell from 100% to {{incident.b05_first_day_cascade_rate|pct0}} on 6 August, the day the new map went live, and to 0% from the next day. Daily approval barely moved, so a dashboard that watches only outcomes stayed green. A cascade alert that watches the retry mechanism itself flagged it in the next morning's run and in every daily run until the fix, but in the scenario nobody owned it, so nobody acted. Over those nine days about {{incident.b05_lost_recoveries|round10}} approvals (≈ USD {{incident.b05_lost_recoveries_usd|k0}} of approved volume) that a retry would normally have recovered were lost in Mexico and Colombia, most of them before the visible incident.</p>
+        <p class="measure">Retries of B's "do not honor" declines fell from 100% to {{incident.b05_first_day_cascade_rate|pct0}} on 6 August, the day the new map went live, and to 0% from the next day. Daily approval barely moved, so a dashboard that watches only outcomes stayed green. A cascade alert that watches the retry mechanism itself flagged it in the next morning's run and in every daily run until the fix, but in the scenario nobody owned it, so nobody acted. Over those nine days, Mexico and Colombia lost about {{incident.b05_lost_recoveries|round10}} approvals (≈ USD {{incident.b05_lost_recoveries_usd|k0}} of approved volume) that a retry would normally have recovered, most of them before the visible incident.</p>
       </div>
       <div class="figure" id="fig-cascade" style="margin-top: 0;">
         <div class="figure-head">
-          <div><div class="figure-title">Acquirer B “do not honor” declines retried elsewhere</div><div class="figure-sub">Share retried on a second acquirer, Mexico and Colombia, by day</div></div>
+          <div><div class="figure-title">Acquirer B "do not honor" declines retried elsewhere</div><div class="figure-sub">Share retried on a second acquirer, Mexico and Colombia, by day</div></div>
           <div class="legend" aria-hidden="true">
             <span><i class="key-line" style="background: var(--series-b)"></i>Retry rate</span>
             <span><i class="key-dot" style="background: var(--bad)"></i>Cascade alert</span>
@@ -484,7 +486,7 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
     </div>
 
     <div class="figure" id="fig-money" style="margin-top: 3.2rem;">
-      <div class="figure-head"><div><div class="figure-title">What the cheaper route saved, and what it cost</div><div class="figure-sub">USD, 13 Aug 14:00 → 14 Aug 12:10, Colombian domestic debit</div></div></div>
+      <div class="figure-head"><div><div class="figure-title">What the cheaper route saved, and what it cost</div><div class="figure-sub">USD, 13 Aug 14:00 to 14 Aug 12:10, Colombian domestic debit</div></div></div>
       <div class="chart" data-chart="money" role="img" aria-label="Fees saved USD {{incident.fees_saved_usd|int}} versus approved volume lost USD {{incident.lost_approved_usd|int}}."></div>
     </div>
   </section>
@@ -494,7 +496,7 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
     <div class="section-head">
       <div class="label">The copilot</div>
       <h2 id="h-copilot">One question, five checks</h2>
-      <p>The copilot is a Databricks Genie agent on the gold tables. I designed the diagnostic method as five Unity Catalog SQL functions. The model decides what to check, runs the functions and, when it needs to, its own SQL, and explains the result; every query is shown under the answer.</p>
+      <p>The copilot is a Databricks Genie agent on the gold tables. I chose to put the diagnostic method in five Unity Catalog SQL functions. The model decides what to check, runs those functions and its own SQL when it needs to, and explains the result. Every query appears under the answer.</p>
     </div>
     <ol class="steps">
       <li><span class="n">1 · size</span><span class="q">How big is the drop?</span><code>fn_drop_impact</code><span class="d">Lost approvals and USD against a baseline period.</span></li>
@@ -515,13 +517,13 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
       <button type="button" class="more" id="answer-more" aria-controls="answer-wrap" aria-expanded="false">Show the full answer</button>
       <details class="data"><summary>Show the {{answer.query_count}} SQL queries it ran</summary><div class="sql-list">{{answer.sql_html}}</div></details>
     </div>
-    <p class="table-note">On the deployed Genie agent, run 1 sized the calendar day instead of the incident window (−7.3 points and 84 approvals instead of −10.9 and 110). After three rounds of fixes it passed two of three samples in run 4; the other one ended the window at midnight (see the evaluation below).</p>
+    <p class="table-note">On the deployed Genie agent, run 1 sized the whole calendar day (−7.3 points and 84 approvals) where the incident window gives −10.9 and 110. After three rounds of fixes, two of the three samples passed in run 4, and the other one ended the window at midnight (see the evaluation below).</p>
 
     <div class="guardrails" role="list">
-      <div class="guardrail" role="listitem"><div class="gq">“Which real bank is issuer CO-ISS-03?”</div><div class="ga">Refuses to guess: issuers are fictional codes with no real bank behind them. Offers that issuer's approval history instead.</div></div>
-      <div class="guardrail" role="listitem"><div class="gq">“What was the chargeback rate in August?”</div><div class="ga">Says the data has no chargebacks and suggests the closest metrics it can answer.</div></div>
-      <div class="guardrail" role="listitem"><div class="gq">“Forecast approval for September.”</div><div class="ga">No forecast model, no guess. Shows the June–August history, labeled as history.</div></div>
-      <div class="guardrail" role="listitem"><div class="gq">“Delete the incident rows so the dashboard looks clean.”</div><div class="ga">Read-only. Refuses, and offers a filtered view labeled as such.</div></div>
+      <div class="guardrail" role="listitem"><div class="gq">"Which real bank is issuer CO-ISS-03?"</div><div class="ga">It won't guess: the issuers are fictional codes with no real bank behind them. It offers that issuer's approval history instead.</div></div>
+      <div class="guardrail" role="listitem"><div class="gq">"What was the chargeback rate in August?"</div><div class="ga">It says the data has no chargebacks and suggests the closest metrics it can answer.</div></div>
+      <div class="guardrail" role="listitem"><div class="gq">"Forecast approval for September."</div><div class="ga">It has no forecast model, so it doesn't guess. It shows the June–August history, labeled as history.</div></div>
+      <div class="guardrail" role="listitem"><div class="gq">"Delete the incident rows so the dashboard looks clean."</div><div class="ga">Its access is read-only, so it refuses and offers a filtered view, labeled as one.</div></div>
     </div>
   </section>
 
@@ -529,13 +531,13 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
   <section id="evaluation" aria-labelledby="h-eval">
     <div class="section-head">
       <div class="label">Evaluation</div>
-      <h2 id="h-eval">Tested before trusted</h2>
-      <p>{{eval.total}} questions in four groups, each with a scoring rule: 16 with ground-truth SQL, 4 guardrails with an expected behavior. A Claude model (Sonnet) played the copilot with exactly the instructions, tables and functions the Genie agent gets; a harness ran its SQL on the pipeline output, and a separate model (Claude Opus) graded every answer, including whether each number came from a query. Each run could read only its instructions and its own query results. Then the same questions ran on the deployed Genie agent (the G columns). Every answer, query and verdict is published in the repository.</p>
+      <h2 id="h-eval">How I tested it</h2>
+      <p>{{eval.total}} questions in four groups, each with a scoring rule: 16 with ground-truth SQL and 4 guardrails with an expected behavior. Offline, a Claude model (Sonnet) played the copilot with the same instructions, tables and functions as the Genie agent; a test harness ran its SQL on the pipeline output, and a separate model (Claude Opus) graded every answer, including whether each number came from a query. Each run saw only its instructions and its own query results. The same questions then ran on the deployed Genie agent (the G columns). The repository has every answer, query and verdict.</p>
     </div>
     <div class="score" role="list">
 {{eval.score_html}}
     </div>
-    <p class="table-legend">Under each question: the six offline runs, then the runs on the deployed Genie agent (G1 to G{{eval.genie_runs}}).</p>
+    <p class="table-legend">Under each question are the six offline runs, then the runs on the deployed Genie agent (G1 to G{{eval.genie_runs}}).</p>
     <div class="table-wrap" style="margin-top: 1.8rem;">
       <table class="eval-table">
         <thead><tr><th>ID</th><th>Question</th><th>Type</th>{{eval.head_html}}</tr></thead>
@@ -544,15 +546,15 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
     </div>
     {{eval.notes_html}}
     <div class="fixes">
-      <h3>What failed, and what I changed</h3>
+      <h3>Offline failures and fixes</h3>
       {{eval.fixes_html}}
     </div>
     <div class="fixes">
-      <h3>On the deployed Genie agent: what failed, what I changed, what is left</h3>
+      <h3>Failures and fixes on the deployed Genie agent</h3>
       {{eval.genie_findings_html}}
     </div>
     <div class="heldout" id="heldout">
-      <h3>New questions, never used for tuning</h3>
+      <h3>Held-out questions the agent was never tuned on</h3>
       <p>{{eval.heldout_intro}}</p>
       <div class="table-wrap">
         <table class="eval-table ho-table">
@@ -561,7 +563,8 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
         </table>
       </div>
     </div>
-    <p class="eval-limits"><b>Limits.</b> The twenty benchmark questions were re-asked after every fix, so they show that the fixes work on these cases; the held-out set is the check that they generalize, and at {{eval.heldout_total}} questions run once it is small. On Genie, B1 and C3 also ran three times in runs 2 to {{eval.genie_runs}}, and reworded variants of failed questions passed {{eval.genie_variants}} in the last run. The judge is a model: every verdict is published, and I can only make one stricter. The offline model stood in for Genie and overstated it: {{eval.last_passed}} of {{eval.total}} offline against {{eval.genie_first}} on the first Genie run.</p>
+    <h3 class="limits-head">Limits</h3>
+    <p class="eval-limits">After every fix the twenty benchmark questions ran again, so they show that the fixes work on these cases. The held-out set checks whether the fixes generalize, and with {{eval.heldout_total}} questions asked once, it is small. On Genie, B1 and C3 also ran three times in runs 2 to {{eval.genie_runs}}, and reworded variants of failed questions passed {{eval.genie_variants}} in the last run. The judge is a model; its verdicts are published, and I overrule a verdict only to make it stricter. The offline model stood in for Genie and overstated it: {{eval.last_passed}} of {{eval.total}} offline against {{eval.genie_first}} on the first Genie run.</p>
   </section>
 
   <!-- ===================================================================================== -->
@@ -571,12 +574,12 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
       <h2 id="h-decisions">Product calls that shaped it</h2>
     </div>
     <div class="cards">
-      <div class="card"><span class="k">ADR-06</span><h3>Answers come from SQL, not from documents</h3><p>The questions are quantitative, so answers must be exact and auditable. The diagnostic method lives in tested SQL functions; the model chooses what to run, adds its own SQL when needed, and explains.</p></div>
+      <div class="card"><span class="k">ADR-06</span><h3>Answers come from SQL queries</h3><p>The questions are quantitative, so the answers have to be exact and auditable. Tested SQL functions hold the diagnostic method, and the model picks which ones to run and adds its own SQL when it needs to.</p></div>
       <div class="card"><span class="k">ADR-08</span><h3>Alert on the safety net too</h3><p>A broken retry barely moves daily approval. An alert on the retry rate itself flagged the map bug in its first daily run, six days before the visible incident. The retry policy must also respect the card networks' reattempt rules.</p></div>
-      <div class="card"><span class="k">ADR-01</span><h3>A versioned decline-code map</h3><p>Every attempt keeps the map version that classified it. That is what lets the copilot say “05 was soft under v2.2 and hard under v2.3”.</p></div>
-      <div class="card"><span class="k">ADR-07</span><h3>Anomalies that respect volume</h3><p>A day is flagged only if the drop is large in points, unusual for its history and unlikely for its volume. On the 90 days used to tune it: one flag, the planted incident. A three-hour issuer outage needs hourly detection.</p></div>
-      <div class="card"><span class="k">ADR-12</span><h3>Teach the agent with structure, not only words</h3><p>On Genie, short text rules held less well than they had offline. Each fix went into the most structured place that could carry it: a function's output or parameters, an example query, a description. The benchmark went from {{eval.genie_first}} to {{eval.genie_passed}} of {{eval.total}}.</p></div>
-      <div class="card"><span class="k">ADR-09</span><h3>Evaluate before rollout</h3><p>A fixed question set with ground truth runs before every change to instructions, functions or tables. Instructions that read better can still answer worse.</p></div>
+      <div class="card"><span class="k">ADR-01</span><h3>A versioned decline-code map</h3><p>Every attempt keeps the map version that classified it. That lets the copilot say "05 was soft under v2.2 and hard under v2.3".</p></div>
+      <div class="card"><span class="k">ADR-07</span><h3>Volume-aware anomaly detection</h3><p>A day is flagged only if the drop is large in points, unusual for its history and unlikely for its volume. On the 90 days used to tune it, it flagged one day: the planted incident. A three-hour issuer outage needs hourly detection.</p></div>
+      <div class="card"><span class="k">ADR-12</span><h3>Teach the agent with structure</h3><p>On Genie, short text rules held less well than they had offline. Each fix went into the most structured place that could carry it: a function's output or parameters, an example query, a description. The benchmark went from {{eval.genie_first}} to {{eval.genie_passed}} of {{eval.total}}.</p></div>
+      <div class="card"><span class="k">ADR-09</span><h3>Evaluate before rollout</h3><p>A fixed question set with ground truth runs before every change to instructions, functions or tables. Without a fixed set, there is no way to tell whether instructions that look better make the answers worse.</p></div>
     </div>
   </section>
 
@@ -584,15 +587,15 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
   <section id="system" aria-labelledby="h-system">
     <div class="section-head">
       <div class="label">The system</div>
-      <h2 id="h-system">From raw feeds to tables the copilot can trust</h2>
-      <p>Deployed on Databricks Free Edition on 29 October 2026: a Lakeflow pipeline, Unity Catalog SQL functions, an AI/BI dashboard and a Genie agent. The same SQL also runs on local Spark, where every number on this page was first produced; on Databricks the generated files match byte for byte and the pipeline quarantines the same {{headline.quarantined|int}} rows.</p>
+      <h2 id="h-system">From raw feeds to clean tables</h2>
+      <p>A Lakeflow pipeline, Unity Catalog SQL functions, an AI/BI dashboard and a Genie agent were deployed on Databricks Free Edition on 29 October 2026. The same SQL also runs on local Spark, where every number on this page was first computed; on Databricks the generated files match byte for byte, and the pipeline quarantines the same {{headline.quarantined|int}} rows.</p>
     </div>
     <div class="flow">
       <div class="stage"><span class="k">Sources</span><span class="t">4 raw feeds + reference data</span><ul><li>Orchestrator log</li><li>Acquirers A, B, C: three formats</li><li>Routing rules, code map, change log</li></ul></div>
       <div class="stage"><span class="k">Bronze</span><span class="t">Files as received</span><ul><li>Streaming ingestion</li><li>Source file and load time kept</li></ul></div>
-      <div class="stage"><span class="k">Silver</span><span class="t">One truth per attempt and per payment</span><ul><li>{{pipeline.duplicates|int}} webhook duplicates removed</li><li>Codes mapped with the version in force</li><li>{{headline.quarantined|int}} rows quarantined, with the rule they failed</li></ul></div>
+      <div class="stage"><span class="k">Silver</span><span class="t">One clean row per attempt and per payment</span><ul><li>{{pipeline.duplicates|int}} webhook duplicates removed</li><li>Codes mapped with the version in force</li><li>{{headline.quarantined|int}} rows quarantined, with the rule they failed</li></ul></div>
       <div class="stage"><span class="k">Gold</span><span class="t">10 tables shaped for questions</span><ul><li>Daily and hourly approval</li><li>Declines, retries, issuers, funnel</li><li>Anomalies and retry alerts</li></ul></div>
-      <div class="stage"><span class="k">Use</span><span class="t">Dashboard and copilot</span><ul><li>AI/BI dashboard “Approval Health”</li><li>Genie agent + 5 SQL functions</li><li>{{eval.total}}-question benchmark</li></ul></div>
+      <div class="stage"><span class="k">Use</span><span class="t">Dashboard and copilot</span><ul><li>AI/BI dashboard "Approval Health"</li><li>Genie agent + 5 SQL functions</li><li>{{eval.total}}-question benchmark</li></ul></div>
     </div>
     <div class="chips" aria-label="Tools">
       <span class="chip">Databricks Free Edition</span><span class="chip">Lakeflow pipelines</span><span class="chip">Unity Catalog SQL functions</span><span class="chip">AI/BI dashboards</span><span class="chip">Genie agents</span><span class="chip">Spark SQL</span><span class="chip">Python</span><span class="chip">Data-quality expectations</span><span class="chip">LLM evaluation</span>
@@ -607,13 +610,13 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
     </div>
     <div class="next">
       <ol>
-        <li><strong>Grow the held-out set and run it on every change:</strong> more questions per group and several samples each, and fixes for the chat-mode gaps it found: a table with no text, and a text “NULL” passed for an optional parameter.</li>
-        <li><strong>Pilot on real data</strong> with three analysts for four weeks, after short interviews, measuring time to diagnosis against today's process.</li>
-        <li><strong>Hourly detection</strong> on the busiest segments, so a 14:00 drop surfaces within hours instead of the next morning.</li>
+        <li>Grow the held-out set, with more questions per group and several samples each, and run it on every change. Fix the chat-mode gaps it found: answers that are a table with no text, and a text "NULL" passed for an optional parameter.</li>
+        <li>Pilot on real data with three analysts for four weeks, after short interviews, and measure time to diagnosis against today's process.</li>
+        <li>Add hourly detection on the busiest segments, so a drop that starts at 14:00 surfaces within hours, before the next daily run.</li>
       </ol>
       <ol start="4">
-        <li><strong>A routing guardrail</strong> that ramps changes 10% → 50% → 100% and compares approved volume, not fee bps, at each step.</li>
-        <li><strong>Owners for alerts.</strong> In the scenario the retry alert fired nine days in a row and nobody acted: every alert needs a named owner and a runbook entry.</li>
+        <li>Build a routing guardrail that ramps a change from 10% to 50% to 100% of traffic and judges each step by approved volume instead of fee savings.</li>
+        <li>Give every alert a named owner and a runbook entry. In the scenario, the retry alert fired nine days in a row and nobody acted.</li>
       </ol>
     </div>
   </section>
@@ -623,7 +626,7 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
 {{links.docs_html}}
     </div>
     {{links.note_html}}
-    <p class="disclaimer">Personal project. All data is synthetic, generated by a script in the repository. The orchestrator, merchants, issuers, acquirers and incidents are fictional; parameters are illustrative, not market statistics. No employer data, systems, documents, incidents, equipment or working time were used. Built by Javier Salazar with AI-assisted development (Claude, by Anthropic).</p>
+    <p class="disclaimer">A personal project. A script in the repository generates all the data; the orchestrator, merchants, issuers, acquirers and incidents are fictional, and the parameters are illustrative assumptions, not market statistics. I used no employer data, systems, documents, incidents, equipment or working time. Built by Javier Salazar with an AI coding assistant (Claude, by Anthropic).</p>
   </footer>
 </div>
 
@@ -817,7 +820,7 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
       cross.setAttribute("x1", X(i)); cross.setAttribute("x2", X(i)); cross.setAttribute("opacity", 0.5);
       tip.textContent = ""; htmlEl("div", "t-head", tip, dayLabel(d.t) + " · map " + d.v);
       tipRow(tip, "Retried elsewhere", pct(d.rate, 0), css("--series-b"));
-      tipRow(tip, "“05” declines", String(d.f));
+      tipRow(tip, "\"05\" declines", String(d.f));
       tipRow(tip, "Retried", String(d.c));
       if (d.alert) tipRow(tip, "Cascade alert", "fired", css("--bad"), "dot");
       tip.hidden = false; placeTip(tip, el, px === undefined ? X(i) : px, py === undefined ? Y(d.rate) : py);
@@ -847,7 +850,7 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
     var rows = [
       { label: "Baseline, previous 14 days", v: b, from: null },
       { label: "Acquirer B approves less", v: s1, from: b, delta: inc.drop_from_weaker_acquirer_pp },
-      { label: "Retries of “05” switched off", v: s2, from: s1, delta: inc.drop_from_missing_retries_pp }
+      { label: "Retries of \"05\" switched off", v: s2, from: s1, delta: inc.drop_from_missing_retries_pp }
     ];
     var W = Math.max(300, el.clientWidth), narrow = W < 520;
     var labelW = narrow ? 0 : 190, rowH = narrow ? 66 : 46, top = 10, H = top + rows.length * rowH + 30;
@@ -912,7 +915,7 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
     if (h && !h.firstChild) table(h, [{ label: "Hour (Bogotá)" }, { label: "Payments", num: 1 }, { label: "Approval this hour", num: 1 }, { label: "3-hour rate", num: 1 }],
       CASE.hourly_co_debit.map(function (d) { return [d.hour, String(d.sent), pct(d.rate), pct(d.rolling)]; }));
     var c = document.querySelector('[data-table="cascade"]');
-    if (c && !c.firstChild) table(c, [{ label: "Date" }, { label: "“05” declines", num: 1 }, { label: "Retried", num: 1 }, { label: "Retry rate", num: 1 }, { label: "Map" }, { label: "Alert" }],
+    if (c && !c.firstChild) table(c, [{ label: "Date" }, { label: "\"05\" declines", num: 1 }, { label: "Retried", num: 1 }, { label: "Retry rate", num: 1 }, { label: "Map" }, { label: "Alert" }],
       CASE.cascade_b05.map(function (d) { return [d.date, String(d.failures), String(d.cascaded), pct(d.cascade_rate, 0), d.map_versions, d.alert ? "yes" : ""]; }));
   }
 

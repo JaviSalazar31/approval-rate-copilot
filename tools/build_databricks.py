@@ -109,7 +109,7 @@ def build_generator_notebook():
         "# MAGIC into the landing volume: one folder per source system, one CSV per day, plus reference tables.\n"
         "# MAGIC\n"
         "# MAGIC About 660k payment intents and 700k authorization attempts. Takes a few minutes on serverless.\n"
-        "# MAGIC Everything is synthetic; parameters are illustrative, not market statistics.\n"
+        "# MAGIC Everything is synthetic, and the parameters are illustrative assumptions, not market statistics.\n"
         "# MAGIC\n"
         "# MAGIC Use serverless environment version 4 or later (Environment side panel). With its versions\n"
         "# MAGIC (numpy 2.1.3, pandas 2.2.3) the generator writes files byte-identical to the reference run.\n"

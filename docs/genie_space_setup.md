@@ -17,7 +17,7 @@ your workspace, look for the closest equivalent.
 
 ## 1. Data to add
 
-Create the agent with **Genie Agents → New**, then add these tables under **Configure → Data**
+Create the agent with **Genie Agents > New**, then add these tables under **Configure > Data**
 (catalog `workspace`, schema `approval_copilot`). Table descriptions come from the table definitions (the
 pipeline, or notebook 02) and column descriptions from notebook 05; both are stored in Unity Catalog.
 
@@ -34,14 +34,14 @@ pipeline, or notebook 02) and column descriptions from notebook 05; both are sto
 | `gold_change_log` | one row per production change | Routing, risk, mapping and release changes |
 | `silver_payments` | one row per payment | Ad-hoc questions the gold tables cannot answer |
 
-Trusted functions (**Configure → Examples → SQL functions**): `fn_drop_impact`, `fn_approval_drivers`,
+Trusted functions (**Configure > Examples > SQL functions**): `fn_drop_impact`, `fn_approval_drivers`,
 `fn_decline_shift`, `fn_cascade_health`, `fn_changes_near`, created by notebook 04.
 
-Sample questions (**Configure → Settings → Common questions**): see section 3.
+Sample questions (**Configure > Settings > Common questions**): see section 3.
 
 ## 2. General instructions (paste as-is)
 
-Paste under **Configure → Text**.
+Paste under **Configure > Text**.
 
 ```
 You are the Approval Rate Copilot for a fictional LATAM payment orchestrator that routes card
@@ -136,7 +136,7 @@ Rules
 
 ## 4. Example SQL (teach Genie the patterns)
 
-Add these under **Configure → Examples**, one per query shape. They use dates, segments and changes that
+Add these under **Configure > Examples**, one per query shape. They use dates, segments and changes that
 the benchmark questions do not ask about (one searches the whole period), so they teach the patterns
 without giving away any answer. Names are fully qualified, so they work whatever the default schema is.
 
@@ -216,7 +216,7 @@ mode** lets Genie reason in several steps and has an LLM judge grade each respon
 "Evaluation note". A "why" answer cannot be graded by comparing result sets, so the 20 questions in
 `evals/eval_set.json` are split:
 
-| Questions | How to add them (Benchmarks → Add benchmark) | Mode |
+| Questions | How to add them (Benchmarks > Add benchmark) | Mode |
 |---|---|---|
 | A1–A6, B3, C1, C2, C4 (one ground-truth query and a numeric or ranking answer) | Question + its `gold_sql` as the SQL Answer | Chat |
 | B1, B2, B4, B5, B6, C3 (diagnoses and the early-warning question) | Question + the `scoring.facts` (required ones first) as the Evaluation note | Agent |

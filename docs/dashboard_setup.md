@@ -2,7 +2,7 @@
 
 The dashboard answers "is anything wrong?" at a glance and gives the analyst the context to ask the copilot
 "why?". Datasets are the queries in `databricks/notebooks/03_dashboard_queries.sql`: each one becomes a
-dataset in the dashboard (**Dashboards → Create dashboard → Data → Create from SQL**, paste the query,
+dataset in the dashboard (**Dashboards > Create dashboard > Data > Create from SQL**, paste the query,
 rename the dataset as below). The queries use fully qualified names (`workspace.approval_copilot.*`), so
 they run as they are in the dataset editor.
 
@@ -30,7 +30,7 @@ APIs"). Its counters write the filtered aggregations below with `CASE WHEN`, whi
 
 ## Page 1 · Overview
 
-The counters are custom calculations on `ds_kpis` (dataset → **Custom calculation**). Each one is a
+The counters are custom calculations on `ds_kpis` (in the dataset, choose **Custom calculation**). Each one is a
 filtered aggregation, so it can be split by period and still follow the country and card-type filters. For
 the final approval of the last 7 days:
 
@@ -57,7 +57,7 @@ the same pattern with the formulas below.
 If the Comparison field of your counter only takes a date offset, show the previous 7 days as a second,
 smaller counter next to each one.
 
-Filters (global): `country`, `card_type`, date range on `business_date`. Each filter binds to the field of
+The global filters are `country`, `card_type` and a date range on `business_date`. Each filter binds to the field of
 the same name in every dataset that has it. `ds_kpis` has its own fixed 14-day window, so it takes the
 country and card-type filters but not the date range; `ds_cost_vs_approval` covers the whole period;
 `ds_change_log` and `ds_data_quality` are not filtered.
@@ -72,7 +72,7 @@ country and card-type filters but not the date range; `ds_cost_vs_approval` cove
 | Cascade rate | Line | `ds_cascade_daily` | x `business_date` grouped by week, y custom calculation `SUM(cascaded) / SUM(failures)`, color `acquirer_id` |
 | Retry recovery rate | Line | `ds_cascade_daily` | x `business_date` grouped by week, y custom calculation `SUM(recovered) / SUM(failures)`, color `acquirer_id`; placed under the cascade-rate chart |
 
-Tip: set the date filter to 12–15 Aug and the country to CO to see the incident hour by hour.
+To see the incident hour by hour, set the date filter to 12–15 Aug and the country to CO.
 
 ## Page 3 · Funnel, cost and data quality
 
@@ -83,7 +83,7 @@ Tip: set the date filter to 12–15 Aug and the country to CO to see the inciden
 | Fee vs approval | Scatter | `ds_cost_vs_approval` | x `effective_fee_bps`, y `final_approval_rate`, size `payments_sent`, color `acquirer_id`, label `country`/`card_type` |
 | Rejected rows | Table | `ds_data_quality` | all columns |
 
-Note on the scatter: rows are grouped by the first acquirer (the routing decision); fees follow the acquirer
+In the scatter, rows are grouped by the first acquirer (the routing decision); fees follow the acquirer
 that finally approved. A segment routed first to a cheap acquirer whose declines are recovered elsewhere
 therefore shows the true cost of that routing choice.
 

@@ -111,8 +111,8 @@ LIMIT 10;
 
 -- Rank one dimension inside a window: the card brands with the lowest final approval (domestic)
 SELECT segment_value AS card_brand, window_payments, window_rate, baseline_rate
-FROM workspace.approval_copilot.fn_approval_drivers('BR', '2026-07-10 00:00:00', '2026-07-17 00:00:00', 'credit')
-WHERE dimension = 'card_brand'
+FROM workspace.approval_copilot.fn_approval_drivers(p_country => 'BR', p_start_local => '2026-07-10 00:00:00',
+       p_end_local => '2026-07-17 00:00:00', p_card_type => 'credit', p_dimension => 'card_brand')
 ORDER BY window_rate ASC;
 
 -- When did a change in approval start and end? Hourly final approval next to the production changes of each hour
