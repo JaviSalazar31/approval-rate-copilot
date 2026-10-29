@@ -19,10 +19,10 @@ Databricks Free Edition, with 100% synthetic data.
 |---|---|
 | **Problem** | Approval drops are found late and are slow to explain: the data is spread across an orchestrator log and three acquirer feeds with different formats, time zones and decline codes. |
 | **Product** | A chat assistant (a Databricks Genie agent) that answers in plain language and shows the SQL behind every number. Five SQL functions hold the diagnostic method. Around it: a dashboard and two alerts, one for approval drops and one for retries that stop working. |
-| **Evidence** | 20-question evaluation (16 with ground-truth SQL, 4 guardrails) with every answer and verdict published. Offline, with a Claude model playing the copilot and a separate model as judge (LLM-as-a-judge): 18/20 on the first of six runs, 20/20 on each of the last three after fixes to the instructions and descriptions. On the deployed Genie agent: 13/20 on the first run. Genie named the right cause in the four diagnoses that ask for one, but repeated two failure modes that the offline fixes had removed. Every failure is published, with its fix or the planned one. See [evals/README.md](evals/README.md). |
+| **Evidence** | 20-question evaluation (16 with ground-truth SQL, 4 guardrails) with every answer and verdict published. Offline, with a Claude model playing the copilot and a separate model as judge (LLM-as-a-judge): 18/20 on the first of six runs, 20/20 on each of the last three after fixes to the instructions and descriptions. On the deployed Genie agent: 13/20 on the first run, then 14/20 and 15/20 after moving the method from text instructions into functions and example queries. What still fails is mostly chat mode, which used a trusted function's output unfiltered, and the main diagnosis, which passed one of three samples. Every failure is published, with its fix or the planned one. See [evals/README.md](evals/README.md). |
 | **My role** | Product owner of the case: I set the brief (problem, scope, deliverables and acceptance criteria) and I own the product decisions in the [decision log](docs/decisions.md) and the evaluation rules. |
 | **How it was built** | AI-assisted. Claude (Anthropic) wrote the code and the first drafts of the documents from my brief and ran the checks; I set the brief and the review bar. Quality rests on evidence, not on trust in the tool: automated tests, the 20-question evaluation with every verdict published, and every number on the page traced to SQL. |
-| **Status** | Deployed on Databricks Free Edition on 29 October 2026 through the Databricks APIs: pipeline, functions, dashboard and Genie agent. The data files match the local reference run byte for byte. Next: tune the agent on its seven benchmark failures and run the benchmark again. To deploy it yourself: [runbook](docs/runbook_databricks.md). |
+| **Status** | Deployed on Databricks Free Edition on 29 October 2026 through the Databricks APIs: pipeline, functions, dashboard and Genie agent. The data files match the local reference run byte for byte. The agent was then tuned in two rounds, each followed by the full benchmark on Genie. Next: two function changes for the remaining failures, and a held-out question set. To deploy it yourself: [runbook](docs/runbook_databricks.md). |
 
 Project page: `site/index.html` (published with GitHub Pages).
 
@@ -124,7 +124,7 @@ To publish the page with GitHub Pages:
 |---|---|
 | [PRD](docs/PRD.md) | Problem, users, goals and non-goals, solution, requirements with acceptance criteria, risks, rollout with success and stop criteria |
 | [Metrics](docs/metrics.md) | Metric tree, definitions and choices, pitfalls, detection rules and their backtest |
-| [Decision log](docs/decisions.md) | Eleven decisions with alternatives and trade-offs, including retry rules of the card networks |
+| [Decision log](docs/decisions.md) | Twelve decisions with alternatives and trade-offs, including retry rules of the card networks |
 | [Postmortem INC-0814](docs/postmortem_INC-0814.md) | Timeline, impact, root cause, detection gaps, action items |
 | [Genie agent setup](docs/genie_space_setup.md) | Instructions, trusted functions, example SQL, benchmarks |
 | [Dashboard setup](docs/dashboard_setup.md) | Pages, widgets and datasets of "Approval Health" |
@@ -149,12 +149,12 @@ and three time-zone conventions.
 ## Limitations
 
 - All data is synthetic. Parameters are illustrative, not market statistics; a pilot on real data is the next step.
-- On the deployed Genie agent the question set scored 13 of 20, below the 90% bar of the PRD. Genie did not
-  follow two rules of the method that the offline model followed: size the incident window, not the
-  calendar day, and do not claim anything beyond the period checked.
+- On the deployed Genie agent the question set scored 15 of 20 after two rounds of fixes (13 on the first
+  run), below the 90% bar of the PRD. In chat mode Genie returned a trusted function's rows unfiltered (C1,
+  C4) and sized calendar days (B3); in agent mode the main diagnosis (B1) passed one of three samples.
 - The offline evaluation uses a Claude model with the same context as the Genie agent. It measures the
-  design (instructions, tables, functions), not Genie's own model, and it re-asks the questions that drove
-  the fixes; a held-out question set is next.
+  design (instructions, tables, functions), not Genie's own model. Both evaluations re-ask the questions
+  that drove the fixes; a held-out question set is next.
 - Detection is daily, and its thresholds were tuned on the same 90 days they are tested on. Hourly alerts
   are not built yet.
 

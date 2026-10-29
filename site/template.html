@@ -265,7 +265,9 @@ details.data td, details.data th { padding: 0.3rem 0.8rem 0.3rem 0; font-size: 0
 .fix p { font-size: 0.9375rem; color: var(--ink-2); }
 .table-note { margin-top: 0.7rem; max-width: 48rem; font-size: var(--step--1); color: var(--ink-2); }
 .score .cell.genie { border-top-color: var(--ink); }
-.eval-table th:last-child, .eval-table td.genie { border-left: 1px solid var(--rule); padding-left: 0.8rem; }
+.score .cell.g-first { grid-column-start: 1; }
+.table-legend { display: none; margin: 1.8rem 0 0; font-size: var(--step--1); color: var(--ink-2); }
+.eval-table th.genie, .eval-table td.genie { border-left: 1px solid var(--rule); padding-left: 0.8rem; }
 .glossary { margin-top: 0.9rem; font-size: var(--step--1); color: var(--muted); line-height: 1.5; }
 .glossary b { color: var(--ink-2); font-weight: 600; }
 .stats-line { margin-top: 1.4rem; font-size: var(--step--1); color: var(--ink-2); }
@@ -306,7 +308,7 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
   /* evaluation table as one card per question: id + question on top, the run verdicts underneath */
   .eval-table thead { display: none; }
   .eval-table, .eval-table tbody { display: block; }
-  .eval-table tr { display: grid; grid-template-columns: 2.1rem repeat(7, max-content) 1fr; column-gap: 0.55rem; row-gap: 0.4rem; padding: 0.75rem 0; border-bottom: 1px solid var(--rule); }
+  .eval-table tr { display: grid; grid-template-columns: 2.1rem repeat(9, max-content) 1fr; column-gap: 0.35rem; row-gap: 0.4rem; padding: 0.75rem 0; border-bottom: 1px solid var(--rule); }
   .eval-table td { display: block; border: 0; padding: 0; }
   .eval-table td:nth-child(1) { grid-row: 1; grid-column: 1; }
   .eval-table td:nth-child(2) { grid-row: 1; grid-column: 2 / -1; min-width: 0; }
@@ -318,6 +320,9 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
   .eval-table td:nth-child(8) { grid-row: 2; grid-column: 6; }
   .eval-table td:nth-child(9) { grid-row: 2; grid-column: 7; }
   .eval-table td:nth-child(10) { grid-row: 2; grid-column: 8; }
+  .eval-table td:nth-child(11) { grid-row: 2; grid-column: 9; }
+  .eval-table td:nth-child(12) { grid-row: 2; grid-column: 10; }
+  .table-legend { display: block; }
   .eval-table td.genie { padding-left: 0; border-left: 0; }
   .eval-table td[data-label]::before { content: attr(data-label); display: block; font-size: 0.68rem; color: var(--muted); margin-bottom: 0.15rem; }
   /* on phones the verdict shows as its icon; the word stays available to screen readers */
@@ -329,6 +334,10 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
   .numbers, .cards, .guardrails, .next, .docs { grid-template-columns: minmax(0, 1fr); }
   .score { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   section { padding-block: 3.2rem 0.5rem; }
+}
+@media (max-width: 359px) {
+  /* the nine verdict columns still fit on the narrowest phones */
+  .eval-table tr { grid-template-columns: 1.8rem repeat(9, max-content) 1fr; column-gap: 0.2rem; }
 }
 @media (prefers-reduced-motion: no-preference) {
   .chart path.series { transition: opacity 0.2s ease; }
@@ -375,7 +384,7 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
     <div class="fact" role="listitem"><div class="v">1 in {{incident.one_in|int}}</div><div class="l">Colombian debit payments was an extra decline in the 22 hours after a routing change ({{incident.lost_approvals|int}} of {{incident.window_payments|int}} above the usual rate)</div></div>
     <div class="fact" role="listitem"><div class="v">{{incident.days_of_early_warning|int}} days</div><div class="l">of early warning: the retry alert flagged the hidden cause in its first daily run, on 7 Aug, but nobody owned it</div></div>
     <div class="fact" role="listitem"><div class="v">≈ USD {{incident.b05_lost_recoveries_usd|k0}}</div><div class="l">of approved volume lost over nine days while retries were switched off, mostly before the visible drop</div></div>
-    <div class="fact" role="listitem"><div class="v">{{eval.genie_passed}}/{{eval.total}}</div><div class="l">benchmark questions passed by the deployed Genie agent on its first run, against {{eval.last_passed}}/{{eval.total}} offline with the same context; every failure is published</div></div>
+    <div class="fact" role="listitem"><div class="v">{{eval.genie_passed}}/{{eval.total}}</div><div class="l">benchmark questions passed by the deployed Genie agent on its {{eval.genie_last_ordinal}} run, up from {{eval.genie_first}} on the first ({{eval.last_passed}}/{{eval.total}} offline with the same context); every failure is published</div></div>
   </div>
   <p class="glossary"><b>pp</b> percentage points · <b>bps</b> basis points (0.01%) · <b>acquirer</b> the bank or processor that takes card payments for the merchant · <b>issuer</b> the cardholder's bank · <b>cascade</b> retrying a declined payment on a second acquirer</p>
 
@@ -498,7 +507,7 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
       <button type="button" class="more" id="answer-more" aria-controls="answer-wrap" aria-expanded="false">Show the full answer</button>
       <details class="data"><summary>Show the {{answer.query_count}} SQL queries it ran</summary><div class="sql-list">{{answer.sql_html}}</div></details>
     </div>
-    <p class="table-note">On the deployed Genie agent the same question found both causes, but sized the calendar day instead of the incident window: −7.3 points and 84 approvals instead of −10.9 and 110 (see the evaluation below).</p>
+    <p class="table-note">On the deployed Genie agent, run 1 sized the calendar day instead of the incident window (−7.3 points and 84 approvals instead of −10.9 and 110). After two rounds of fixes this question passed one of three samples in run 3: one ended the window at midnight, and one misread a baseline (see the evaluation below).</p>
 
     <div class="guardrails" role="list">
       <div class="guardrail" role="listitem"><div class="gq">“Which real bank is issuer CO-ISS-03?”</div><div class="ga">Refuses to guess: issuers are fictional codes with no real bank behind them. Offers that issuer's approval history instead.</div></div>
@@ -513,11 +522,12 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
     <div class="section-head">
       <div class="label">Evaluation</div>
       <h2 id="h-eval">Tested before trusted</h2>
-      <p>{{eval.total}} questions in four groups, each with a scoring rule: 16 with ground-truth SQL, 4 guardrails with an expected behavior. A Claude model (Sonnet) played the copilot with exactly the instructions, tables and functions the Genie agent gets; a harness ran its SQL on the pipeline output, and a separate model (Claude Opus) graded every answer, including whether each number came from a query. Each run could read only its instructions and its own query results. Then the same questions ran on the deployed Genie agent (last column). Every answer, query and verdict is published in the repository.</p>
+      <p>{{eval.total}} questions in four groups, each with a scoring rule: 16 with ground-truth SQL, 4 guardrails with an expected behavior. A Claude model (Sonnet) played the copilot with exactly the instructions, tables and functions the Genie agent gets; a harness ran its SQL on the pipeline output, and a separate model (Claude Opus) graded every answer, including whether each number came from a query. Each run could read only its instructions and its own query results. Then the same questions ran on the deployed Genie agent (the G columns). Every answer, query and verdict is published in the repository.</p>
     </div>
     <div class="score" role="list">
 {{eval.score_html}}
     </div>
+    <p class="table-legend">Columns 1 to 6: the offline runs. G1 to G3: the runs on the deployed Genie agent.</p>
     <div class="table-wrap" style="margin-top: 1.8rem;">
       <table class="eval-table">
         <thead><tr><th>ID</th><th>Question</th><th>Type</th>{{eval.head_html}}</tr></thead>
@@ -530,10 +540,10 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
       {{eval.fixes_html}}
     </div>
     <div class="fixes">
-      <h3>On the deployed Genie agent: what failed, and what comes next</h3>
+      <h3>On the deployed Genie agent: what failed, what I changed, what is left</h3>
       {{eval.genie_findings_html}}
     </div>
-    <p class="eval-limits"><b>Limits.</b> Twenty questions, one sample per question and run. Runs 2 to {{eval.last_run}} ask the same questions that drove the fixes, so they show the fixes work on these cases, not that they generalize. The offline model stands in for Genie, and the Genie run shows the gap: {{eval.genie_passed}} of {{eval.total}} against {{eval.last_passed}} of {{eval.total}} on the same context. Next: the changes above, the benchmark again on Genie, then a held-out question set.</p>
+    <p class="eval-limits"><b>Limits.</b> Twenty questions. Offline, one sample per question and run; on Genie, B1 and C3 also ran three times in runs 2 and 3, and reworded variants of failed questions passed {{eval.genie_variants}} in the last run. Every run after the first re-asks the questions that drove the fixes, so it shows the fixes work on these cases, not that they generalize. The offline model stands in for Genie, and Genie shows the gap: {{eval.genie_passed}} of {{eval.total}} against {{eval.last_passed}} of {{eval.total}} on the same context. Next: the two function changes above, then a held-out question set.</p>
   </section>
 
   <!-- ===================================================================================== -->
@@ -579,7 +589,7 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
     </div>
     <div class="next">
       <ol>
-        <li><strong>Close the gap on Genie, then a held-out question set:</strong> carry the rules Genie skipped in its examples and descriptions, run the benchmark again, and add questions the instructions were not tuned on.</li>
+        <li><strong>Close the gap on Genie, then a held-out question set:</strong> a dimension parameter on the drivers function, so chat mode returns only the rows asked for, and a baseline across acquirers in the decline function; then questions the agent was not tuned on.</li>
         <li><strong>Pilot on real data</strong> with three analysts for four weeks, after short interviews, measuring time to diagnosis against today's process.</li>
         <li><strong>Hourly detection</strong> on the busiest segments, so a 14:00 drop surfaces within hours instead of the next morning.</li>
       </ol>

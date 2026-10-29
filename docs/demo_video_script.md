@@ -5,7 +5,7 @@ tested, in under three minutes. Record in English (add Spanish subtitles if you 
 110%, notifications off, no personal tabs or emails on screen.
 
 Prepare before recording: dashboard open on page 1; the Genie agent open in a second tab with an empty
-conversation; the pipeline graph open in a third tab; the eval results table (README or project page) in a fourth.
+conversation in Agent mode; the pipeline graph open in a third tab; the eval results table (README or project page) in a fourth.
 
 | Time | Screen | Voice-over |
 |---|---|---|
@@ -15,12 +15,18 @@ conversation; the pipeline graph open in a third tab; the eval results table (RE
 | 0:50–1:40 | Genie: type "Why did the approval rate for debit cards in Colombia drop on 13 August 2026?". Let it run; scroll the answer; open "Show code" once | "I ask the copilot why. It uses five SQL functions I designed for the diagnosis: size of the drop, who moved, which decline codes grew, whether retries still worked, and what changed. Answer: a routing change sent all Colombian debit to Acquirer B to save forty basis points. B declined more, and a decline-code map released a week earlier had stopped B's 'do not honor' declines from being retried elsewhere. Impact: about eleven points, a hundred and ten approvals and about six thousand four hundred dollars of approved sales in twenty-two hours. Every number comes from a query I can open." |
 | 1:40–2:00 | Genie: "Was there any early warning before this incident?" | "Could we have caught it earlier? Yes. Retries for B's 'do not honor' collapsed on 6 August, and the retry alert flags it in the next morning's run, six days before the visible drop. In the scenario nobody owned that alert, which is a lesson in itself." |
 | 2:00–2:12 | Genie: "Which real bank is issuer CO-ISS-03?" | "And it knows its limits: the issuers are fictional codes, so it refuses to guess, and it won't forecast or delete data either." |
-| 2:12–2:35 | Eval results table | "Before trusting it, I tested it: twenty questions, sixteen with ground-truth SQL, covering numbers, diagnoses, comparisons and guardrails. The first run missed two; I fixed the instructions and re-ran all twenty. There were six runs in all, and every failure and what I changed is in the repo." |
+| 2:12–2:35 | Eval results table | "Before trusting it, I tested it: twenty questions, sixteen with ground-truth SQL. Offline, with a Claude model in Genie's place, the last three runs passed all twenty. The deployed Genie agent started at thirteen; moving the method into functions and examples took it to fifteen. Every failure, and what I changed, is in the repo." |
 | 2:35–2:50 | Project page or README top | "Next would be hourly alerts and a guardrail that judges routing changes on approved volume, not fees. The PRD, the postmortem and all the code are linked below." |
 
 ## Recording tips
 
 - Run each Genie question once before recording so the warehouse is warm; then start a new conversation for the take.
+- Ask the three questions in Agent mode, the mode the evaluation graded them in. The mode is chosen when a conversation starts and
+  cannot be changed inside it.
+- The main question passed one of three samples in the last benchmark run, so check the answer before you keep a take: it should
+  size the window from 14:00 on 13 August to the rollback at 12:10 the next day (about −10.9 points, 110 approvals and USD 6,354)
+  and treat the 'do not honor' declines as acquirer-side. If it does not, start a new conversation and ask again. A retake is
+  fine because the pass rate is published; never edit an answer.
 - Read Genie's answer before recording the voice-over. If its wording or numbers differ from the script, say what Genie showed, or keep the line generic ("it finds the routing change…"); never read a number it did not show.
 - Cut waiting time in editing; keep the answer on screen long enough to read (3–4 seconds per paragraph).
 - Export as MP4. For LinkedIn, upload the video natively (not as a link) and add captions.

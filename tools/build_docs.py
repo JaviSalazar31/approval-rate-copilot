@@ -115,9 +115,9 @@ COL = {
     # change log
     "change_id": "Change identifier (CHG-* internal change, EXT-* partner notice)",
     "changed_at_utc": "When the change happened (UTC)",
-    "changed_at_mexico_city": "Same, Mexico City time",
-    "changed_at_bogota": "Same, Bogota time",
-    "changed_at_sao_paulo": "Same, Sao Paulo time",
+    "changed_at_mexico_city": "Same, Mexico City time (the local time of MX windows)",
+    "changed_at_bogota": "Same, Bogota time (the local time of CO windows)",
+    "changed_at_sao_paulo": "Same, Sao Paulo time (the local time of BR windows)",
     "change_type": "release, routing, rollback, risk_rules, decline_mapping, external_notice or merchant_onboarding",
     "scope": "Country code(s), acquirer id, or ALL",
     "description": "What changed",
@@ -134,7 +134,7 @@ COL = {
     "first_acquirer_id": "First acquirer chosen by routing (A, B or C)",
     "first_status": "Canonical status of the first attempt",
     "first_iso_code": "ISO 8583 response code of the first attempt (00 = approved)",
-    "first_latency_ms": "Latency of the first authorization attempt, ms",
+    "first_latency_ms": "Latency of the first authorization attempt, ms; the p95 of a period is percentile_approx(first_latency_ms, 0.95) over its payments",
     "is_3ds_authenticated": "Whether the payment was authenticated with 3DS",
     "is_cascaded": "Whether the payment was retried on a second acquirer",
     "cascade_acquirer_id": "Acquirer used for the retry",
@@ -189,6 +189,8 @@ COL_BY_TABLE = {
     ("ref_merchants", "country"): "Country where the merchant sells (MX, CO or BR)",
     ("ref_routing_rules", "scope"): "domestic (cross-border cards always go to Acquirer A)",
     ("silver_payment_intents", "first_acquirer_id"): "Acquirer chosen by routing for the first attempt (empty if not routed)",
+    ("gold_issuer_daily", "issuer_id"): "Fictional issuer code (e.g. CO-ISS-03); INTL-ISS-* are foreign issuers. This table is daily and includes cross-border payments: to rank domestic issuers inside a window, use fn_approval_drivers (dimension 'issuer')",
+    ("gold_cascade_alerts_daily", "is_alert"): "True when the cascade rate collapsed: at least 50 pp below its healthy baseline, with enough volume. To find when an alert began, query from the start of the data (2026-06-01)",
 }
 
 ARROW_TO_SQL = [

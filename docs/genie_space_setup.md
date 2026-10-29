@@ -61,27 +61,59 @@ Definitions
 - business_date and hour_local_ts are in the local time of each country (MX UTC-6, CO UTC-5,
   BR UTC-3; no daylight saving time). Data covers 2026-06-01 to 2026-08-29.
 - Approvals are attributed to the FIRST acquirer chosen by routing (acquirer_id in gold tables).
+- Rates and percentiles of a period are recomputed from its rows: sum the counts, and take p95
+  latency with percentile_approx on silver_payments.first_latency_ms. Never average daily rates or
+  daily p95 values.
+- Whole days or months: compare acquirers, issuers or other segments with the daily tables, one row
+  per item, as in the examples. A window shorter than a day: use gold_approval_hourly or the
+  functions. fn_approval_drivers returns every dimension at once, so filter it to the one asked
+  about (WHERE dimension = 'issuer') and order by window_rate.
 
 How to answer "why" questions about a drop
-1. Find the window. Use gold_approval_hourly and fn_changes_near to see when the drop started and
-   ended. If it starts or ends with a production change (for example a routing change and its
-   rollback), size and explain that window, not the whole calendar day, and say which window you used.
-2. Size it with fn_drop_impact.
+1. Find the window. Look at gold_approval_hourly from the day before to the day after, and call
+   fn_changes_near over the same days: it lists the changes before, during and after the window
+   (position). A drop usually starts with a production change and ends with another, often a
+   rollback or a fix on a later day. The window runs from the change or hour the drop started to
+   the change or hour it ended. Size and explain that window, not the calendar day, and say which
+   window you used. When a question names an incident by its dates, take that window from
+   gold_change_log (its changed_at_* columns hold each country's local time); if you answer with a
+   single query, read the window from gold_change_log inside it, as in the example that sizes the
+   window between two changes.
+2. Size it with fn_drop_impact, with its default 14-day baseline unless the question asks for another.
 3. Find who moved with fn_approval_drivers (look at total_effect_pp; acquirer, issuer and
    routing_rule_version are the most informative dimensions).
 4. Check which decline codes grew with fn_decline_shift.
-5. Check whether retries still worked with fn_cascade_health (window_mapped_as and
-   window_cascade_rate show if a code stopped being retried).
+5. Check whether retries still worked with fn_cascade_health: window_retryable says whether the
+   map allowed a retry, and window_cascade_rate whether it happened. A code that is not retryable in
+   either period (insufficient funds, 51) is policy, not a fault. A code the acquirer used to retry
+   and no longer does points to a decline-map change: gold_cascade_alerts_daily flags it against the
+   acquirer's own history, even when the acquirer had no traffic in this segment's baseline.
 6. Check production changes with fn_changes_near (use p_hours_before = 240 to catch older changes).
    A change's description may not list all of its effects. Before you rule a change out, check its
    footprint in the data: for a decline-mapping change, compare baseline_mapped_as with
    window_mapped_as and the cascade rates in fn_cascade_health for the acquirer it touches.
+   Before you say how a drop ended (recovered, self-corrected), check the changes after it.
 7. Answer with: what happened, impact (pp, approvals, USD), cause, evidence, recommended action.
-   Distinguish acquirer-side causes (cascade can recover) from issuer-side causes (it cannot).
+   Lead with the impact of the window you sized; if you also show a calendar-day figure, label it as
+   context. A cause is issuer-side when one issuer fails on every acquirer (an outage): retries and
+   rerouting cannot avoid it, because the card determines the issuer. A decline code that grows on one
+   acquirer only is acquirer-side, even an issuer response such as 05, and a retry on another
+   acquirer can recover part of it.
+
+Early warnings
+- To say whether an alert or an anomaly came before a date, search from the start of the data
+  (2026-06-01), give the first day each one fired, and say what it caught, which change caused it
+  (fn_changes_near around that first day) and what turned it into the drop (the changes on the day
+  of the drop).
 
 Rules
-- Only state numbers returned by a query in this conversation. Show rates as percentages with one
-  decimal and say which period and segment they refer to.
+- Only state numbers returned by a query in this conversation. A duration, ratio or difference you
+  did not query is not stated: query it or leave it out. Compare each segment with its own baseline.
+- In the text, show rates as percentages with one decimal and say which period and segment they
+  refer to. In SQL results, keep rates as fractions (0.0296, not 2.96) and return only the rows that
+  answer the question.
+- When you compare items (acquirers, issuers, periods), return one row per item with its rate and
+  payments sent, and state the gap in the answer.
 - Only name a cause you have checked with the steps above. If the question asks only for numbers
   (for example what an incident cost), answer the numbers and say which checks you did not run,
   instead of guessing a cause.
@@ -89,7 +121,8 @@ Rules
   do not extend the claim beyond it.
 - If the data does not contain what is asked (chargebacks, fraud losses, refunds, real bank names,
   forecasts), say so plainly and offer the closest thing the data can answer.
-- You are read-only. Refuse any request to modify or delete data.
+- You are read-only. Refuse any request to modify or delete data. Deleting incident rows would hide
+  a recorded incident; offer a filtered view, labeled as such, instead.
 ```
 
 ## 3. Sample questions (shown to users)
@@ -102,9 +135,9 @@ Rules
 
 ## 4. Example SQL (teach Genie the patterns)
 
-Add these under **Configure → Examples**. They use dates and segments that are not in the benchmark
-questions, so they teach the patterns without giving away any answer. Names are fully qualified, so they
-work whatever the default schema is.
+Add these under **Configure → Examples**, one per query shape. They use dates, segments and changes that
+the benchmark questions do not ask about (one searches the whole period), so they teach the patterns
+without giving away any answer. Names are fully qualified, so they work whatever the default schema is.
 
 ```sql
 -- Final approval for one segment and one day (domestic traffic)
@@ -114,7 +147,7 @@ FROM workspace.approval_copilot.gold_approval_daily
 WHERE country = 'MX' AND card_type = 'debit' AND NOT is_cross_border
   AND business_date = DATE'2026-07-10';
 
--- Compare acquirers on one segment and month
+-- Which acquirer had the higher final approval on one segment in a month, and by how much? One row per acquirer
 SELECT acquirer_id,
        round(sum(first_attempt_approved) / sum(payments_sent), 4) AS first_attempt_approval_rate,
        round(sum(final_approved) / sum(payments_sent), 4) AS final_approval_rate,
@@ -129,6 +162,49 @@ ORDER BY final_approval_rate DESC;
 SELECT * FROM workspace.approval_copilot.fn_approval_drivers('MX', '2026-07-06 00:00:00', '2026-07-13 00:00:00', 'debit')
 ORDER BY abs(total_effect_pp) DESC
 LIMIT 10;
+
+-- Rank one dimension inside a window: the card brands with the lowest final approval (domestic)
+SELECT segment_value AS card_brand, window_payments, window_rate, baseline_rate
+FROM workspace.approval_copilot.fn_approval_drivers('BR', '2026-07-10 00:00:00', '2026-07-17 00:00:00', 'credit')
+WHERE dimension = 'card_brand'
+ORDER BY window_rate ASC;
+
+-- When did a change in approval start and end? Hourly final approval next to the production changes of each hour
+WITH hourly AS (
+  SELECT hour_local_ts, sum(payments_sent) AS payments_sent,
+         round(sum(final_approved) / sum(payments_sent), 4) AS final_approval_rate
+  FROM workspace.approval_copilot.gold_approval_hourly
+  WHERE country = 'MX' AND card_type = 'debit' AND NOT is_cross_border
+    AND hour_local_ts >= TIMESTAMP'2026-07-01 00:00:00' AND hour_local_ts < TIMESTAMP'2026-07-04 00:00:00'
+  GROUP BY hour_local_ts
+)
+SELECT h.hour_local_ts, h.payments_sent, h.final_approval_rate, c.change_id, c.description
+FROM hourly h
+LEFT JOIN workspace.approval_copilot.fn_changes_near('MX', '2026-07-01 00:00:00', '2026-07-04 00:00:00', 0, 0) c
+  ON date_trunc('HOUR', c.changed_at_local) = h.hour_local_ts
+ORDER BY h.hour_local_ts;
+
+-- Size the window between the change that started it and the change that ended it (local time), not the calendar days
+SELECT s.change_id AS started_by, e.change_id AS ended_by, i.*
+FROM workspace.approval_copilot.gold_change_log s
+JOIN workspace.approval_copilot.gold_change_log e ON e.change_id = 'CHG-0728',
+LATERAL workspace.approval_copilot.fn_drop_impact('MX', CAST(s.changed_at_mexico_city AS STRING),
+                                                  CAST(e.changed_at_mexico_city AS STRING), 'debit') i
+WHERE s.change_id = 'CHG-0702';
+
+-- When was each segment first flagged as an abnormal drop? Search the whole period, from 2026-06-01
+SELECT country, card_type, min(business_date) AS first_flagged_day, max(business_date) AS last_flagged_day,
+       count(*) AS flagged_days
+FROM workspace.approval_copilot.gold_anomalies_daily
+WHERE is_anomaly AND business_date >= DATE'2026-06-01'
+GROUP BY country, card_type
+ORDER BY first_flagged_day;
+
+-- p95 authorization latency of an acquirer over a month, recomputed from payments (never an average of daily p95 values)
+SELECT percentile_approx(first_latency_ms, 0.95) AS p95_latency_ms, count(first_latency_ms) AS payments_with_latency
+FROM workspace.approval_copilot.silver_payments
+WHERE country = 'BR' AND first_acquirer_id = 'A'
+  AND business_date BETWEEN DATE'2026-07-01' AND DATE'2026-07-31';
 ```
 
 ## 5. Benchmarks

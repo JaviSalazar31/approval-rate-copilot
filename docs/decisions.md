@@ -201,3 +201,40 @@ agent without its functions loses the diagnostic method (ADR-06).
 All 111 SQL statements of run 6, re-run against the new signatures, return identical results, and the
 20 questions then ran on the deployed version as a Genie benchmark (ADR-09): 13 of 20, see
 `evals/README.md`.
+
+---
+
+### ADR-12 · Carry the method in functions and examples, not only in the instructions
+
+**Decision.** After the first Genie benchmark (13 of 20), each fix went into the most structured place that
+could carry it. `fn_changes_near` also returns the changes after a window (`p_hours_after`, 72 hours by
+default), with their position. After the second run, `fn_cascade_health` also returns whether the map
+allowed a retry (`baseline_retryable`, `window_retryable`), because Genie had read a code that the map never
+retries as a fault. The descriptions of three functions and six columns say how to use them, and five
+example queries show the query shapes Genie got wrong. The text instructions gained short rules only where
+nothing structured fits: early warnings, the shape of results, issuer-side causes, numbers that no query
+returned, and deletes.
+
+**Why.** Genie followed the text instructions less closely than the offline model did: two rules that fixed
+the offline runs did not hold. And in the first run the function itself hid what Genie needed:
+`fn_changes_near` stopped at the end of the window, so the rollback of 14 August was out of sight when
+Genie sized 13 August. Databricks' guidance puts example queries and functions first and keeps text
+instructions "only for context that should be applied globally"
+([tune quality](https://docs.databricks.com/aws/en/genie-agents/tune-quality)).
+
+**Alternative.** Longer instructions: rejected, because Genie had already ignored the short ones. A sixth
+function that finds the window of a drop by itself: rejected for now, because in this data the change log
+already marks where each incident starts and ends, and a detector tuned on 90 days would be fitted to them.
+
+**Cost.** Example queries can leak answers, so they use dates, segments and changes the benchmark does not
+ask about, and none copies a benchmark query. The two functions return more: of the 111 statements of
+run 6, the 8 that call them keep their rows and gain the new columns (and, for `fn_changes_near`, the changes
+after the window), and the other 103 return identical results. Each round ran the 20 questions on Genie
+again, with reworded variants of the failed ones to check that the fixes are not tied to the benchmark's
+wording (`evals/README.md`).
+
+**Result.** 13 of 20 before the changes, 14 after the first round and 15 after the second; the reworded
+variants passed 2 of 6, then 4 of 6. The failures left point to two more function changes, not to more
+text: a dimension parameter on `fn_approval_drivers`, because chat mode used the function's output
+unfiltered, and a baseline across acquirers in `fn_decline_shift`, because a drop that moves traffic to
+another acquirer makes that acquirer's codes look like growth from zero.

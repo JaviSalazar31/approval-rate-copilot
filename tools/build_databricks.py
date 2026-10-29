@@ -135,7 +135,10 @@ FUNCTIONS = [
     dict(name="fn_approval_drivers",
          comment="Explains a change in final approval for a country (and card type) between a baseline and a window: "
                  "contribution of each acquirer, issuer, card brand, 3DS, merchant segment and routing version, "
-                 "split into rate effect and mix effect, in percentage points. Domestic payments only.",
+                 "split into rate effect and mix effect, in percentage points. It returns one row per value of "
+                 "every dimension: filter on dimension to answer about one of them (for example the issuers "
+                 "with the lowest approval in a window) and order by window_rate to rank. Domestic payments "
+                 "only.",
          params=[("p_country", "STRING", None, "Country code: MX, CO or BR"),
                  ("p_start_local", "STRING", None, "Window start, local time of the country, as 'YYYY-MM-DD HH:MM:SS'"),
                  ("p_end_local", "STRING", None, "Window end (exclusive), local time, as 'YYYY-MM-DD HH:MM:SS'"),
@@ -155,9 +158,10 @@ FUNCTIONS = [
          returns="acquirer_id STRING, reason_code STRING, reason STRING, baseline_failures BIGINT, window_failures BIGINT, "
                  "baseline_pct_of_payments DOUBLE, window_pct_of_payments DOUBLE, delta_pp DOUBLE"),
     dict(name="fn_cascade_health",
-         comment="For failed first attempts: share retried on another acquirer (cascade), share recovered, and how "
-                 "the normalization map classified each reason (soft/hard) in baseline vs window. Domestic "
-                 "payments only.",
+         comment="For failed first attempts: share retried on another acquirer (cascade), share recovered, how "
+                 "the normalization map classified each reason (soft/hard) and whether it allowed a retry "
+                 "(retryable), in baseline vs window. A code the map does not allow to retry is never cascaded. "
+                 "Domestic payments only.",
          params=[("p_country", "STRING", None, "Country code: MX, CO or BR"),
                  ("p_start_local", "STRING", None, "Window start, local time, as 'YYYY-MM-DD HH:MM:SS'"),
                  ("p_end_local", "STRING", None, "Window end (exclusive), local time, as 'YYYY-MM-DD HH:MM:SS'"),
@@ -166,19 +170,24 @@ FUNCTIONS = [
          returns="acquirer_id STRING, reason_code STRING, baseline_failures BIGINT, baseline_cascade_rate DOUBLE, "
                  "baseline_recovery_rate DOUBLE, baseline_mapped_as STRING, window_failures BIGINT, "
                  "window_cascade_rate DOUBLE, window_recovery_rate DOUBLE, window_mapped_as STRING, "
-                 "window_mapping_versions STRING"),
+                 "window_mapping_versions STRING, baseline_retryable STRING, window_retryable STRING"),
     dict(name="fn_changes_near",
          comment="Production changes (routing, risk, mapping, releases, partner notices) that affect a country, "
-                 "from N hours before a window until its end, with hours relative to the window start.",
+                 "from N hours before a window to M hours after it, with hours relative to the window start. "
+                 "The changes after the window show what ended a drop (a rollback, a fix, a tuning); position "
+                 "says whether each change came before, during or after the window.",
          params=[("p_country", "STRING", None, "Country code: MX, CO or BR"),
                  ("p_start_local", "STRING", None, "Window start, local time, as 'YYYY-MM-DD HH:MM:SS'"),
                  ("p_end_local", "STRING", None, "Window end (exclusive), local time, as 'YYYY-MM-DD HH:MM:SS'"),
-                 ("p_hours_before", "INT", "72", "How many hours before the window to include")],
+                 ("p_hours_before", "INT", "72", "How many hours before the window to include"),
+                 ("p_hours_after", "INT", "72", "How many hours after the window to include")],
          returns="change_id STRING, changed_at_utc TIMESTAMP, changed_at_local TIMESTAMP, change_type STRING, "
-                 "scope STRING, description STRING, hours_from_window_start DOUBLE"),
+                 "scope STRING, description STRING, hours_from_window_start DOUBLE, position STRING"),
     dict(name="fn_drop_impact",
          comment="Size of an approval drop versus the baseline rate: lost approvals, lost approved volume (USD) "
-                 "and fees paid in the window. Domestic payments only.",
+                 "and fees paid in the window. Pass the window of the drop, from the change or hour it started "
+                 "to the change or hour it ended, not a calendar day: normal hours in the window understate "
+                 "the drop. Domestic payments only.",
          params=[("p_country", "STRING", None, "Country code: MX, CO or BR"),
                  ("p_start_local", "STRING", None, "Window start, local time, as 'YYYY-MM-DD HH:MM:SS'"),
                  ("p_end_local", "STRING", None, "Window end (exclusive), local time, as 'YYYY-MM-DD HH:MM:SS'"),
