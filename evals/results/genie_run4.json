@@ -7,10 +7,10 @@
   "variants": "V1-V6 are reworded variants of failed questions; they are not in the benchmark or in the agent. V1-V3 ran in agent mode, V4-V6 in chat mode through the Conversation API; all six were graded by the same judge.",
   "review": "I read every verdict. A verdict can be overruled only to make it stricter."
  },
- "passed": 18,
+ "passed": 17,
  "total": 20,
  "chat": {
-  "passed": 8,
+  "passed": 7,
   "total": 10,
   "genie_good": 7,
   "genie_bad": 2,
@@ -62,6 +62,7 @@
    "genie_assessment": "GOOD",
    "genie_reasons": [],
    "manual_review": null,
+   "override_note": null,
    "verdict": "PASS",
    "note": "Final approval 79.4% on 1,150 payments sent, as expected."
   },
@@ -100,6 +101,7 @@
    "genie_assessment": "GOOD",
    "genie_reasons": [],
    "manual_review": null,
+   "override_note": null,
    "verdict": "PASS",
    "note": "First-attempt approval 85.9%, as expected."
   },
@@ -136,6 +138,7 @@
    "genie_assessment": "GOOD",
    "genie_reasons": [],
    "manual_review": null,
+   "override_note": null,
    "verdict": "PASS",
    "note": "15,964 payments sent, as expected."
   },
@@ -174,6 +177,7 @@
    "genie_assessment": "GOOD",
    "genie_reasons": [],
    "manual_review": null,
+   "override_note": null,
    "verdict": "PASS",
    "note": "The p95 recomputed from payments, 1,746 ms, as expected."
   },
@@ -216,6 +220,7 @@
     "LLM_JUDGE_MISSING_OR_INCORRECT_FILTER"
    ],
    "manual_review": "Graded by hand with the scoring rule in eval_set.json: 0.0296 against 0.0296 expected.",
+   "override_note": null,
    "verdict": "PASS",
    "note": "2.96% of intents blocked, as expected, as a fraction with its counts. The grader sent it to manual review because of two NOT NULL filters Genie added, which do not change the result; graded by hand as correct."
   },
@@ -252,6 +257,7 @@
    "genie_assessment": "GOOD",
    "genie_reasons": [],
    "manual_review": null,
+   "override_note": null,
    "verdict": "PASS",
    "note": "USD 2,945,069.81 of approved volume, as expected."
   },
@@ -395,6 +401,7 @@
     "LLM_JUDGE_INCORRECT_FUNCTION_USAGE"
    ],
    "manual_review": null,
+   "override_note": null,
    "verdict": "FAIL",
    "note": "Unchanged: fn_drop_impact from 13 Aug 00:00 to 15 Aug 00:00 (106 approvals and USD 6,134). Its one query did not read the incident window from the change log."
   },
@@ -561,8 +568,9 @@
    "genie_assessment": "GOOD",
    "genie_reasons": [],
    "manual_review": null,
-   "verdict": "PASS",
-   "note": "Fixed: Genie called fn_approval_drivers with p_dimension => 'acquirer' over July, which returned one row per acquirer, A at 89.3% and C at 88.6%, and the grader accepted it."
+   "override_note": "Genie's grader passed it. I count it as a failure, like its reworded variant V6 and the held-out question H6: the question asks by how much, and the chat-mode answer is a table with both rates and no gap (0.66 points); its only pp columns are changes against a 14-day baseline. When a question asks how much or how far, the answer has to say it.",
+   "verdict": "FAIL",
+   "note": "Genie called fn_approval_drivers with p_dimension => 'acquirer' over July: one row per acquirer, A at 89.3% and C at 88.6%, which the grader accepted. The answer is the table alone and never says by how much; counted as a failure (override_note)."
   },
   {
    "id": "C2",
@@ -608,6 +616,7 @@
    "genie_assessment": "GOOD",
    "genie_reasons": [],
    "manual_review": null,
+   "override_note": null,
    "verdict": "PASS",
    "note": "A 79.8% against B 76.3% on first attempts, as expected."
   },
@@ -799,6 +808,7 @@
     "LLM_JUDGE_FORMATTING_ERROR"
    ],
    "manual_review": null,
+   "override_note": null,
    "verdict": "FAIL",
    "note": "Right answer, wrong shape: fn_approval_drivers with p_dimension => 'issuer' on the incident window returned the eight issuers from the lowest up, CO-ISS-07 at 65.3% first, but the reference keeps the three lowest with four columns, and the grader marked the extra rows and columns as wrong. By the offline scoring rule (name the lowest issuer) it would pass; the stricter verdict stands."
   },

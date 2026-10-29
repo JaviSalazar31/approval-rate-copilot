@@ -178,7 +178,7 @@ def build():
                          f'repository before the run, then run once on the deployed agent: {held["passed"]} of '
                          f'{held["total"]} passed (KPI lookups {g.get("kpi", "–")}, comparisons {g.get("comparison", "–")}, '
                          f'diagnoses {g.get("diagnosis", "–")}, guardrails {g.get("guardrail", "–")}), graded by the same '
-                         f'judge and rules as the benchmark. {held.get("note", "")}').strip()
+                         f'judge, with the same kind of scoring rules, as the benchmark\'s agent-mode questions. {held.get("note", "")}').strip()
 
     answer = summary["showcase"]
     sql_html = "".join(f"<pre><code>{html.escape(s)}</code></pre>" for s in answer["queries"])
