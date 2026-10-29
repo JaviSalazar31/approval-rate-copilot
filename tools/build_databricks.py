@@ -135,28 +135,34 @@ FUNCTIONS = [
     dict(name="fn_approval_drivers",
          comment="Explains a change in final approval for a country (and card type) between a baseline and a window: "
                  "contribution of each acquirer, issuer, card brand, 3DS, merchant segment and routing version, "
-                 "split into rate effect and mix effect, in percentage points. It returns one row per value of "
-                 "every dimension: filter on dimension to answer about one of them (for example the issuers "
-                 "with the lowest approval in a window) and order by window_rate to rank. Domestic payments "
-                 "only.",
+                 "split into rate effect and mix effect, in percentage points. Pass p_dimension to get only the "
+                 "rows of one dimension, ordered from the lowest window_rate (for example the issuers with the "
+                 "lowest approval in a window); NULL returns all six dimensions. For whole days or months, compare "
+                 "segments with the daily tables instead. Domestic payments only.",
          params=[("p_country", "STRING", None, "Country code: MX, CO or BR"),
                  ("p_start_local", "STRING", None, "Window start, local time of the country, as 'YYYY-MM-DD HH:MM:SS'"),
                  ("p_end_local", "STRING", None, "Window end (exclusive), local time, as 'YYYY-MM-DD HH:MM:SS'"),
                  ("p_card_type", "STRING", "NULL", "credit, debit, or NULL for both"),
-                 ("p_baseline_days", "INT", "14", "Days before the window used as baseline")],
+                 ("p_baseline_days", "INT", "14", "Days before the window used as baseline"),
+                 ("p_dimension", "STRING", "NULL", "acquirer, issuer, card_brand, three_ds_authenticated, "
+                                                   "merchant_segment or routing_rule_version; NULL for all six")],
          returns="dimension STRING, segment_value STRING, baseline_payments BIGINT, window_payments BIGINT, "
                  "baseline_share DOUBLE, window_share DOUBLE, baseline_rate DOUBLE, window_rate DOUBLE, "
                  "rate_effect_pp DOUBLE, mix_effect_pp DOUBLE, total_effect_pp DOUBLE, total_change_pp DOUBLE"),
     dict(name="fn_decline_shift",
-         comment="First-attempt failure reasons per acquirer as % of payments, baseline vs window, to see which "
-                 "decline codes grew during a drop. Domestic payments only.",
+         comment="First-attempt failure reasons per acquirer as % of the segment's payments, baseline vs window, to "
+                 "see which decline codes grew during a drop. When traffic moved from one acquirer to another, "
+                 "the acquirer that carried none of the segment in the baseline shows its codes growing from zero: "
+                 "the all_acquirers columns give the same code summed over acquirers, which is how the code "
+                 "itself moved. Domestic payments only.",
          params=[("p_country", "STRING", None, "Country code: MX, CO or BR"),
                  ("p_start_local", "STRING", None, "Window start, local time, as 'YYYY-MM-DD HH:MM:SS'"),
                  ("p_end_local", "STRING", None, "Window end (exclusive), local time, as 'YYYY-MM-DD HH:MM:SS'"),
                  ("p_card_type", "STRING", "NULL", "credit, debit, or NULL for both"),
                  ("p_baseline_days", "INT", "14", "Days before the window used as baseline")],
          returns="acquirer_id STRING, reason_code STRING, reason STRING, baseline_failures BIGINT, window_failures BIGINT, "
-                 "baseline_pct_of_payments DOUBLE, window_pct_of_payments DOUBLE, delta_pp DOUBLE"),
+                 "baseline_pct_of_payments DOUBLE, window_pct_of_payments DOUBLE, delta_pp DOUBLE, "
+                 "all_acquirers_baseline_pct DOUBLE, all_acquirers_window_pct DOUBLE, all_acquirers_delta_pp DOUBLE"),
     dict(name="fn_cascade_health",
          comment="For failed first attempts: share retried on another acquirer (cascade), share recovered, how "
                  "the normalization map classified each reason (soft/hard) and whether it allowed a retry "

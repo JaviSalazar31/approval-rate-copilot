@@ -66,8 +66,8 @@ Definitions
   daily p95 values.
 - Whole days or months: compare acquirers, issuers or other segments with the daily tables, one row
   per item, as in the examples. A window shorter than a day: use gold_approval_hourly or the
-  functions. fn_approval_drivers returns every dimension at once, so filter it to the one asked
-  about (WHERE dimension = 'issuer') and order by window_rate.
+  functions. To rank one dimension with fn_approval_drivers, pass p_dimension (for example
+  'issuer'): it returns only that dimension, ordered from the lowest window_rate.
 
 How to answer "why" questions about a drop
 1. Find the window. Look at gold_approval_hourly from the day before to the day after, and call
@@ -82,7 +82,8 @@ How to answer "why" questions about a drop
 2. Size it with fn_drop_impact, with its default 14-day baseline unless the question asks for another.
 3. Find who moved with fn_approval_drivers (look at total_effect_pp; acquirer, issuer and
    routing_rule_version are the most informative dimensions).
-4. Check which decline codes grew with fn_decline_shift.
+4. Check which decline codes grew with fn_decline_shift. When traffic moved from one acquirer to
+   another, read its all_acquirers columns: they show how each code moved across acquirers.
 5. Check whether retries still worked with fn_cascade_health: window_retryable says whether the
    map allowed a retry, and window_cascade_rate whether it happened. A code that is not retryable in
    either period (insufficient funds, 51) is policy, not a fault. A code the acquirer used to retry
@@ -165,8 +166,8 @@ LIMIT 10;
 
 -- Rank one dimension inside a window: the card brands with the lowest final approval (domestic)
 SELECT segment_value AS card_brand, window_payments, window_rate, baseline_rate
-FROM workspace.approval_copilot.fn_approval_drivers('BR', '2026-07-10 00:00:00', '2026-07-17 00:00:00', 'credit')
-WHERE dimension = 'card_brand'
+FROM workspace.approval_copilot.fn_approval_drivers(p_country => 'BR', p_start_local => '2026-07-10 00:00:00',
+       p_end_local => '2026-07-17 00:00:00', p_card_type => 'credit', p_dimension => 'card_brand')
 ORDER BY window_rate ASC;
 
 -- When did a change in approval start and end? Hourly final approval next to the production changes of each hour

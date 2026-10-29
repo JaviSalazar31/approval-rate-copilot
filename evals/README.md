@@ -34,7 +34,7 @@ a routing change, a decline-code map bug, an issuer outage and a risk-rule chang
    ground-truth results and the query results the model saw. Any number that cannot be traced to a query,
    and any wrong cause, fails the question even if the headline number is right.
 5. **Author review.** I read every verdict. I can overrule the judge only to make a verdict stricter, and
-   every overrule is published with its reason (one so far, below).
+   every overrule is published with its reason (two so far: B1 in run 1, below, and V6 in Genie run 4).
 
 This is an offline proxy for Genie. It measures the design of the copilot (instructions, tables, functions)
 with a capable model; Genie's own benchmark feature runs the same questions inside Databricks (see
@@ -53,10 +53,13 @@ with a capable model; Genie's own benchmark feature runs the same questions insi
 | Genie 1 | [`results/genie_run1_model_context.md`](results/genie_run1_model_context.md): the run-6 context with string window bounds, deployed as a Genie agent (29 Oct 2026) | 13 / 20 | 45 / 45 | 4 / 4 |
 | Genie 2 | [`results/genie_run2_model_context.md`](results/genie_run2_model_context.md): the method carried in functions and examples ([ADR-12](../docs/decisions.md)) | 14 / 20 | 47 / 47 | 4 / 4 |
 | Genie 3 | [`results/genie_run3_model_context.md`](results/genie_run3_model_context.md): retry flags in `fn_cascade_health`, and fixes for chat mode | 15 / 20 | 61 / 61 | 4 / 4 |
+| Genie 4 | [`results/genie_run4_model_context.md`](results/genie_run4_model_context.md): a dimension parameter in `fn_approval_drivers` and each code across acquirers in `fn_decline_shift` | 18 / 20 | 55 / 55 | 4 / 4 |
+| Held-out | The Genie 4 agent on 14 questions it was never tuned on ([`heldout_set.json`](heldout_set.json)), run once | 11 / 14 | 42 / 42 | 3 / 3 |
 
 Per-question answers, the SQL each run wrote and the judge's notes: [`results/run1.json`](results/run1.json)
 to [`results/run6.json`](results/run6.json), and for Genie
-[`results/genie_run1.json`](results/genie_run1.json) to [`results/genie_run3.json`](results/genie_run3.json).
+[`results/genie_run1.json`](results/genie_run1.json) to [`results/genie_run4.json`](results/genie_run4.json), and for
+the held-out set [`results/heldout_run4.json`](results/heldout_run4.json).
 
 **Overruled verdict (run 1, B1).** The judge passed it. I count it as a failure: the scoring rule asks for
 the impact of the incident window, and the answer sized the calendar day (−7.1 pp and 82 approvals instead
@@ -399,25 +402,143 @@ dimension parameter, so that the one call chat mode makes returns only the rows 
 another. R8 asks for 90%: met offline, not on Genie (75%). Three rounds on the same 20 questions also start
 to fit the benchmark, so the next round adds a held-out question set.
 
+### What changed between Genie runs 3 and 4
+
+| Failure in run 3 | Change |
+|---|---|
+| Chat mode used `fn_approval_drivers` unfiltered (C1, C4, V5) | A `p_dimension` parameter: the function returns only the rows of that dimension, ordered from the lowest window rate (all six dimensions when it is not passed). Its description says to pass it, and that whole days or months are compared with the daily tables. The example that ranks card brands inside a window passes it, and the line of the instructions that said to filter the output now says to pass the parameter. |
+| B's empty baseline read as A's (B1) | `fn_decline_shift` also returns each code across acquirers (`all_acquirers_baseline_pct`, `all_acquirers_window_pct`, `all_acquirers_delta_pp`). Code 05 grew from 4.1% to 13.7% of payments across acquirers, not from zero, and code 51 fell (4.2% to 3.8%), although each looked like growth from zero on B. Step 4 of the method says to read these columns when traffic moved between acquirers. |
+
+Nothing else changed. Of the 111 statements of run 6, re-run with the new functions, 107 return identical results, one
+returns the same rows in another order, and the three that select every column of `fn_decline_shift` keep their rows
+and gain the new columns. The ground truth of B1, B5 and V1 gains the same columns; no scoring rule changed. All eight
+examples, the benchmark answers, the functions and the tables ran on the warehouse before the agent was updated (59
+checks, no errors). Context of run 4:
+[`results/genie_run4_model_context.md`](results/genie_run4_model_context.md).
+
+### The held-out set
+
+Four rounds on the same 20 questions start to fit the benchmark, so run 4 also answered a set of questions the
+agent was never tuned on: [`heldout_set.json`](heldout_set.json), 14 questions in the same four groups, with
+reference SQL and scoring rules of the same kind. They were written after the changes above and committed to this
+repository (commit `62ecca2`) before run 4 started. They ask about other months, segments and changes than the 20
+benchmark questions: approval, fees, installments and 3DS abandonment, rankings of card brands, acquirers and merchant
+segments, a drop that only shows in retries, a check of cross-border traffic during the incident, two changes that had
+no effect (a 3DS SDK upgrade and two new merchants), and three new guardrails (card numbers, a routing change, and
+"yesterday" in data that ends on 29 August).
+
+The set runs once. The seven KPI and comparison questions went to chat mode through the Conversation API, the seven
+diagnoses and guardrails to agent mode, and the same judge graded all fourteen with their scoring rules. Its result is
+published whatever it is, and the agent is not changed after it.
+
+### Databricks Genie, run 4
+
+| Mode | Questions | Passed | Failed | Graded by |
+|---|---|---|---|---|
+| Chat | A1–A6, B3, C1, C2, C4 (10) | 8 | 2: B3, C4 | Genie's grader (7 good, 2 bad); A5, sent to manual review, by hand |
+| Agent | B1, B2, B4, B5, B6, C3, D1–D4 (10) | 10 | 0 | Claude Opus, with the offline scoring rules |
+| **Total** | 20 | **18** | 2 | |
+
+Repeated samples: B1 passed 2 of 3, C3 3 of 3. Reworded variants: 5 of 6 (all but V6, overruled below). All 55 SQL
+statements of the 20 questions returned results. Answers, SQL and verdicts:
+[`results/genie_run4.json`](results/genie_run4.json); context:
+[`results/genie_run4_model_context.md`](results/genie_run4_model_context.md).
+
+**Overruled verdict (Genie run 4, V6).** The judge passed it. I count it as a failure, for consistency with the
+held-out question H6: both ask "by how much", and both chat-mode answers are a table with the two rates and no gap.
+The only percentage-point columns in those tables are changes against a 14-day baseline, which a reader could take
+for the gap. H6 was failed on that ground, and a verdict is never made more lenient, so V6 fails too.
+
+### What Genie run 4 found
+
+Run 4 passed 18 of 20, the 90% that R8 asks for, against 13 in run 1. Every agent-mode question passed, and the
+two changes did what they were for:
+
+- **The dimension parameter fixed C1.** Chat mode called `fn_approval_drivers` with `p_dimension => 'acquirer'`
+  over July and got one row per acquirer, A at 89.3% and C at 88.6%, which Genie's grader accepted. V5, the reworded
+  C4, passed the same way.
+- **The codes were read across acquirers.** All three B1 samples and V1 compared code 05 across acquirers: it went
+  from 4.1% of payments (13.7% in the incident window), not from zero, and none took a code that is never retried for
+  the fault.
+- **Rules that had held most of the time held.** B4 split its periods at the map changes and labeled its estimate
+  of lost recoveries as one (about 202, from its own counts); V2 named the routing change that turned the alert into
+  the drop, after failing twice; B6 said that approval of the payments that reached an acquirer stayed flat.
+
+What still fails:
+
+- **B1 sample 2 ended the window at midnight again** (−12.2 pp and 79 lost approvals for ten hours), the error of
+  run 3's sample 1, and dated the first alert to 10 August from a search that started then. Two of the 12 agent-mode
+  answers that sized the incident since run 2 made this error.
+- **B3 still sizes calendar days in chat mode**: `fn_drop_impact` from 13 August 00:00 to 15 August 00:00, 106
+  approvals and USD 6,134.
+- **C4 has the right answer in the wrong shape.** `p_dimension => 'issuer'` returned the eight issuers from the
+  lowest up, CO-ISS-07 at 65.3% first, but the reference keeps the three lowest with four columns, and Genie's grader
+  marked the extra rows and columns as wrong. By the offline scoring rule (name the lowest issuer) it would pass;
+  the stricter verdict stands.
+- **Flaws the scoring rules do not grade.** B5 recommends "temporary routing adjustments" for an issuer-side
+  outage that, as it says itself, routing cannot avoid; V1 says the map bug "went undetected", although the retry
+  alert flagged it from 6 August.
+
+### The held-out set: results
+
+| Group | Questions | Mode | Passed | Failed |
+|---|---|---|---|---|
+| KPI lookups | H1–H4 | Chat | 4 / 4 | |
+| Comparisons | H5–H7 | Chat | 1 / 3 | H6, H7 |
+| Diagnoses | H8–H11 | Agent | 3 / 4 | H8 |
+| Guardrails | H12–H14 | Agent | 3 / 3 | |
+| **Total** | 14 | | **11 / 14** | 3 |
+
+All 42 SQL statements returned results. H11's first request ended with a transport error before any answer
+(`ChunkedEncodingError`: the response ended prematurely), so the question was asked once more with the same code;
+that answer is the one graded. Answers, SQL and verdicts: [`results/heldout_run4.json`](results/heldout_run4.json).
+
+What passed is the part the method was built for. Every KPI lookup was right, both changes with no effect were
+called that way (the 3DS SDK upgrade, H11, and the new merchants, H10, whose approval was in line with the existing
+ones), cross-border traffic was checked and found untouched by the routing change (H9), and the three new
+guardrails held: no card numbers (H12), no routing change (H13), and no "yesterday" in data that ends on 29 August
+(H14). The three failures:
+
+- **H6, a question in two parts, half answered.** Chat mode returned the acquirers from the lowest up (B first,
+  right) and no text, so "how far below the best" (2.1 pp) was never said.
+- **H7, an empty result.** Genie passed the text `'NULL'` for the optional card type of `fn_approval_drivers`, so
+  the function filtered on a card type called NULL and returned nothing. The functions should treat that text as
+  NULL.
+- **H8, the right diagnosis with the wrong cost.** It found the map change and the lost retries, and sized B's drop
+  right (81.8% to 79.1%), but gave the whole segment's lost approvals (146, all acquirers) as the cost of B's drop
+  (about 122).
+
+**What it means.** On the benchmark the agent reached the 90% of R8 on its fourth run, and on questions it was never
+tuned on it scored 11 of 14 (79%). The benchmark questions drove four rounds of fixes and the held-out questions none,
+so the held-out score is the better estimate of how the agent does on a question it has not seen. Two of the three
+held-out failures are chat-mode problems of the same family as the benchmark's: chat mode answers with a function's
+table, so the answer holds only what the table holds. The next changes are structural again: functions that treat a
+text "NULL" as NULL, and comparison results that carry the gap, so that a table answers both parts of a question.
+Then the held-out set grows, with new questions, and runs again.
+
 ### Limits of this evaluation
 
-- 20 questions. Offline, one sample per question and run; on Genie, B1 and C3 also ran three times in runs 2
-  and 3, with six reworded variants of failed questions. Every run after the first re-asks the questions that
-  drove the fixes, so it shows the fixes work on those cases, not that they generalize; the variants are a
-  first check (2 of 6, then 4 of 6). Offline runs 4 to 6 differ only in table and function descriptions, so
-  together they are three samples of almost the same design: still few. A held-out question set and more
-  samples per question are the next step.
+- 20 benchmark questions. Offline, one sample per question and run; on Genie, B1 and C3 also ran three times in
+  runs 2 to 4, with six reworded variants of failed questions (2, 4 and 5 of 6 passed). Every run after the first
+  re-asks the questions that drove the fixes, so it shows the fixes work on those cases, not that they
+  generalize. The held-out set is that check, and it is small: 14 questions, one sample each, run once. A larger
+  held-out set, with several samples per question, is the next step. Offline runs 4 to 6 differ only in table and
+  function descriptions, so together they are three samples of almost the same design.
 - The judge is a model. Its verdicts and notes are published in `results/` so anyone can re-check them. On
   Genie it also graded the agent-mode answers, in place of Genie's own agent-mode grader.
-- The offline model under test is not Genie, and the gap is large: 20 of 20 offline, 13 of 20 on Genie
-  with the same context, and 15 of 20 after two rounds of fixes. The offline runs show whether the design
-  can work; only Genie runs show whether it works in the product.
+- The offline model under test is not Genie, and the gap was large: 20 of 20 offline, 13 of 20 on Genie with
+  the same context. It took three rounds of fixes on Genie to reach 18. The offline runs show whether the design can
+  work; only Genie runs show whether it works in the product.
+- Chat-mode questions are graded by Genie's grader, which compares result sets and fails a right answer in the
+  wrong shape (C4); agent-mode and held-out questions are graded by the judge with the scoring rules. The two
+  graders are not interchangeable, and each verdict says which one gave it.
 
 ## Files
 
 | File | Purpose |
 |---|---|
 | `eval_set.json` | Questions, ground-truth SQL, scoring rules |
+| `heldout_set.json` | 14 held-out questions, same format, committed before Genie run 4 and run once |
 | `model_context.md` | What the model receives (generated by `tools/build_docs.py`) |
 | `harness/run_queries.py` | Runs the model's SQL on the local pipeline output |
 | `results/` | Context used in each run, answers and verdicts of each run, summary for the project page |

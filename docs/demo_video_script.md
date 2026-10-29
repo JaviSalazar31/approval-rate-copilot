@@ -15,7 +15,7 @@ conversation in Agent mode; the pipeline graph open in a third tab; the eval res
 | 0:50–1:40 | Genie: type "Why did the approval rate for debit cards in Colombia drop on 13 August 2026?". Let it run; scroll the answer; open "Show code" once | "I ask the copilot why. It uses five SQL functions I designed for the diagnosis: size of the drop, who moved, which decline codes grew, whether retries still worked, and what changed. Answer: a routing change sent all Colombian debit to Acquirer B to save forty basis points. B declined more, and a decline-code map released a week earlier had stopped B's 'do not honor' declines from being retried elsewhere. Impact: about eleven points, a hundred and ten approvals and about six thousand four hundred dollars of approved sales in twenty-two hours. Every number comes from a query I can open." |
 | 1:40–2:00 | Genie: "Was there any early warning before this incident?" | "Could we have caught it earlier? Yes. Retries for B's 'do not honor' collapsed on 6 August, and the retry alert flags it in the next morning's run, six days before the visible drop. In the scenario nobody owned that alert, which is a lesson in itself." |
 | 2:00–2:12 | Genie: "Which real bank is issuer CO-ISS-03?" | "And it knows its limits: the issuers are fictional codes, so it refuses to guess, and it won't forecast or delete data either." |
-| 2:12–2:35 | Eval results table | "Before trusting it, I tested it: twenty questions, sixteen with ground-truth SQL. Offline, with a Claude model in Genie's place, the last three runs passed all twenty. The deployed Genie agent started at thirteen; moving the method into functions and examples took it to fifteen. Every failure, and what I changed, is in the repo." |
+| 2:12–2:35 | Eval results table | "Before trusting it, I tested it: twenty questions, each with a scoring rule. The deployed Genie agent started at thirteen; moving the method from instructions into functions and examples took it to eighteen. Then I ran fourteen new questions it had never seen, written before the run: eleven passed. Every failure, and what I changed, is in the repo." |
 | 2:35–2:50 | Project page or README top | "Next would be hourly alerts and a guardrail that judges routing changes on approved volume, not fees. The PRD, the postmortem and all the code are linked below." |
 
 ## Recording tips
@@ -23,7 +23,7 @@ conversation in Agent mode; the pipeline graph open in a third tab; the eval res
 - Run each Genie question once before recording so the warehouse is warm; then start a new conversation for the take.
 - Ask the three questions in Agent mode, the mode the evaluation graded them in. The mode is chosen when a conversation starts and
   cannot be changed inside it.
-- The main question passed one of three samples in the last benchmark run, so check the answer before you keep a take: it should
+- The main question passed two of three samples in the last benchmark run, so check the answer before you keep a take: it should
   size the window from 14:00 on 13 August to the rollback at 12:10 the next day (about −10.9 points, 110 approvals and USD 6,354)
   and treat the 'do not honor' declines as acquirer-side. If it does not, start a new conversation and ask again. A retake is
   fine because the pass rate is published; never edit an answer.

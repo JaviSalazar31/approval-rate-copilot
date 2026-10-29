@@ -24,8 +24,8 @@ Definitions
   daily p95 values.
 - Whole days or months: compare acquirers, issuers or other segments with the daily tables, one row
   per item, as in the examples. A window shorter than a day: use gold_approval_hourly or the
-  functions. fn_approval_drivers returns every dimension at once, so filter it to the one asked
-  about (WHERE dimension = 'issuer') and order by window_rate.
+  functions. To rank one dimension with fn_approval_drivers, pass p_dimension (for example
+  'issuer'): it returns only that dimension, ordered from the lowest window_rate.
 
 How to answer "why" questions about a drop
 1. Find the window. Look at gold_approval_hourly from the day before to the day after, and call
@@ -40,7 +40,8 @@ How to answer "why" questions about a drop
 2. Size it with fn_drop_impact, with its default 14-day baseline unless the question asks for another.
 3. Find who moved with fn_approval_drivers (look at total_effect_pp; acquirer, issuer and
    routing_rule_version are the most informative dimensions).
-4. Check which decline codes grew with fn_decline_shift.
+4. Check which decline codes grew with fn_decline_shift. When traffic moved from one acquirer to
+   another, read its all_acquirers columns: they show how each code moved across acquirers.
 5. Check whether retries still worked with fn_cascade_health: window_retryable says whether the
    map allowed a retry, and window_cascade_rate whether it happened. A code that is not retryable in
    either period (insufficient funds, 51) is policy, not a fault. A code the acquirer used to retry
@@ -376,17 +377,17 @@ One row per payment with first attempt, cascade attempt and final outcome. Grain
 
 ## Functions (Unity Catalog SQL table functions)
 
-### `fn_approval_drivers(p_country STRING, p_start_local STRING, p_end_local STRING, p_card_type STRING DEFAULT NULL, p_baseline_days INT DEFAULT 14)`
+### `fn_approval_drivers(p_country STRING, p_start_local STRING, p_end_local STRING, p_card_type STRING DEFAULT NULL, p_baseline_days INT DEFAULT 14, p_dimension STRING DEFAULT NULL)`
 
-Explains a change in final approval for a country (and card type) between a baseline and a window: contribution of each acquirer, issuer, card brand, 3DS, merchant segment and routing version, split into rate effect and mix effect, in percentage points. It returns one row per value of every dimension: filter on dimension to answer about one of them (for example the issuers with the lowest approval in a window) and order by window_rate to rank. Domestic payments only.
+Explains a change in final approval for a country (and card type) between a baseline and a window: contribution of each acquirer, issuer, card brand, 3DS, merchant segment and routing version, split into rate effect and mix effect, in percentage points. Pass p_dimension to get only the rows of one dimension, ordered from the lowest window_rate (for example the issuers with the lowest approval in a window); NULL returns all six dimensions. For whole days or months, compare segments with the daily tables instead. Domestic payments only.
 
 Returns: `dimension STRING, segment_value STRING, baseline_payments BIGINT, window_payments BIGINT, baseline_share DOUBLE, window_share DOUBLE, baseline_rate DOUBLE, window_rate DOUBLE, rate_effect_pp DOUBLE, mix_effect_pp DOUBLE, total_effect_pp DOUBLE, total_change_pp DOUBLE`
 
 ### `fn_decline_shift(p_country STRING, p_start_local STRING, p_end_local STRING, p_card_type STRING DEFAULT NULL, p_baseline_days INT DEFAULT 14)`
 
-First-attempt failure reasons per acquirer as % of payments, baseline vs window, to see which decline codes grew during a drop. Domestic payments only.
+First-attempt failure reasons per acquirer as % of the segment's payments, baseline vs window, to see which decline codes grew during a drop. When traffic moved from one acquirer to another, the acquirer that carried none of the segment in the baseline shows its codes growing from zero: the all_acquirers columns give the same code summed over acquirers, which is how the code itself moved. Domestic payments only.
 
-Returns: `acquirer_id STRING, reason_code STRING, reason STRING, baseline_failures BIGINT, window_failures BIGINT, baseline_pct_of_payments DOUBLE, window_pct_of_payments DOUBLE, delta_pp DOUBLE`
+Returns: `acquirer_id STRING, reason_code STRING, reason STRING, baseline_failures BIGINT, window_failures BIGINT, baseline_pct_of_payments DOUBLE, window_pct_of_payments DOUBLE, delta_pp DOUBLE, all_acquirers_baseline_pct DOUBLE, all_acquirers_window_pct DOUBLE, all_acquirers_delta_pp DOUBLE`
 
 ### `fn_cascade_health(p_country STRING, p_start_local STRING, p_end_local STRING, p_card_type STRING DEFAULT NULL, p_baseline_days INT DEFAULT 14)`
 

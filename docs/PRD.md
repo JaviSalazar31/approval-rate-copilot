@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Author | Javier Salazar (Senior Product Owner, payments) · personal project |
-| Status | v1 built on synthetic data, evaluated offline and deployed on Databricks Free Edition (29 Oct 2026) · Genie benchmark 15/20 after two tuning rounds (13/20 on the first run), below the R8 bar · pilot on real data not started |
+| Status | v1 built on synthetic data, evaluated offline and deployed on Databricks Free Edition (29 Oct 2026) · Genie benchmark 18/20 after three tuning rounds (13/20 on the first run), 11/14 on held-out questions · pilot on real data not started |
 | Scope | Card payments of a fictional LATAM orchestrator: Mexico, Colombia, Brazil · Acquirers A, B, C |
 
 All figures below come from the synthetic dataset in this repository (90 days, 661k payment intents).
@@ -115,7 +115,7 @@ Full definitions, formulas and pitfalls: [metrics.md](metrics.md).
 | R5 | Dashboard "Approval Health" | KPIs, trends, hourly drill-down, decline reasons, cascade, funnel, cost vs approval, anomalies, change log, data quality | Built on Databricks (29 Oct 2026) as specified in [dashboard_setup.md](dashboard_setup.md); the 42 queries behind its 21 widgets run without errors; layout review pending (with the demo recording) |
 | R6 | Anomaly detection on daily approval | Flags the 13 Aug drop; no false alarms in the 90 days | Done, in-sample: 1 flag in 540 country × card-type days, on the days the thresholds were tuned on. The 3-hour issuer outage of 21 Jul needs hourly detection |
 | R7 | Cascade alert | Fires on 6 Aug for Acquirer B, code 05, in Mexico and Colombia, and keeps firing every day until the map is fixed | Done, in-sample: alerts every day 6–14 Aug; a test checks that a 20-day collapse keeps alerting, and another pins where the alert stops |
-| R8 | Copilot answers only with numbers from queries; separates acquirer-side from issuer-side causes; refuses what the data cannot answer | Eval set: ≥ 90% overall, 4/4 guardrail questions | Met offline: 20/20 (run 6), 4/4 guardrails. Not met on Genie: 15/20 (75%) on the third benchmark run, after 13/20 and 14/20; 4/4 guardrails in every run ([evals/README.md](../evals/README.md)) |
+| R8 | Copilot answers only with numbers from queries; separates acquirer-side from issuer-side causes; refuses what the data cannot answer | Eval set: ≥ 90% overall, 4/4 guardrail questions | Met offline: 20/20 (run 6), 4/4 guardrails. Met on the Genie benchmark: 18/20 (90%) on the fourth run, after 13, 14 and 15; 4/4 guardrails in every run. On 14 held-out questions, run once: 11/14 (79%), 3/3 guardrails ([evals/README.md](../evals/README.md)) |
 | R9 | Read-only copilot | Refuses to modify or delete data | Covered by guardrail question D4 |
 | R10 | No cardholder data in the analytics layer | No card numbers (PAN), expiry dates, CVV or cardholder names in bronze, silver or gold; issuers and merchants are codes; users reach the gold tables and `silver_payments` only through read-only Unity Catalog grants | Done in the data model. Genie evaluates data access with each user's own Unity Catalog permissions, so analysts get SELECT on the 10 copilot tables and EXECUTE on the five functions, nothing else (a production step: Free Edition has one user; see the runbook, step 7) |
 
@@ -137,11 +137,12 @@ Full definitions, formulas and pitfalls: [metrics.md](metrics.md).
    specified, offline evaluation.
 2. **Phase 0b, done:** deployed on Databricks Free Edition (29 Oct 2026) and ran the same questions as a
    Genie benchmark: 13/20 on the first run.
-3. **Phase 0c, done:** tuned the Genie agent in two rounds, with functions, examples and descriptions as
-   well as instructions ([ADR-12](decisions.md)), each followed by the full benchmark: 14/20, then 15/20.
-4. **Phase 0d, next:** a dimension parameter on `fn_approval_drivers` for chat mode, a baseline across
-   acquirers in `fn_decline_shift`, a held-out question set, and the benchmark again. The pilot starts when
-   Genie meets R8.
+3. **Phase 0c, done:** tuned the Genie agent in three rounds, with functions, examples and descriptions as
+   well as instructions ([ADR-12](decisions.md)), each followed by the full benchmark: 14/20, 15/20, then 18/20.
+   The last round also ran 14 held-out questions once: 11/14.
+4. **Phase 0d, next:** fix the chat-mode gaps the held-out set found (a text "NULL" for an optional parameter,
+   comparisons without the gap), grow the held-out set and run it on every change. The pilot can start: R8 is
+   met on the benchmark, and the held-out score is the number to watch.
 5. **Phase 1, pilot (4 weeks):** first, 20-minute interviews with three analysts to confirm the jobs and
    today's time to diagnosis. Then three analysts on real data; measure time to diagnosis against the
    current process and keep a log of wrong or missing answers.

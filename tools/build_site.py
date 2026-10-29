@@ -164,6 +164,22 @@ def build():
         genie_findings.append(f"<div class=\"fix\"><div><h3>{html.escape(f['title'])}</h3><p>{html.escape(f['problem'])}</p></div>"
                               f"<p>{html.escape(f['change'])}</p></div>")
 
+    # held-out set: questions the agent was never tuned on, run once (evals/results/heldout_run4.json)
+    held = genie.get("heldout")
+    heldout_rows, heldout_intro = "", ""
+    if held:
+        hq = {q["id"]: q for q in json.load(open(os.path.join(ROOT, "evals", "heldout_set.json")))}
+        heldout_rows = "\n".join(
+            f'<tr><td class="mono">{qid}</td><td>{html.escape(q["question"])}</td><td>{CATEGORY[q["category"]]}</td>'
+            f'<td data-label="Mode" class="mode">{q["mode"]}</td><td data-label="G{genie_runs[-1]["run"]}" class="genie">{verdict_chip(held["verdicts"].get(qid))}</td></tr>'
+            for qid, q in hq.items())
+        g = held["by_group"]
+        heldout_intro = (f'{held["total"]} questions written after the last change to the agent and committed to the '
+                         f'repository before the run, then run once on the deployed agent: {held["passed"]} of '
+                         f'{held["total"]} passed (KPI lookups {g.get("kpi", "–")}, comparisons {g.get("comparison", "–")}, '
+                         f'diagnoses {g.get("diagnosis", "–")}, guardrails {g.get("guardrail", "–")}), graded by the same '
+                         f'judge and rules as the benchmark. {held.get("note", "")}').strip()
+
     answer = summary["showcase"]
     sql_html = "".join(f"<pre><code>{html.escape(s)}</code></pre>" for s in answer["queries"])
     case = dict(hourly_co_debit=data["hourly_co_debit"], cascade_b05=data["cascade_b05"], incident=data["incident"])
@@ -179,6 +195,11 @@ def build():
     for i, g in enumerate(genie_runs):  # the Genie runs start a row of their own
         score_html += (f'\n      <div class="cell genie{" g-first" if i == 0 else ""}" role="listitem"><span class="v">{g["passed"]}/{g["total"]}</span>'
                        f'<span class="l">{html.escape(g["label"])}</span></div>')
+    if genie.get("heldout"):
+        h = genie["heldout"]
+        score_html += (f'\n      <div class="cell genie" role="listitem"><span class="v">{h["passed"]}/{h["total"]}</span>'
+                       f'<span class="l">held-out questions, never used for tuning, run once on Genie run '
+                       f'{genie_runs[-1]["run"]}</span></div>')
     genie_last = genie_runs[-1]
     earlier = [str(passed[str(n)]) for n in run_ids[:-1]]
     earlier_passed = ", ".join(earlier[:-1]) + (" and " if len(earlier) > 1 else "") + earlier[-1]
@@ -196,7 +217,9 @@ def build():
                   genie_first=genie_runs[0]["passed"], genie_passed=genie_last["passed"],
                   genie_runs=len(genie_runs), genie_findings_html="\n".join(genie_findings),
                   genie_last_ordinal=ORDINAL[len(genie_runs)],
-                  genie_variants=genie_last.get("variants_passed", "")),
+                  genie_variants=genie_last.get("variants_passed", ""),
+                  heldout_rows_html=heldout_rows, heldout_intro=html.escape(heldout_intro),
+                  heldout_passed=held["passed"] if held else "", heldout_total=held["total"] if held else ""),
         answer=dict(question=html.escape(answer["question"]), html=md_to_html(answer["answer"]),
                     sql_html=sql_html, query_count=len(answer["queries"]),
                     run_label=html.escape(answer.get("run_label", "evaluation run"))),
