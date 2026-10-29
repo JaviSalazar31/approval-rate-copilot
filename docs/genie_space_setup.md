@@ -6,6 +6,10 @@ plus five Unity Catalog SQL functions that do the diagnostic math. Genie writes 
 answers from memory. Genie agents need a pro or serverless SQL warehouse; Free Edition provides a
 serverless one.
 
+To create it through the API instead, use `databricks/genie/approval_copilot_agent.json`: the serialized
+agent with everything on this page, generated from it by `tools/build_deploy_payloads.py` (runbook,
+"Alternative: deploy through the APIs").
+
 Menu names below follow the Databricks documentation as of October 2026
 ([set up](https://docs.databricks.com/aws/en/genie-agents/set-up),
 [tune quality](https://docs.databricks.com/aws/en/genie-agents/tune-quality)). If a label differs in
@@ -122,7 +126,7 @@ GROUP BY acquirer_id
 ORDER BY final_approval_rate DESC;
 
 -- Diagnose a window given in local time: who moved the rate
-SELECT * FROM workspace.approval_copilot.fn_approval_drivers('MX', TIMESTAMP'2026-07-06 00:00:00', TIMESTAMP'2026-07-13 00:00:00', 'debit')
+SELECT * FROM workspace.approval_copilot.fn_approval_drivers('MX', '2026-07-06 00:00:00', '2026-07-13 00:00:00', 'debit')
 ORDER BY abs(total_effect_pp) DESC
 LIMIT 10;
 ```

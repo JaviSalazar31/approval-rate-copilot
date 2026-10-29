@@ -110,6 +110,43 @@ Record the results in the "Databricks Genie run" table of [evals/README.md](../e
 
 Follow [demo_video_script.md](demo_video_script.md).
 
+## Alternative: deploy through the APIs
+
+The same deployment can run without the UI. That is how it was done on 29 October 2026: the Databricks console
+does not support automated browser control, so the agent that deployed it worked through the Databricks APIs,
+using the MCP server of the [AI Dev Kit](https://github.com/databricks-solutions/ai-dev-kit) on the author's
+computer.
+
+| Step | API route |
+|---|---|
+| 2 to 3. Schema, volume and data | Notebooks 00 and 01 as serverless runs; 01 needs environment version 4 |
+| 4. Pipeline | Pipelines API, with `databricks/pipeline/approval_copilot_pipeline.sql` as a workspace file and catalog `workspace`, schema `approval_copilot` |
+| 5. Functions and descriptions | Notebooks 04 and 05 as serverless runs |
+| 6. Dashboard | `databricks/dashboard/approval_health.lvdash.json` (Lakeview API) |
+| 7. Genie agent | `databricks/genie/approval_copilot_agent.json`: the serialized space (version 2) with the instructions, example SQL, functions, sample questions and the 20 benchmarks |
+| 8. Benchmarks | Chat mode: the benchmark evaluation API of the Genie agent. Its runs grade in chat mode only, so the agent-mode questions went to the Agent mode API (beta) and were graded with the offline judge ([evals/README.md](../evals/README.md)) |
+
+Both payloads are generated from the same sources as the manual setup (`python tools/build_deploy_payloads.py`),
+so the two paths build the same dashboard and agent. These are the REST calls the deployment made, here with the
+Databricks CLI and `jq` (the dataset queries use fully qualified names, so no default catalog is needed):
+
+```bash
+WAREHOUSE=<WAREHOUSE_ID>; FOLDER=/Workspace/Users/<you>/approval-rate-copilot
+databricks api post /api/2.0/lakeview/dashboards --json "$(jq -n --arg w "$WAREHOUSE" --arg p "$FOLDER" \
+  --rawfile d databricks/dashboard/approval_health.lvdash.json \
+  '{display_name: "Approval Health", warehouse_id: $w, parent_path: $p, serialized_dashboard: $d}')"
+databricks api post /api/2.0/lakeview/dashboards/<DASHBOARD_ID>/published \
+  --json "{\"embed_credentials\": true, \"warehouse_id\": \"$WAREHOUSE\"}"
+databricks api post /api/2.0/genie/spaces --json "$(jq -n --arg w "$WAREHOUSE" --arg p "$FOLDER" \
+  --rawfile s databricks/genie/approval_copilot_agent.json \
+  '{warehouse_id: $w, parent_path: $p, title: "Approval Rate Copilot", serialized_space: $s}')"
+```
+
+`<DASHBOARD_ID>` is the `dashboard_id` returned by the first call.
+
+The files that notebook 01 wrote in that run were checked against the local reference run: the 367 files match
+byte for byte.
+
 ## Troubleshooting
 
 | Symptom | Likely cause | Fix |

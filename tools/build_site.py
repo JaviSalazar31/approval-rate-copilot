@@ -108,7 +108,7 @@ def verdict_chip(v, mark=""):
 
 DOCS = [("PRD", "Problem, users, goals, requirements, rollout", "docs/PRD.md"),
         ("Metrics", "Metric tree, definitions and pitfalls", "docs/metrics.md"),
-        ("Decision log", "Ten decisions with their trade-offs", "docs/decisions.md"),
+        ("Decision log", "Eleven decisions with their trade-offs", "docs/decisions.md"),
         ("Postmortem INC-0814", "Timeline, root cause, action items", "docs/postmortem_INC-0814.md"),
         ("Evaluation", "Question set, rubric, all runs", "evals/README.md"),
         ("Data dictionary", "Every table and column", "docs/data_dictionary.md"),
@@ -134,6 +134,7 @@ def build():
     summary = json.load(open(os.path.join(ROOT, "evals", "results", "summary.json")))
     questions = {q["id"]: q for q in json.load(open(os.path.join(ROOT, "evals", "eval_set.json")))}
 
+    genie = summary["genie"]  # the deployed agent's benchmark run (evals/results/genie_run_*.json)
     rows, notes = [], []
     for item in summary["questions"]:
         q = questions[item["id"]]
@@ -145,13 +146,19 @@ def build():
                 notes.append(override["note"])
                 mark = "*" * len(notes)
             cells.append(f"<td data-label=\"Run {run[1:]}\">{verdict_chip(item.get(run), mark)}</td>")
+        cells.append(f"<td data-label=\"Genie\" class=\"genie\">{verdict_chip(genie['verdicts'][item['id']])}</td>")
         rows.append(f"<tr><td class=\"mono\">{item['id']}</td><td>{html.escape(q['question'])}</td>"
                     f"<td>{CATEGORY[q['category']]}</td>{''.join(cells)}</tr>")
     notes_html = "".join(f"<p class=\"table-note\">{'*' * (i + 1)} {html.escape(n)}</p>" for i, n in enumerate(notes))
+    notes_html += f"<p class=\"table-note\">{html.escape(genie['table_note'])}</p>"
     fixes = []
     for f in summary["fixes"]:
         fixes.append(f"<div class=\"fix\"><div><h3>{html.escape(f['title'])}</h3><p>{html.escape(f['problem'])}</p></div>"
                      f"<p>{html.escape(f['change'])}</p></div>")
+    genie_findings = []
+    for f in genie["findings"]:
+        genie_findings.append(f"<div class=\"fix\"><div><h3>{html.escape(f['title'])}</h3><p>{html.escape(f['problem'])}</p></div>"
+                              f"<p>{html.escape(f['next'])}</p></div>")
 
     answer = summary["showcase"]
     sql_html = "".join(f"<pre><code>{html.escape(s)}</code></pre>" for s in answer["queries"])
@@ -160,10 +167,13 @@ def build():
     run_ids = summary["runs"]
     passed = summary["passed"]
     labels = summary.get("run_labels", {})
-    head_html = "".join(f"<th>Run {n}</th>" for n in run_ids)
+    head_html = "".join(f"<th>Run {n}</th>" for n in run_ids) + "<th>Genie</th>"
     score_html = "\n".join(
         f'      <div class="cell" role="listitem"><span class="v">{passed[str(n)]}/{summary["total"]}</span>'
         f'<span class="l">{html.escape(labels.get(str(n), f"run {n}"))}</span></div>' for n in run_ids)
+    score_html += (f'\n      <div class="cell genie" role="listitem"><span class="v">{genie["passed"]}/{genie["total"]}</span>'
+                   f'<span class="l">on the deployed Genie agent, first run: chat mode {genie["chat"]["passed"]}/'
+                   f'{genie["chat"]["total"]}, agent mode {genie["agent"]["passed"]}/{genie["agent"]["total"]}</span></div>')
     earlier = [str(passed[str(n)]) for n in run_ids[:-1]]
     earlier_passed = ", ".join(earlier[:-1]) + (" and " if len(earlier) > 1 else "") + earlier[-1]
 
@@ -176,7 +186,8 @@ def build():
                   sql_ok=summary["sql_ok"], guardrails=summary["guardrails"],
                   head_html=head_html, score_html=score_html,
                   rows_html="\n".join(rows), notes_html=notes_html, fixes_html="\n".join(fixes),
-                  failure_modes=len(summary["fixes"])),
+                  failure_modes=len(summary["fixes"]),
+                  genie_passed=genie["passed"], genie_findings_html="\n".join(genie_findings)),
         answer=dict(question=html.escape(answer["question"]), html=md_to_html(answer["answer"]),
                     sql_html=sql_html, query_count=len(answer["queries"]),
                     run_label=html.escape(answer.get("run_label", "evaluation run"))),

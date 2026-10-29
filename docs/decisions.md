@@ -183,3 +183,21 @@ generator is documented, so anyone can see which effects were planted and check 
 copilot find them.
 
 **Cost.** Parameters are illustrative, not market statistics. A pilot on real data is the next step.
+
+---
+
+### ADR-11 · Window bounds as strings in the copilot functions
+
+**Decision.** The five copilot functions take the window start and end as strings in the local time of the
+country (`'2026-08-13 14:00:00'`) and convert them to timestamps inside the function.
+
+**Why.** Genie rejects attached functions with timestamp arguments. On the first deployment (29 Oct 2026)
+the agent failed every question with "certified answer argument type is not supported: timestamp", and an
+agent without its functions loses the diagnostic method (ADR-06).
+
+**Alternative.** String wrappers over the timestamp functions: rejected, because it doubles the functions to keep in step.
+
+**Cost.** The six lines of the context that show the signatures and one example query changed after run 6.
+All 111 SQL statements of run 6, re-run against the new signatures, return identical results, and the
+20 questions then ran on the deployed version as a Genie benchmark (ADR-09): 13 of 20, see
+`evals/README.md`.

@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Author | Javier Salazar (Senior Product Owner, payments) · personal project |
-| Status | v1 built on synthetic data, validated on local Spark and evaluated offline · Databricks deployment and pilot on real data not started |
+| Status | v1 built on synthetic data, evaluated offline and deployed on Databricks Free Edition (29 Oct 2026) · Genie benchmark 13/20 on the first run, below the R8 bar · pilot on real data not started |
 | Scope | Card payments of a fictional LATAM orchestrator: Mexico, Colombia, Brazil · Acquirers A, B, C |
 
 All figures below come from the synthetic dataset in this repository (90 days, 661k payment intents).
@@ -112,10 +112,10 @@ Full definitions, formulas and pitfalls: [metrics.md](metrics.md).
 | R2 | Remove webhook re-deliveries | One row per acquirer event | Done: 1,537 duplicates removed |
 | R3 | Map raw codes to canonical statuses with a versioned map | Each attempt keeps the map version used | Done: v2.2, v2.3, v2.3.1 |
 | R4 | Local business dates per country | MX UTC-6, CO UTC-5, BR UTC-3 | Done |
-| R5 | Dashboard "Approval Health" | KPIs, trends, hourly drill-down, decline reasons, cascade, funnel, cost vs approval, anomalies, change log, data quality | Specified ([dashboard_setup.md](dashboard_setup.md)); dataset queries validated on local Spark; to be built in Databricks |
+| R5 | Dashboard "Approval Health" | KPIs, trends, hourly drill-down, decline reasons, cascade, funnel, cost vs approval, anomalies, change log, data quality | Built on Databricks (29 Oct 2026) as specified in [dashboard_setup.md](dashboard_setup.md); the 42 queries behind its 21 widgets run without errors; layout review pending (with the demo recording) |
 | R6 | Anomaly detection on daily approval | Flags the 13 Aug drop; no false alarms in the 90 days | Done, in-sample: 1 flag in 540 country × card-type days, on the days the thresholds were tuned on. The 3-hour issuer outage of 21 Jul needs hourly detection |
 | R7 | Cascade alert | Fires on 6 Aug for Acquirer B, code 05, in Mexico and Colombia, and keeps firing every day until the map is fixed | Done, in-sample: alerts every day 6–14 Aug; a test checks that a 20-day collapse keeps alerting, and another pins where the alert stops |
-| R8 | Copilot answers only with numbers from queries; separates acquirer-side from issuer-side causes; refuses what the data cannot answer | Eval set: ≥ 90% overall, 4/4 guardrail questions | Met in the offline evaluation: 20/20 on the final context (run 6), 4/4 guardrails ([evals/README.md](../evals/README.md)); the Genie benchmark runs after deployment |
+| R8 | Copilot answers only with numbers from queries; separates acquirer-side from issuer-side causes; refuses what the data cannot answer | Eval set: ≥ 90% overall, 4/4 guardrail questions | Met offline: 20/20 (run 6), 4/4 guardrails. Not met on Genie: 13/20 (65%) on the first benchmark run, 4/4 guardrails ([evals/README.md](../evals/README.md)) |
 | R9 | Read-only copilot | Refuses to modify or delete data | Covered by guardrail question D4 |
 | R10 | No cardholder data in the analytics layer | No card numbers (PAN), expiry dates, CVV or cardholder names in bronze, silver or gold; issuers and merchants are codes; users reach the gold tables and `silver_payments` only through read-only Unity Catalog grants | Done in the data model. Genie evaluates data access with each user's own Unity Catalog permissions, so analysts get SELECT on the 10 copilot tables and EXECUTE on the five functions, nothing else (a production step: Free Edition has one user; see the runbook, step 7) |
 
@@ -135,15 +135,18 @@ Full definitions, formulas and pitfalls: [metrics.md](metrics.md).
 
 1. **Phase 0, done:** synthetic data, pipeline validated on local Spark, dashboard and Genie agent
    specified, offline evaluation.
-2. **Phase 0b, next:** deploy on Databricks Free Edition and run the same questions as a Genie benchmark.
-3. **Phase 1, pilot (4 weeks):** first, 20-minute interviews with three analysts to confirm the jobs and
+2. **Phase 0b, done:** deployed on Databricks Free Edition (29 Oct 2026) and ran the same questions as a
+   Genie benchmark: 13/20 on the first run.
+3. **Phase 0c, next:** tune the Genie agent on its seven failures, with examples and descriptions as well as
+   instructions, and run the benchmark again. The pilot starts when Genie meets R8.
+4. **Phase 1, pilot (4 weeks):** first, 20-minute interviews with three analysts to confirm the jobs and
    today's time to diagnosis. Then three analysts on real data; measure time to diagnosis against the
    current process and keep a log of wrong or missing answers.
    - Success: median time to a cause with evidence under 15 minutes; at least 8 of 10 answers judged
      correct by the analysts; all three use it every week.
    - Stop or rethink: fewer than 6 of 10 answers correct, or the analysts redo the SQL by hand anyway.
-4. **Phase 2:** hourly detection and alerts to the team channel; benchmark questions grow with every incident.
-5. **Phase 3:** routing-change guardrail: compare approved volume, not fees, in the first hours after a change,
+5. **Phase 2:** hourly detection and alerts to the team channel; benchmark questions grow with every incident.
+6. **Phase 3:** routing-change guardrail: compare approved volume, not fees, in the first hours after a change,
    and propose a rollback when the drop is significant.
 
 ## 9. Open questions

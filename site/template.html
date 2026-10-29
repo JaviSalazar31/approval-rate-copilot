@@ -264,6 +264,8 @@ details.data td, details.data th { padding: 0.3rem 0.8rem 0.3rem 0; font-size: 0
 .fix h3 { font-size: 1.05rem; }
 .fix p { font-size: 0.9375rem; color: var(--ink-2); }
 .table-note { margin-top: 0.7rem; max-width: 48rem; font-size: var(--step--1); color: var(--ink-2); }
+.score .cell.genie { border-top-color: var(--ink); }
+.eval-table th:last-child, .eval-table td.genie { border-left: 1px solid var(--rule); padding-left: 0.8rem; }
 .glossary { margin-top: 0.9rem; font-size: var(--step--1); color: var(--muted); line-height: 1.5; }
 .glossary b { color: var(--ink-2); font-weight: 600; }
 .stats-line { margin-top: 1.4rem; font-size: var(--step--1); color: var(--ink-2); }
@@ -304,7 +306,7 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
   /* evaluation table as one card per question: id + question on top, the run verdicts underneath */
   .eval-table thead { display: none; }
   .eval-table, .eval-table tbody { display: block; }
-  .eval-table tr { display: grid; grid-template-columns: 2.1rem repeat(6, max-content) 1fr; column-gap: 0.55rem; row-gap: 0.4rem; padding: 0.75rem 0; border-bottom: 1px solid var(--rule); }
+  .eval-table tr { display: grid; grid-template-columns: 2.1rem repeat(7, max-content) 1fr; column-gap: 0.55rem; row-gap: 0.4rem; padding: 0.75rem 0; border-bottom: 1px solid var(--rule); }
   .eval-table td { display: block; border: 0; padding: 0; }
   .eval-table td:nth-child(1) { grid-row: 1; grid-column: 1; }
   .eval-table td:nth-child(2) { grid-row: 1; grid-column: 2 / -1; min-width: 0; }
@@ -315,6 +317,8 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
   .eval-table td:nth-child(7) { grid-row: 2; grid-column: 5; }
   .eval-table td:nth-child(8) { grid-row: 2; grid-column: 6; }
   .eval-table td:nth-child(9) { grid-row: 2; grid-column: 7; }
+  .eval-table td:nth-child(10) { grid-row: 2; grid-column: 8; }
+  .eval-table td.genie { padding-left: 0; border-left: 0; }
   .eval-table td[data-label]::before { content: attr(data-label); display: block; font-size: 0.68rem; color: var(--muted); margin-bottom: 0.15rem; }
   /* on phones the verdict shows as its icon; the word stays available to screen readers */
   .eval-table .verdict .t { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
@@ -349,7 +353,7 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
       <div class="eyebrow">Payments product · Data · Generative AI</div>
       <h1>Approval Rate Copilot</h1>
       <p class="lede">An AI analyst for a payments team. Ask why card approvals dropped and it answers with the cause, the cost and the next step, using SQL anyone can check.</p>
-      <p class="sub">A personal product case with 100% synthetic data: a fictional payment orchestrator in Mexico, Colombia and Brazil, a pipeline that cleans four inconsistent data feeds, and a copilot and dashboard designed for Databricks Genie and AI/BI. Validated on local Spark and tested on {{eval.total}} questions before anyone relies on it.</p>
+      <p class="sub">A personal product case with 100% synthetic data: a fictional payment orchestrator in Mexico, Colombia and Brazil, a pipeline that cleans four inconsistent data feeds, and a copilot and dashboard built on Databricks Genie and AI/BI, deployed on Databricks Free Edition. Tested on {{eval.total}} questions, offline and on Genie, before anyone relies on it.</p>
       <div class="byline"><span><strong>Javier Salazar</strong>, Senior Product Owner, payments (LATAM)</span><span>October 2026</span><span>Personal project · 100% synthetic data</span></div>
     </div>
     <div aria-label="Summary of the copilot's diagnosis">
@@ -371,7 +375,7 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
     <div class="fact" role="listitem"><div class="v">1 in {{incident.one_in|int}}</div><div class="l">Colombian debit payments was an extra decline in the 22 hours after a routing change ({{incident.lost_approvals|int}} of {{incident.window_payments|int}} above the usual rate)</div></div>
     <div class="fact" role="listitem"><div class="v">{{incident.days_of_early_warning|int}} days</div><div class="l">of early warning: the retry alert flagged the hidden cause in its first daily run, on 7 Aug, but nobody owned it</div></div>
     <div class="fact" role="listitem"><div class="v">≈ USD {{incident.b05_lost_recoveries_usd|k0}}</div><div class="l">of approved volume lost over nine days while retries were switched off, mostly before the visible drop</div></div>
-    <div class="fact" role="listitem"><div class="v">{{eval.last_passed}}/{{eval.total}}</div><div class="l">evaluation questions passed on the final context ({{eval.earlier_passed}} in earlier runs); every failure is published with its fix</div></div>
+    <div class="fact" role="listitem"><div class="v">{{eval.genie_passed}}/{{eval.total}}</div><div class="l">benchmark questions passed by the deployed Genie agent on its first run, against {{eval.last_passed}}/{{eval.total}} offline with the same context; every failure is published</div></div>
   </div>
   <p class="glossary"><b>pp</b> percentage points · <b>bps</b> basis points (0.01%) · <b>acquirer</b> the bank or processor that takes card payments for the merchant · <b>issuer</b> the cardholder's bank · <b>cascade</b> retrying a declined payment on a second acquirer</p>
 
@@ -473,7 +477,7 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
     <div class="section-head">
       <div class="label">The copilot</div>
       <h2 id="h-copilot">One question, five checks</h2>
-      <p>The copilot is designed as a Databricks Genie agent on the gold tables; until it is deployed, Claude plays it with the same instructions, tables and functions. I designed the diagnostic method as five Unity Catalog SQL functions. The model decides what to check, runs the functions and, when it needs to, its own SQL, and explains the result; every query is shown under the answer.</p>
+      <p>The copilot is a Databricks Genie agent on the gold tables. I designed the diagnostic method as five Unity Catalog SQL functions. The model decides what to check, runs the functions and, when it needs to, its own SQL, and explains the result; every query is shown under the answer.</p>
     </div>
     <ol class="steps">
       <li><span class="n">1 · size</span><span class="q">How big is the drop?</span><code>fn_drop_impact</code><span class="d">Lost approvals and USD against a baseline period.</span></li>
@@ -494,6 +498,7 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
       <button type="button" class="more" id="answer-more" aria-controls="answer-wrap" aria-expanded="false">Show the full answer</button>
       <details class="data"><summary>Show the {{answer.query_count}} SQL queries it ran</summary><div class="sql-list">{{answer.sql_html}}</div></details>
     </div>
+    <p class="table-note">On the deployed Genie agent the same question found both causes, but sized the calendar day instead of the incident window: −7.3 points and 84 approvals instead of −10.9 and 110 (see the evaluation below).</p>
 
     <div class="guardrails" role="list">
       <div class="guardrail" role="listitem"><div class="gq">“Which real bank is issuer CO-ISS-03?”</div><div class="ga">Refuses to guess: issuers are fictional codes with no real bank behind them. Offers that issuer's approval history instead.</div></div>
@@ -508,7 +513,7 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
     <div class="section-head">
       <div class="label">Evaluation</div>
       <h2 id="h-eval">Tested before trusted</h2>
-      <p>{{eval.total}} questions in four groups, each with a scoring rule: 16 with ground-truth SQL, 4 guardrails with an expected behavior. A Claude model (Sonnet) played the copilot with exactly the instructions, tables and functions the Genie agent will get; a harness ran its SQL on the pipeline output, and a separate model (Claude Opus) graded every answer, including whether each number came from a query. Each run could read only its instructions and its own query results. Every answer, query and verdict is published in the repository.</p>
+      <p>{{eval.total}} questions in four groups, each with a scoring rule: 16 with ground-truth SQL, 4 guardrails with an expected behavior. A Claude model (Sonnet) played the copilot with exactly the instructions, tables and functions the Genie agent gets; a harness ran its SQL on the pipeline output, and a separate model (Claude Opus) graded every answer, including whether each number came from a query. Each run could read only its instructions and its own query results. Then the same questions ran on the deployed Genie agent (last column). Every answer, query and verdict is published in the repository.</p>
     </div>
     <div class="score" role="list">
 {{eval.score_html}}
@@ -524,7 +529,11 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
       <h3>What failed, and what I changed</h3>
       {{eval.fixes_html}}
     </div>
-    <p class="eval-limits"><b>Limits.</b> Twenty questions, one sample per question and run. Runs 2 to {{eval.last_run}} ask the same questions that drove the fixes, so they show the fixes work on these cases, not that they generalize. The model under test stands in for Genie. Next: a held-out question set, and the same benchmark on Genie inside Databricks.</p>
+    <div class="fixes">
+      <h3>On the deployed Genie agent: what failed, and what comes next</h3>
+      {{eval.genie_findings_html}}
+    </div>
+    <p class="eval-limits"><b>Limits.</b> Twenty questions, one sample per question and run. Runs 2 to {{eval.last_run}} ask the same questions that drove the fixes, so they show the fixes work on these cases, not that they generalize. The offline model stands in for Genie, and the Genie run shows the gap: {{eval.genie_passed}} of {{eval.total}} against {{eval.last_passed}} of {{eval.total}} on the same context. Next: the changes above, the benchmark again on Genie, then a held-out question set.</p>
   </section>
 
   <!-- ===================================================================================== -->
@@ -548,7 +557,7 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
     <div class="section-head">
       <div class="label">The system</div>
       <h2 id="h-system">From raw feeds to tables the copilot can trust</h2>
-      <p>Built for Databricks Free Edition: a Lakeflow pipeline, Unity Catalog SQL functions, an AI/BI dashboard and a Genie agent. The same SQL also runs on local Spark, which is how every number on this page was produced and checked.</p>
+      <p>Deployed on Databricks Free Edition on 29 October 2026: a Lakeflow pipeline, Unity Catalog SQL functions, an AI/BI dashboard and a Genie agent. The same SQL also runs on local Spark, where every number on this page was first produced; on Databricks the generated files match byte for byte and the pipeline quarantines the same {{headline.quarantined|int}} rows.</p>
     </div>
     <div class="flow">
       <div class="stage"><span class="k">Sources</span><span class="t">4 raw feeds + reference data</span><ul><li>Orchestrator log</li><li>Acquirers A, B, C: three formats</li><li>Routing rules, code map, change log</li></ul></div>
@@ -570,13 +579,13 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
     </div>
     <div class="next">
       <ol>
+        <li><strong>Close the gap on Genie, then a held-out question set:</strong> carry the rules Genie skipped in its examples and descriptions, run the benchmark again, and add questions the instructions were not tuned on.</li>
         <li><strong>Pilot on real data</strong> with three analysts for four weeks, after short interviews, measuring time to diagnosis against today's process.</li>
         <li><strong>Hourly detection</strong> on the busiest segments, so a 14:00 drop surfaces within hours instead of the next morning.</li>
-        <li><strong>A routing guardrail</strong> that ramps changes 10% → 50% → 100% and compares approved volume, not fee bps, at each step.</li>
       </ol>
       <ol start="4">
+        <li><strong>A routing guardrail</strong> that ramps changes 10% → 50% → 100% and compares approved volume, not fee bps, at each step.</li>
         <li><strong>Owners for alerts.</strong> In the scenario the retry alert fired nine days in a row and nobody acted: every alert needs a named owner and a runbook entry.</li>
-        <li><strong>The Genie benchmark and a held-out question set</strong>, so the score reflects Genie itself and questions the instructions were not tuned on.</li>
       </ol>
     </div>
   </section>

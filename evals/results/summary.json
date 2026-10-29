@@ -234,7 +234,7 @@
   "3": "after wording changes; one new failure mode",
   "4": "after a new rule and a fix to the retry alert",
   "5": "after fixing a stale table description",
-  "6": "final run, on the published context"
+  "6": "last offline run, before deployment"
  },
  "fixes": [
   {
@@ -268,7 +268,91 @@
    "WITH d AS (SELECT * FROM workspace.approval_copilot.fn_decline_shift('CO', TIMESTAMP'2026-08-13 14:00:00', TIMESTAMP'2026-08-14 12:10:00', 'debit')), c AS (SELECT * FROM workspace.approval_copilot.fn_cascade_health('CO', TIMESTAMP'2026-08-13 14:00:00', TIMESTAMP'2026-08-14 12:10:00', 'debit')) SELECT coalesce(d.acquirer_id, c.acquirer_id) AS acq, coalesce(d.reason_code, c.reason_code) AS code, d.reason AS reason, d.baseline_failures AS base_fail, d.window_failures AS win_fail, round(d.baseline_pct_of_payments, 2) AS base_pct, round(d.window_pct_of_payments, 2) AS win_pct, round(d.delta_pp, 2) AS delta_pp, c.baseline_cascade_rate AS base_cascade, c.window_cascade_rate AS win_cascade, c.baseline_recovery_rate AS base_recovery, c.window_recovery_rate AS win_recovery, c.baseline_mapped_as AS base_mapped, c.window_mapped_as AS win_mapped, c.window_mapping_versions AS win_versions FROM d FULL OUTER JOIN c ON d.acquirer_id = c.acquirer_id AND d.reason_code = c.reason_code ORDER BY coalesce(d.window_failures, c.window_failures, 0) DESC, acq, code",
    "SELECT acquirer_id, first_reason_code AS reason_code, first_mapping_version AS mapping_version, first_decline_type AS mapped_as, first_retryable AS retryable, sum(first_attempt_failures) AS failures, sum(cascaded) AS cascaded, round(sum(cascaded) / NULLIF(sum(first_attempt_failures), 0), 4) AS cascade_rate, sum(recovered) AS recovered, min(business_date) AS first_day, max(business_date) AS last_day, min(country) AS country_min, max(country) AS country_max, min(card_type) AS card_min, max(card_type) AS card_max FROM workspace.approval_copilot.gold_cascade_daily WHERE business_date < DATE'2026-08-13' AND first_decline_type <> 'none' AND (acquirer_id = 'B' OR first_reason_code = '05') GROUP BY acquirer_id, first_reason_code, first_mapping_version, first_decline_type, first_retryable ORDER BY acquirer_id, first_reason_code, first_mapping_version"
   ],
-  "run_label": "run 6: Claude Sonnet with the Genie agent's exact instructions, tables and functions"
+  "run_label": "run 6: Claude Sonnet with the Genie agent's instructions, tables and functions"
  },
- "links_note": ""
+ "links_note": "",
+ "genie": {
+  "date": "29 October 2026",
+  "passed": 13,
+  "total": 20,
+  "chat": {
+   "passed": 6,
+   "total": 10,
+   "genie_good": 5,
+   "genie_bad": 4,
+   "needs_review": 1
+  },
+  "agent": {
+   "passed": 7,
+   "total": 10,
+   "guardrails": "4/4"
+  },
+  "verdicts": {
+   "A1": "PASS",
+   "A2": "PASS",
+   "A3": "PASS",
+   "A4": "FAIL",
+   "A5": "PASS",
+   "A6": "PASS",
+   "B1": "FAIL",
+   "B2": "PASS",
+   "B3": "FAIL",
+   "B4": "PASS",
+   "B5": "PASS",
+   "B6": "FAIL",
+   "C1": "FAIL",
+   "C2": "PASS",
+   "C3": "FAIL",
+   "C4": "FAIL",
+   "D1": "PASS",
+   "D2": "PASS",
+   "D3": "PASS",
+   "D4": "PASS"
+  },
+  "modes": {
+   "A1": "chat",
+   "A2": "chat",
+   "A3": "chat",
+   "A4": "chat",
+   "A5": "chat",
+   "A6": "chat",
+   "B1": "agent",
+   "B2": "agent",
+   "B3": "chat",
+   "B4": "agent",
+   "B5": "agent",
+   "B6": "agent",
+   "C1": "chat",
+   "C2": "chat",
+   "C3": "agent",
+   "C4": "chat",
+   "D1": "agent",
+   "D2": "agent",
+   "D3": "agent",
+   "D4": "agent"
+  },
+  "findings": [
+   {
+    "title": "It sized the calendar day again",
+    "problem": "Asked why Colombian debit dropped on 13 August (B1), Genie found both causes and saw that the drop began at 14:00, then sized 13 August as a whole day: −7.3 points and 84 approvals instead of −10.9 and 110. In chat mode it sized B3 on whole days too. The instruction that fixed this in run 2 did not hold in Genie.",
+    "next": "Next: example SQL that finds an incident window in the hourly data and sizes it, on dates outside the benchmark, so the pattern sits in the agent's examples as well as in its text."
+   },
+   {
+    "title": "It claimed more than it had checked",
+    "problem": "Asked about an early warning (C3), Genie queried the retry alerts from 8 August and wrote that they started then, five days before the incident. They started on 6 August. This is the failure mode of run 3, and the rule added after it did not hold either.",
+    "next": "Next: example SQL that looks for the first alert from the start of the data, and the rule repeated in the description of the alert table."
+   },
+   {
+    "title": "It used the wrong table or metric",
+    "problem": "It averaged daily p95 latencies into a monthly figure (A4), and ranked issuers by joining hourly rows to a daily table, which measured whole days and put a foreign issuer first in a question about domestic cards (C4).",
+    "next": "Next: a column description that says daily p95 values cannot be averaged, and example SQL that ranks issuers inside a window with fn_approval_drivers."
+   },
+   {
+    "title": "It explained a recovery it had not checked",
+    "problem": "It found the risk rule behind the Brazilian conversion drop (B6), but called the recovery “self-corrected”. A logged change, risk rules v3.1 on 20 June, had tuned the rule.",
+    "next": "Next: a method step that checks the change log until the metric recovers, not only around the start of the drop."
+   }
+  ],
+  "table_note": "Genie: the deployed agent, 29 October 2026. A1–A6, B3, C1, C2 and C4 ran in chat mode and were graded by Genie's own benchmark grader, which compares result sets (A5, which it sent to manual review, was graded by hand). The other ten ran in agent mode and were graded by the same judge as the offline runs. C1 failed on the shape of its result: the right winner and gap, in one row instead of one row per acquirer."
+ }
 }

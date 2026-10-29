@@ -8,6 +8,10 @@ they run as they are in the dataset editor.
 
 Use a SQL warehouse in UTC (the default).
 
+To create it through the API instead, use `databricks/dashboard/approval_health.lvdash.json`, generated from
+these queries and this page by `tools/build_deploy_payloads.py` (runbook, "Alternative: deploy through the
+APIs"). Its counters write the filtered aggregations below with `CASE WHEN`, which gives the same result.
+
 ## Datasets
 
 | Dataset | Used by |

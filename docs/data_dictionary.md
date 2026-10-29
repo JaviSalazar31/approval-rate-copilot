@@ -434,31 +434,31 @@ Country time zones and currencies. Grain: one row per country.
 
 ## Copilot functions (Unity Catalog SQL table functions)
 
-### `fn_approval_drivers(p_country STRING, p_start_local TIMESTAMP, p_end_local TIMESTAMP, p_card_type STRING DEFAULT NULL, p_baseline_days INT DEFAULT 14)`
+### `fn_approval_drivers(p_country STRING, p_start_local STRING, p_end_local STRING, p_card_type STRING DEFAULT NULL, p_baseline_days INT DEFAULT 14)`
 
 Explains a change in final approval for a country (and card type) between a baseline and a window: contribution of each acquirer, issuer, card brand, 3DS, merchant segment and routing version, split into rate effect and mix effect, in percentage points. Domestic payments only.
 
 Returns: `dimension STRING, segment_value STRING, baseline_payments BIGINT, window_payments BIGINT, baseline_share DOUBLE, window_share DOUBLE, baseline_rate DOUBLE, window_rate DOUBLE, rate_effect_pp DOUBLE, mix_effect_pp DOUBLE, total_effect_pp DOUBLE, total_change_pp DOUBLE`
 
-### `fn_decline_shift(p_country STRING, p_start_local TIMESTAMP, p_end_local TIMESTAMP, p_card_type STRING DEFAULT NULL, p_baseline_days INT DEFAULT 14)`
+### `fn_decline_shift(p_country STRING, p_start_local STRING, p_end_local STRING, p_card_type STRING DEFAULT NULL, p_baseline_days INT DEFAULT 14)`
 
 First-attempt failure reasons per acquirer as % of payments, baseline vs window, to see which decline codes grew during a drop. Domestic payments only.
 
 Returns: `acquirer_id STRING, reason_code STRING, reason STRING, baseline_failures BIGINT, window_failures BIGINT, baseline_pct_of_payments DOUBLE, window_pct_of_payments DOUBLE, delta_pp DOUBLE`
 
-### `fn_cascade_health(p_country STRING, p_start_local TIMESTAMP, p_end_local TIMESTAMP, p_card_type STRING DEFAULT NULL, p_baseline_days INT DEFAULT 14)`
+### `fn_cascade_health(p_country STRING, p_start_local STRING, p_end_local STRING, p_card_type STRING DEFAULT NULL, p_baseline_days INT DEFAULT 14)`
 
 For failed first attempts: share retried on another acquirer (cascade), share recovered, and how the normalization map classified each reason (soft/hard) in baseline vs window. Domestic payments only.
 
 Returns: `acquirer_id STRING, reason_code STRING, baseline_failures BIGINT, baseline_cascade_rate DOUBLE, baseline_recovery_rate DOUBLE, baseline_mapped_as STRING, window_failures BIGINT, window_cascade_rate DOUBLE, window_recovery_rate DOUBLE, window_mapped_as STRING, window_mapping_versions STRING`
 
-### `fn_changes_near(p_country STRING, p_start_local TIMESTAMP, p_end_local TIMESTAMP, p_hours_before INT DEFAULT 72)`
+### `fn_changes_near(p_country STRING, p_start_local STRING, p_end_local STRING, p_hours_before INT DEFAULT 72)`
 
 Production changes (routing, risk, mapping, releases, partner notices) that affect a country, from N hours before a window until its end, with hours relative to the window start.
 
 Returns: `change_id STRING, changed_at_utc TIMESTAMP, changed_at_local TIMESTAMP, change_type STRING, scope STRING, description STRING, hours_from_window_start DOUBLE`
 
-### `fn_drop_impact(p_country STRING, p_start_local TIMESTAMP, p_end_local TIMESTAMP, p_card_type STRING DEFAULT NULL, p_baseline_days INT DEFAULT 14)`
+### `fn_drop_impact(p_country STRING, p_start_local STRING, p_end_local STRING, p_card_type STRING DEFAULT NULL, p_baseline_days INT DEFAULT 14)`
 
 Size of an approval drop versus the baseline rate: lost approvals, lost approved volume (USD) and fees paid in the window. Domestic payments only.
 

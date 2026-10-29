@@ -15,8 +15,8 @@ USE SCHEMA approval_copilot;
 
 CREATE OR REPLACE FUNCTION fn_approval_drivers(
   p_country STRING COMMENT 'Country code: MX, CO or BR',
-  p_start_local TIMESTAMP COMMENT 'Window start, in local time of the country',
-  p_end_local TIMESTAMP COMMENT 'Window end (exclusive), local time',
+  p_start_local STRING COMMENT 'Window start, local time of the country, as \'YYYY-MM-DD HH:MM:SS\'',
+  p_end_local STRING COMMENT 'Window end (exclusive), local time, as \'YYYY-MM-DD HH:MM:SS\'',
   p_card_type STRING DEFAULT NULL COMMENT 'credit, debit, or NULL for both',
   p_baseline_days INT DEFAULT 14 COMMENT 'Days before the window used as baseline'
 )
@@ -38,12 +38,12 @@ WITH scope AS (
 ),
 win AS (
   SELECT * FROM scope
-  WHERE created_ts_local >= p_start_local AND created_ts_local < p_end_local
+  WHERE created_ts_local >= CAST(p_start_local AS TIMESTAMP) AND created_ts_local < CAST(p_end_local AS TIMESTAMP)
 ),
 base AS (
   SELECT * FROM scope
-  WHERE created_ts_local >= timestampadd(DAY, -p_baseline_days, p_start_local)
-    AND created_ts_local < p_start_local
+  WHERE created_ts_local >= timestampadd(DAY, -p_baseline_days, CAST(p_start_local AS TIMESTAMP))
+    AND created_ts_local < CAST(p_start_local AS TIMESTAMP)
 ),
 long_win AS (
   SELECT
@@ -107,8 +107,8 @@ CROSS JOIN totals t;
 
 CREATE OR REPLACE FUNCTION fn_decline_shift(
   p_country STRING COMMENT 'Country code: MX, CO or BR',
-  p_start_local TIMESTAMP COMMENT 'Window start, local time',
-  p_end_local TIMESTAMP COMMENT 'Window end (exclusive), local time',
+  p_start_local STRING COMMENT 'Window start, local time, as \'YYYY-MM-DD HH:MM:SS\'',
+  p_end_local STRING COMMENT 'Window end (exclusive), local time, as \'YYYY-MM-DD HH:MM:SS\'',
   p_card_type STRING DEFAULT NULL COMMENT 'credit, debit, or NULL for both',
   p_baseline_days INT DEFAULT 14 COMMENT 'Days before the window used as baseline'
 )
@@ -126,12 +126,12 @@ WITH scope AS (
 ),
 win AS (
   SELECT * FROM scope
-  WHERE created_ts_local >= p_start_local AND created_ts_local < p_end_local
+  WHERE created_ts_local >= CAST(p_start_local AS TIMESTAMP) AND created_ts_local < CAST(p_end_local AS TIMESTAMP)
 ),
 base AS (
   SELECT * FROM scope
-  WHERE created_ts_local >= timestampadd(DAY, -p_baseline_days, p_start_local)
-    AND created_ts_local < p_start_local
+  WHERE created_ts_local >= timestampadd(DAY, -p_baseline_days, CAST(p_start_local AS TIMESTAMP))
+    AND created_ts_local < CAST(p_start_local AS TIMESTAMP)
 ),
 fw AS (
   SELECT first_acquirer_id AS acquirer_id, coalesce(first_iso_code, first_status) AS reason_code,
@@ -165,8 +165,8 @@ CROSS JOIN totals t;
 
 CREATE OR REPLACE FUNCTION fn_cascade_health(
   p_country STRING COMMENT 'Country code: MX, CO or BR',
-  p_start_local TIMESTAMP COMMENT 'Window start, local time',
-  p_end_local TIMESTAMP COMMENT 'Window end (exclusive), local time',
+  p_start_local STRING COMMENT 'Window start, local time, as \'YYYY-MM-DD HH:MM:SS\'',
+  p_end_local STRING COMMENT 'Window end (exclusive), local time, as \'YYYY-MM-DD HH:MM:SS\'',
   p_card_type STRING DEFAULT NULL COMMENT 'credit, debit, or NULL for both',
   p_baseline_days INT DEFAULT 14 COMMENT 'Days before the window used as baseline'
 )
@@ -186,12 +186,12 @@ WITH scope AS (
 ),
 win AS (
   SELECT * FROM scope
-  WHERE created_ts_local >= p_start_local AND created_ts_local < p_end_local
+  WHERE created_ts_local >= CAST(p_start_local AS TIMESTAMP) AND created_ts_local < CAST(p_end_local AS TIMESTAMP)
 ),
 base AS (
   SELECT * FROM scope
-  WHERE created_ts_local >= timestampadd(DAY, -p_baseline_days, p_start_local)
-    AND created_ts_local < p_start_local
+  WHERE created_ts_local >= timestampadd(DAY, -p_baseline_days, CAST(p_start_local AS TIMESTAMP))
+    AND created_ts_local < CAST(p_start_local AS TIMESTAMP)
 ),
 cw AS (
   SELECT first_acquirer_id AS acquirer_id, coalesce(first_iso_code, first_status) AS reason_code,
@@ -228,8 +228,8 @@ FULL OUTER JOIN cb b ON w.acquirer_id = b.acquirer_id AND w.reason_code = b.reas
 
 CREATE OR REPLACE FUNCTION fn_changes_near(
   p_country STRING COMMENT 'Country code: MX, CO or BR',
-  p_start_local TIMESTAMP COMMENT 'Window start, local time',
-  p_end_local TIMESTAMP COMMENT 'Window end (exclusive), local time',
+  p_start_local STRING COMMENT 'Window start, local time, as \'YYYY-MM-DD HH:MM:SS\'',
+  p_end_local STRING COMMENT 'Window end (exclusive), local time, as \'YYYY-MM-DD HH:MM:SS\'',
   p_hours_before INT DEFAULT 72 COMMENT 'How many hours before the window to include'
 )
 RETURNS TABLE (change_id STRING, changed_at_utc TIMESTAMP, changed_at_local TIMESTAMP, change_type STRING, scope STRING, description STRING, hours_from_window_start DOUBLE)
@@ -245,23 +245,27 @@ SELECT
   c.scope,
   c.description,
   round((unix_timestamp(from_utc_timestamp(c.changed_at_utc, tz.time_zone))
-         - unix_timestamp(p_start_local)) / 3600, 1) AS hours_from_window_start
+         - unix_timestamp(CAST(p_start_local AS TIMESTAMP))) / 3600, 1) AS hours_from_window_start
 FROM workspace.approval_copilot.ref_change_log c
 CROSS JOIN (SELECT time_zone FROM workspace.approval_copilot.ref_country_tz WHERE country = p_country) tz
+-- Acquirers that serve the country. A join, not an IN subquery: Unity Catalog cannot resolve a function
+-- parameter inside a subquery nested in a filter.
+LEFT JOIN (SELECT acquirer_id FROM workspace.approval_copilot.ref_acquirers
+           WHERE array_contains(split(countries, ','), p_country)) a
+  ON c.scope = a.acquirer_id
 WHERE (c.scope = 'ALL'
        OR array_contains(split(c.scope, ','), p_country)
-       OR c.scope IN (SELECT acquirer_id FROM workspace.approval_copilot.ref_acquirers
-                      WHERE array_contains(split(countries, ','), p_country)))
+       OR a.acquirer_id IS NOT NULL)
   AND from_utc_timestamp(c.changed_at_utc, tz.time_zone)
-        >= timestampadd(HOUR, -p_hours_before, p_start_local)
-  AND from_utc_timestamp(c.changed_at_utc, tz.time_zone) < p_end_local;
+        >= timestampadd(HOUR, -p_hours_before, CAST(p_start_local AS TIMESTAMP))
+  AND from_utc_timestamp(c.changed_at_utc, tz.time_zone) < CAST(p_end_local AS TIMESTAMP);
 
 -- COMMAND ----------
 
 CREATE OR REPLACE FUNCTION fn_drop_impact(
   p_country STRING COMMENT 'Country code: MX, CO or BR',
-  p_start_local TIMESTAMP COMMENT 'Window start, local time',
-  p_end_local TIMESTAMP COMMENT 'Window end (exclusive), local time',
+  p_start_local STRING COMMENT 'Window start, local time, as \'YYYY-MM-DD HH:MM:SS\'',
+  p_end_local STRING COMMENT 'Window end (exclusive), local time, as \'YYYY-MM-DD HH:MM:SS\'',
   p_card_type STRING DEFAULT NULL COMMENT 'credit, debit, or NULL for both',
   p_baseline_days INT DEFAULT 14 COMMENT 'Days before the window used as baseline'
 )
@@ -280,12 +284,12 @@ WITH scope AS (
 ),
 win AS (
   SELECT * FROM scope
-  WHERE created_ts_local >= p_start_local AND created_ts_local < p_end_local
+  WHERE created_ts_local >= CAST(p_start_local AS TIMESTAMP) AND created_ts_local < CAST(p_end_local AS TIMESTAMP)
 ),
 base AS (
   SELECT * FROM scope
-  WHERE created_ts_local >= timestampadd(DAY, -p_baseline_days, p_start_local)
-    AND created_ts_local < p_start_local
+  WHERE created_ts_local >= timestampadd(DAY, -p_baseline_days, CAST(p_start_local AS TIMESTAMP))
+    AND created_ts_local < CAST(p_start_local AS TIMESTAMP)
 ),
 w AS (
   SELECT count(*) AS payments, sum(CAST(final_approved AS INT)) AS approved,
@@ -319,4 +323,4 @@ FROM w CROSS JOIN b;
 -- COMMAND ----------
 
 -- Smoke test: should return one row (CO debit incident window, local time)
-SELECT * FROM fn_drop_impact('CO', TIMESTAMP'2026-08-13 14:00:00', TIMESTAMP'2026-08-14 12:10:00', 'debit');
+SELECT * FROM fn_drop_impact('CO', '2026-08-13 14:00:00', '2026-08-14 12:10:00', 'debit');

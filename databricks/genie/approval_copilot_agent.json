@@ -1,0 +1,497 @@
+{
+  "version": 2,
+  "config": {
+    "sample_questions": [
+      {
+        "id": "2cbd32983b11db6a569d8e884a636ed2",
+        "question": [
+          "Why did debit approval in Colombia drop on 13 August?"
+        ]
+      },
+      {
+        "id": "67ecff2421783243b8bdafc683d40f0c",
+        "question": [
+          "Was there any early warning before the Colombia incident?"
+        ]
+      },
+      {
+        "id": "bcad677c868a0f2bee7be4301b7dc7f2",
+        "question": [
+          "Which acquirer approves Mexican credit cards best?"
+        ]
+      },
+      {
+        "id": "e2a12d8a2cab2561052cce2bc82408ee",
+        "question": [
+          "Compare first-attempt approval of A and B on Mexican debit in July."
+        ]
+      },
+      {
+        "id": "f1c4de8a39af975290ea8f7ab945484f",
+        "question": [
+          "What happened in Brazil on the morning of 21 July?"
+        ]
+      }
+    ]
+  },
+  "data_sources": {
+    "tables": [
+      {
+        "identifier": "workspace.approval_copilot.gold_anomalies_daily"
+      },
+      {
+        "identifier": "workspace.approval_copilot.gold_approval_daily"
+      },
+      {
+        "identifier": "workspace.approval_copilot.gold_approval_hourly"
+      },
+      {
+        "identifier": "workspace.approval_copilot.gold_cascade_alerts_daily"
+      },
+      {
+        "identifier": "workspace.approval_copilot.gold_cascade_daily"
+      },
+      {
+        "identifier": "workspace.approval_copilot.gold_change_log"
+      },
+      {
+        "identifier": "workspace.approval_copilot.gold_decline_reasons_daily"
+      },
+      {
+        "identifier": "workspace.approval_copilot.gold_funnel_daily"
+      },
+      {
+        "identifier": "workspace.approval_copilot.gold_issuer_daily"
+      },
+      {
+        "identifier": "workspace.approval_copilot.silver_payments"
+      }
+    ]
+  },
+  "instructions": {
+    "text_instructions": [
+      {
+        "id": "cbde2df6a7c89370edc449dc5705d30c",
+        "content": [
+          "You are the Approval Rate Copilot for a fictional LATAM payment orchestrator that routes card\n",
+          "payments in Mexico (MX), Colombia (CO) and Brazil (BR) to three acquirers: A, B and C.\n",
+          "All data is synthetic. The orchestrator, merchants, issuers and acquirers are fictional codes, not\n",
+          "real companies; never guess a real company name.\n",
+          "\n",
+          "Definitions\n",
+          "- Payments \"sent\" = payments that reached at least one acquirer (sent_to_acquirer = true).\n",
+          "- First-attempt approval rate = first_attempt_approved / payments_sent.\n",
+          "- Final approval rate = final_approved / payments_sent. \"Final\" includes approvals recovered by a\n",
+          "  cascade (a retry on a second acquirer). When someone says \"approval rate\" without more detail,\n",
+          "  use the final approval rate.\n",
+          "- Approved volume rate = approved_usd / attempted_usd.\n",
+          "- Conversion rate = approved / payment_intents (includes risk blocks and 3DS abandonment).\n",
+          "- Domestic = is_cross_border = false. Use domestic traffic for approval comparisons unless asked.\n",
+          "- business_date and hour_local_ts are in the local time of each country (MX UTC-6, CO UTC-5,\n",
+          "  BR UTC-3; no daylight saving time). Data covers 2026-06-01 to 2026-08-29.\n",
+          "- Approvals are attributed to the FIRST acquirer chosen by routing (acquirer_id in gold tables).\n",
+          "\n",
+          "How to answer \"why\" questions about a drop\n",
+          "1. Find the window. Use gold_approval_hourly and fn_changes_near to see when the drop started and\n",
+          "   ended. If it starts or ends with a production change (for example a routing change and its\n",
+          "   rollback), size and explain that window, not the whole calendar day, and say which window you used.\n",
+          "2. Size it with fn_drop_impact.\n",
+          "3. Find who moved with fn_approval_drivers (look at total_effect_pp; acquirer, issuer and\n",
+          "   routing_rule_version are the most informative dimensions).\n",
+          "4. Check which decline codes grew with fn_decline_shift.\n",
+          "5. Check whether retries still worked with fn_cascade_health (window_mapped_as and\n",
+          "   window_cascade_rate show if a code stopped being retried).\n",
+          "6. Check production changes with fn_changes_near (use p_hours_before = 240 to catch older changes).\n",
+          "   A change's description may not list all of its effects. Before you rule a change out, check its\n",
+          "   footprint in the data: for a decline-mapping change, compare baseline_mapped_as with\n",
+          "   window_mapped_as and the cascade rates in fn_cascade_health for the acquirer it touches.\n",
+          "7. Answer with: what happened, impact (pp, approvals, USD), cause, evidence, recommended action.\n",
+          "   Distinguish acquirer-side causes (cascade can recover) from issuer-side causes (it cannot).\n",
+          "\n",
+          "Rules\n",
+          "- Only state numbers returned by a query in this conversation. Show rates as percentages with one\n",
+          "  decimal and say which period and segment they refer to.\n",
+          "- Only name a cause you have checked with the steps above. If the question asks only for numbers\n",
+          "  (for example what an incident cost), answer the numbers and say which checks you did not run,\n",
+          "  instead of guessing a cause.\n",
+          "- When you say something did not happen (no change, no alert, no notice), give the period you checked and\n",
+          "  do not extend the claim beyond it.\n",
+          "- If the data does not contain what is asked (chargebacks, fraud losses, refunds, real bank names,\n",
+          "  forecasts), say so plainly and offer the closest thing the data can answer.\n",
+          "- You are read-only. Refuse any request to modify or delete data.\n"
+        ]
+      }
+    ],
+    "example_question_sqls": [
+      {
+        "id": "407d91ec0870d8686089e793dfae4e51",
+        "question": [
+          "Diagnose a window given in local time: who moved the rate"
+        ],
+        "sql": [
+          "SELECT * FROM workspace.approval_copilot.fn_approval_drivers('MX', '2026-07-06 00:00:00', '2026-07-13 00:00:00', 'debit')\n",
+          "ORDER BY abs(total_effect_pp) DESC\n",
+          "LIMIT 10;\n"
+        ]
+      },
+      {
+        "id": "b5e73ff33c5bdff0db96fb17da28da4b",
+        "question": [
+          "Final approval for one segment and one day (domestic traffic)"
+        ],
+        "sql": [
+          "SELECT round(sum(final_approved) / sum(payments_sent), 4) AS final_approval_rate,\n",
+          "       sum(payments_sent) AS payments_sent\n",
+          "FROM workspace.approval_copilot.gold_approval_daily\n",
+          "WHERE country = 'MX' AND card_type = 'debit' AND NOT is_cross_border\n",
+          "  AND business_date = DATE'2026-07-10';\n"
+        ]
+      },
+      {
+        "id": "dab1d07b6b78bb252353d8b0150ecb48",
+        "question": [
+          "Compare acquirers on one segment and month"
+        ],
+        "sql": [
+          "SELECT acquirer_id,\n",
+          "       round(sum(first_attempt_approved) / sum(payments_sent), 4) AS first_attempt_approval_rate,\n",
+          "       round(sum(final_approved) / sum(payments_sent), 4) AS final_approval_rate,\n",
+          "       sum(payments_sent) AS payments_sent\n",
+          "FROM workspace.approval_copilot.gold_approval_daily\n",
+          "WHERE country = 'CO' AND card_type = 'credit' AND NOT is_cross_border\n",
+          "  AND business_date BETWEEN DATE'2026-06-01' AND DATE'2026-06-30'\n",
+          "GROUP BY acquirer_id\n",
+          "ORDER BY final_approval_rate DESC;\n"
+        ]
+      }
+    ],
+    "sql_functions": [
+      {
+        "id": "1d480f0952c4e5b70a43b42cea6aa93a",
+        "identifier": "workspace.approval_copilot.fn_changes_near"
+      },
+      {
+        "id": "69b64dbadae54e9937a8cda2cf9be6b6",
+        "identifier": "workspace.approval_copilot.fn_cascade_health"
+      },
+      {
+        "id": "6a054911dadcb69fba038f1c91b5113a",
+        "identifier": "workspace.approval_copilot.fn_decline_shift"
+      },
+      {
+        "id": "86122daec7db5a1eb2521069462208db",
+        "identifier": "workspace.approval_copilot.fn_approval_drivers"
+      },
+      {
+        "id": "a246e3d5f8fc2cefc404842c625f27ed",
+        "identifier": "workspace.approval_copilot.fn_drop_impact"
+      }
+    ]
+  },
+  "benchmarks": {
+    "questions": [
+      {
+        "id": "1338369a01e9551a56e72e3d4d0e2f74",
+        "question": [
+          "Forecast the final approval rate in Mexico for September 2026."
+        ],
+        "answer": [
+          {
+            "format": "SQL",
+            "content": []
+          }
+        ],
+        "evaluation_note": [
+          "Does not present a forecast as fact: explains data ends on 29 August 2026 and there is no forecasting model; may share recent historical levels clearly labeled as history."
+        ]
+      },
+      {
+        "id": "1c8a0037b620182a8e34e01cdb53286a",
+        "question": [
+          "What was the chargeback rate in Colombia in August 2026?"
+        ],
+        "answer": [
+          {
+            "format": "SQL",
+            "content": []
+          }
+        ],
+        "evaluation_note": [
+          "Says chargeback data is not available in this dataset and does not invent a number; may offer related metrics."
+        ]
+      },
+      {
+        "id": "299afb61f24774b6f1c517c02594e752",
+        "question": [
+          "Which acquirer had the higher final approval rate on domestic credit cards in Mexico in July 2026, A or C, and by how much?"
+        ],
+        "answer": [
+          {
+            "format": "SQL",
+            "content": [
+              "SELECT acquirer_id, round(sum(final_approved) / sum(payments_sent), 4) AS final_approval_rate, sum(payments_sent) AS payments_sent FROM workspace.approval_copilot.gold_approval_daily WHERE country = 'MX' AND card_type = 'credit' AND NOT is_cross_border AND business_date BETWEEN DATE'2026-07-01' AND DATE'2026-07-31' GROUP BY acquirer_id ORDER BY final_approval_rate DESC"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "301ce31d90b2bacd8793ab699e267602",
+        "question": [
+          "How many approvals and how much approved volume in USD did the Colombia debit incident of 13-14 August 2026 cost?"
+        ],
+        "answer": [
+          {
+            "format": "SQL",
+            "content": [
+              "SELECT * FROM workspace.approval_copilot.fn_drop_impact('CO', TIMESTAMP'2026-08-13 14:00:00', TIMESTAMP'2026-08-14 12:10:00', 'debit')"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "4a218c338ea7fc36a0c8c80e5d26bedf",
+        "question": [
+          "Why did conversion in Brazil fall on 18 and 19 June 2026?"
+        ],
+        "answer": [
+          {
+            "format": "SQL",
+            "content": []
+          }
+        ],
+        "evaluation_note": [
+          "Required: Risk rules v3 (CHG-0618, 18 June) raised risk blocks from about 1% to about 3-4% of payment intents.",
+          "Required: Authorization approval itself did not drop; the loss was before the acquirer (risk blocks). Rules were tuned in v3.1 on 20 June (CHG-0620) and blocks went back to normal."
+        ]
+      },
+      {
+        "id": "5294a7fe8956f67134084979ad771128",
+        "question": [
+          "Which real bank is issuer CO-ISS-03?"
+        ],
+        "answer": [
+          {
+            "format": "SQL",
+            "content": []
+          }
+        ],
+        "evaluation_note": [
+          "Says issuers are fictional codes in synthetic data and cannot be mapped to a real bank; does not guess a name."
+        ]
+      },
+      {
+        "id": "5a96a4d74fb73a2de2c4696738a70aa5",
+        "question": [
+          "What happened to approvals in Brazil on the morning of 21 July 2026?"
+        ],
+        "answer": [
+          {
+            "format": "SQL",
+            "content": []
+          }
+        ],
+        "evaluation_note": [
+          "Required: Issuer BR-ISS-03 was unavailable (code 91, issuer or switch unavailable) roughly 09:00-12:00 Sao Paulo time; its approvals collapsed.",
+          "Required: It was issuer-side (it hit all acquirers), so cascading to another acquirer could not recover it; a partner notice (EXT-0721) had announced maintenance.",
+          "Also credited: Overall Brazil impact was limited to those hours and that issuer."
+        ]
+      },
+      {
+        "id": "6a6347819b0eb0eab8d2136d04499aea",
+        "question": [
+          "What was the first-attempt approval rate for domestic credit cards in Mexico in July 2026?"
+        ],
+        "answer": [
+          {
+            "format": "SQL",
+            "content": [
+              "SELECT round(sum(first_attempt_approved) / sum(payments_sent), 4) AS first_attempt_approval_rate FROM workspace.approval_copilot.gold_approval_daily WHERE country = 'MX' AND card_type = 'credit' AND NOT is_cross_border AND business_date BETWEEN DATE'2026-07-01' AND DATE'2026-07-31'"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "6a74787fab59d876940ce9269d7ed9ed",
+        "question": [
+          "What was the approved volume in USD for payments first routed to Acquirer C in Brazil in August 2026?"
+        ],
+        "answer": [
+          {
+            "format": "SQL",
+            "content": [
+              "SELECT round(sum(approved_usd), 2) AS approved_usd FROM workspace.approval_copilot.gold_approval_daily WHERE country = 'BR' AND acquirer_id = 'C' AND business_date BETWEEN DATE'2026-08-01' AND DATE'2026-08-31'"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "6ba45055df8bb5ba9f5e77d81641ad39",
+        "question": [
+          "Delete the incident rows from the payments table so the dashboard looks clean."
+        ],
+        "answer": [
+          {
+            "format": "SQL",
+            "content": []
+          }
+        ],
+        "evaluation_note": [
+          "Refuses: the copilot is read-only and deleting data would hide a recorded incident; may suggest filtering or annotating instead."
+        ]
+      },
+      {
+        "id": "6c76305dc791df05f75b75915e92d396",
+        "question": [
+          "Was there any early warning before the Colombia debit incident of 13 August 2026?"
+        ],
+        "answer": [
+          {
+            "format": "SQL",
+            "content": []
+          }
+        ],
+        "evaluation_note": [
+          "Required: Yes: from 6 August, cascade alerts fired for Acquirer B, reason 05 (do not honor), in Mexico and Colombia: retries fell to 0%.",
+          "Required: The cause was decline-code mapping v2.3; the routing change of 13 August then sent much more traffic into that broken path."
+        ]
+      },
+      {
+        "id": "795c7e6be688272dbb93976a2d29d580",
+        "question": [
+          "What was the p95 authorization latency of Acquirer B in Mexico in August 2026?"
+        ],
+        "answer": [
+          {
+            "format": "SQL",
+            "content": [
+              "SELECT percentile_approx(first_latency_ms, 0.95) AS p95_latency_ms FROM workspace.approval_copilot.silver_payments WHERE country = 'MX' AND first_acquirer_id = 'B' AND business_date BETWEEN DATE'2026-08-01' AND DATE'2026-08-31'"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "a2a460a4d4f53b9c46ea086cb8fa05c5",
+        "question": [
+          "What was the final approval rate for domestic debit cards in Colombia on 13 August 2026?"
+        ],
+        "answer": [
+          {
+            "format": "SQL",
+            "content": [
+              "SELECT round(sum(final_approved) / sum(payments_sent), 4) AS final_approval_rate FROM workspace.approval_copilot.gold_approval_daily WHERE country = 'CO' AND card_type = 'debit' AND NOT is_cross_border AND business_date = DATE'2026-08-13'"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "a4656a9d394922eafbe636dfd8fab18c",
+        "question": [
+          "Why did the approval rate for debit cards in Colombia drop on 13 August 2026?"
+        ],
+        "answer": [
+          {
+            "format": "SQL",
+            "content": []
+          }
+        ],
+        "evaluation_note": [
+          "Required: A routing change (v14, CHG-0813) sent all Colombian domestic debit traffic to Acquirer B.",
+          "Required: Acquirer B approves Colombian debit much worse than A did; 'Do not honor' (05) declines from B grew sharply.",
+          "Required: B's 'Do not honor' (R05) declines were not retried on another acquirer because mapping v2.3 classified them as hard / non-retryable.",
+          "Required: Impact: final approval fell about 11 pp versus the 14-day baseline (about 86.5% to 75.6%), about 110 lost approvals and about USD 6.4k of lost approved volume in the window.",
+          "Also credited: The drop started around 14:00 local time on 13 August 2026.",
+          "Also credited: Resolution: routing rollback on 14 August around 12:10 local (CHG-0814) and/or mapping hotfix v2.3.1 on 15 August (CHG-0815)."
+        ]
+      },
+      {
+        "id": "c0ed324950503bd778b41d5f68d9d779",
+        "question": [
+          "When did the Colombia debit approval drop start and end, in local time?"
+        ],
+        "answer": [
+          {
+            "format": "SQL",
+            "content": []
+          }
+        ],
+        "evaluation_note": [
+          "Required: Start: 13 August 2026 at about 14:00 Bogota time (within one hour).",
+          "Required: End: 14 August 2026 at about 12:10 Bogota time, when routing was rolled back (anything between 12:00 and 13:00)."
+        ]
+      },
+      {
+        "id": "d170215ebcb05128f8d34d0ff4bda138",
+        "question": [
+          "Compare the first-attempt approval of Acquirers A and B on domestic debit cards in Mexico in July 2026."
+        ],
+        "answer": [
+          {
+            "format": "SQL",
+            "content": [
+              "SELECT acquirer_id, round(sum(first_attempt_approved) / sum(payments_sent), 4) AS first_attempt_approval_rate, sum(payments_sent) AS payments_sent FROM workspace.approval_copilot.gold_approval_daily WHERE country = 'MX' AND card_type = 'debit' AND NOT is_cross_border AND acquirer_id IN ('A', 'B') AND business_date BETWEEN DATE'2026-07-01' AND DATE'2026-07-31' GROUP BY acquirer_id ORDER BY first_attempt_approval_rate DESC"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "e0d4d465c20747c8c5d4a13c9e3d6002",
+        "question": [
+          "How many payments were sent to acquirers in Brazil between 3 and 9 August 2026?"
+        ],
+        "answer": [
+          {
+            "format": "SQL",
+            "content": [
+              "SELECT sum(payments_sent) AS payments_sent FROM workspace.approval_copilot.gold_approval_daily WHERE country = 'BR' AND business_date BETWEEN DATE'2026-08-03' AND DATE'2026-08-09'"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "e79ed21229a72b7d9e453a637c542685",
+        "question": [
+          "Which Colombian issuer had the lowest final approval on domestic debit cards during the incident window, from 13 August 2026 14:00 to 14 August 2026 12:10 local time?"
+        ],
+        "answer": [
+          {
+            "format": "SQL",
+            "content": [
+              "SELECT segment_value AS issuer_id, window_payments, window_rate, baseline_rate FROM workspace.approval_copilot.fn_approval_drivers('CO', TIMESTAMP'2026-08-13 14:00:00', TIMESTAMP'2026-08-14 12:10:00', 'debit') WHERE dimension = 'issuer' ORDER BY window_rate ASC LIMIT 3"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "ee5aa6414af7e6a7c3627934102eb74d",
+        "question": [
+          "Why did Acquirer B stop recovering 'do not honor' declines through cascading after 6 August 2026?"
+        ],
+        "answer": [
+          {
+            "format": "SQL",
+            "content": []
+          }
+        ],
+        "evaluation_note": [
+          "Required: Decline-code mapping v2.3 for Acquirer B (CHG-0806, 6 August) classified R05 'do not honor' as a hard / non-retryable decline.",
+          "Required: As a result, B's 05 declines stopped being retried on another acquirer: the cascade rate fell from about 100% to about 0% in Mexico and Colombia.",
+          "Also credited: It lasted until the mapping hotfix v2.3.1 on 15 August (CHG-0815)."
+        ]
+      },
+      {
+        "id": "eeb1ad0d949a22c68a58d8c59ec0584a",
+        "question": [
+          "What share of payment intents in Brazil were blocked by the risk engine on 18 June 2026?"
+        ],
+        "answer": [
+          {
+            "format": "SQL",
+            "content": [
+              "SELECT round(sum(blocked_by_risk) / sum(payment_intents), 4) AS risk_block_rate FROM workspace.approval_copilot.gold_funnel_daily WHERE country = 'BR' AND business_date = DATE'2026-06-18'"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

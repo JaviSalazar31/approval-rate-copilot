@@ -137,8 +137,8 @@ FUNCTIONS = [
                  "contribution of each acquirer, issuer, card brand, 3DS, merchant segment and routing version, "
                  "split into rate effect and mix effect, in percentage points. Domestic payments only.",
          params=[("p_country", "STRING", None, "Country code: MX, CO or BR"),
-                 ("p_start_local", "TIMESTAMP", None, "Window start, in local time of the country"),
-                 ("p_end_local", "TIMESTAMP", None, "Window end (exclusive), local time"),
+                 ("p_start_local", "STRING", None, "Window start, local time of the country, as 'YYYY-MM-DD HH:MM:SS'"),
+                 ("p_end_local", "STRING", None, "Window end (exclusive), local time, as 'YYYY-MM-DD HH:MM:SS'"),
                  ("p_card_type", "STRING", "NULL", "credit, debit, or NULL for both"),
                  ("p_baseline_days", "INT", "14", "Days before the window used as baseline")],
          returns="dimension STRING, segment_value STRING, baseline_payments BIGINT, window_payments BIGINT, "
@@ -148,8 +148,8 @@ FUNCTIONS = [
          comment="First-attempt failure reasons per acquirer as % of payments, baseline vs window, to see which "
                  "decline codes grew during a drop. Domestic payments only.",
          params=[("p_country", "STRING", None, "Country code: MX, CO or BR"),
-                 ("p_start_local", "TIMESTAMP", None, "Window start, local time"),
-                 ("p_end_local", "TIMESTAMP", None, "Window end (exclusive), local time"),
+                 ("p_start_local", "STRING", None, "Window start, local time, as 'YYYY-MM-DD HH:MM:SS'"),
+                 ("p_end_local", "STRING", None, "Window end (exclusive), local time, as 'YYYY-MM-DD HH:MM:SS'"),
                  ("p_card_type", "STRING", "NULL", "credit, debit, or NULL for both"),
                  ("p_baseline_days", "INT", "14", "Days before the window used as baseline")],
          returns="acquirer_id STRING, reason_code STRING, reason STRING, baseline_failures BIGINT, window_failures BIGINT, "
@@ -159,8 +159,8 @@ FUNCTIONS = [
                  "the normalization map classified each reason (soft/hard) in baseline vs window. Domestic "
                  "payments only.",
          params=[("p_country", "STRING", None, "Country code: MX, CO or BR"),
-                 ("p_start_local", "TIMESTAMP", None, "Window start, local time"),
-                 ("p_end_local", "TIMESTAMP", None, "Window end (exclusive), local time"),
+                 ("p_start_local", "STRING", None, "Window start, local time, as 'YYYY-MM-DD HH:MM:SS'"),
+                 ("p_end_local", "STRING", None, "Window end (exclusive), local time, as 'YYYY-MM-DD HH:MM:SS'"),
                  ("p_card_type", "STRING", "NULL", "credit, debit, or NULL for both"),
                  ("p_baseline_days", "INT", "14", "Days before the window used as baseline")],
          returns="acquirer_id STRING, reason_code STRING, baseline_failures BIGINT, baseline_cascade_rate DOUBLE, "
@@ -171,8 +171,8 @@ FUNCTIONS = [
          comment="Production changes (routing, risk, mapping, releases, partner notices) that affect a country, "
                  "from N hours before a window until its end, with hours relative to the window start.",
          params=[("p_country", "STRING", None, "Country code: MX, CO or BR"),
-                 ("p_start_local", "TIMESTAMP", None, "Window start, local time"),
-                 ("p_end_local", "TIMESTAMP", None, "Window end (exclusive), local time"),
+                 ("p_start_local", "STRING", None, "Window start, local time, as 'YYYY-MM-DD HH:MM:SS'"),
+                 ("p_end_local", "STRING", None, "Window end (exclusive), local time, as 'YYYY-MM-DD HH:MM:SS'"),
                  ("p_hours_before", "INT", "72", "How many hours before the window to include")],
          returns="change_id STRING, changed_at_utc TIMESTAMP, changed_at_local TIMESTAMP, change_type STRING, "
                  "scope STRING, description STRING, hours_from_window_start DOUBLE"),
@@ -180,8 +180,8 @@ FUNCTIONS = [
          comment="Size of an approval drop versus the baseline rate: lost approvals, lost approved volume (USD) "
                  "and fees paid in the window. Domestic payments only.",
          params=[("p_country", "STRING", None, "Country code: MX, CO or BR"),
-                 ("p_start_local", "TIMESTAMP", None, "Window start, local time"),
-                 ("p_end_local", "TIMESTAMP", None, "Window end (exclusive), local time"),
+                 ("p_start_local", "STRING", None, "Window start, local time, as 'YYYY-MM-DD HH:MM:SS'"),
+                 ("p_end_local", "STRING", None, "Window end (exclusive), local time, as 'YYYY-MM-DD HH:MM:SS'"),
                  ("p_card_type", "STRING", "NULL", "credit, debit, or NULL for both"),
                  ("p_baseline_days", "INT", "14", "Days before the window used as baseline")],
          returns="window_payments BIGINT, baseline_payments BIGINT, baseline_first_attempt_rate DOUBLE, "
@@ -190,6 +190,15 @@ FUNCTIONS = [
                  "lost_approvals DOUBLE, window_attempted_usd DOUBLE, window_approved_usd DOUBLE, "
                  "lost_approved_usd DOUBLE, window_fees_usd DOUBLE"),
 ]
+
+
+# Genie does not accept TIMESTAMP arguments in attached functions ("certified answer argument type is not
+# supported: timestamp"), so the window bounds are strings in local time, converted where the body uses them.
+TIMESTAMP_TEXT = {"p_start_local", "p_end_local"}
+
+
+def param_sql(name):
+    return f"CAST({name} AS TIMESTAMP)" if name in TIMESTAMP_TEXT else name
 
 
 def build_functions():
@@ -203,7 +212,7 @@ def build_functions():
     for f in FUNCTIONS:
         body = open(os.path.join(ROOT, "sql", "copilot", f"{f['name']}.sql")).read().strip().rstrip(";")
         body = body.replace("{schema}", f"{CATALOG}.{SCHEMA}.")
-        body = re.sub(r"\$\{(p_[a-z_]+)\}", lambda m: m.group(1), body)
+        body = re.sub(r"\$\{(p_[a-z_]+)\}", lambda m: param_sql(m.group(1)), body)
         params = []
         for n, t, d, c in f["params"]:
             p = f"  {n} {t}"
@@ -214,7 +223,7 @@ def build_functions():
         out.append(f"{CELL}CREATE OR REPLACE FUNCTION {f['name']}(\n" + ",\n".join(params) +
                    f"\n)\nRETURNS TABLE ({f['returns']})\nCOMMENT '{sql_str(f['comment'])}'\nRETURN\n{body};\n")
     out.append(f"{CELL}-- Smoke test: should return one row (CO debit incident window, local time)\n"
-               "SELECT * FROM fn_drop_impact('CO', TIMESTAMP'2026-08-13 14:00:00', TIMESTAMP'2026-08-14 12:10:00', 'debit');\n")
+               "SELECT * FROM fn_drop_impact('CO', '2026-08-13 14:00:00', '2026-08-14 12:10:00', 'debit');\n")
     return "".join(out)
 
 
