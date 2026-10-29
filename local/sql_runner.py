@@ -10,7 +10,7 @@ import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
-from build_databricks import FUNCTIONS  # noqa: E402
+from build_databricks import FUNCTIONS, TIMESTAMP_TEXT  # noqa: E402
 
 SPEC = {f["name"]: f["params"] for f in FUNCTIONS}
 CAST_BY_TYPE = {"TIMESTAMP": "TIMESTAMP", "INT": "INT", "STRING": "STRING"}
@@ -61,6 +61,8 @@ def _render_function(name, raw_args):
         if expr is None:
             raise ValueError(f"{name}: missing argument {pname}")
         rendered[pname] = f"CAST({expr} AS {CAST_BY_TYPE[ptype]})"
+        if pname in TIMESTAMP_TEXT:  # declared STRING, converted inside the function as in Unity Catalog
+            rendered[pname] = f"CAST({rendered[pname]} AS TIMESTAMP)"
     body = open(os.path.join(ROOT, "sql", "copilot", f"{name}.sql")).read().replace("{schema}", "")
     body = re.sub(r"--[^\n]*", "", body)
     return re.sub(r"\$\{(p_[a-z_]+)\}", lambda m: rendered[m.group(1)], body)

@@ -11,10 +11,14 @@ SELECT
          - unix_timestamp(${p_start_local})) / 3600, 1) AS hours_from_window_start
 FROM {schema}ref_change_log c
 CROSS JOIN (SELECT time_zone FROM {schema}ref_country_tz WHERE country = ${p_country}) tz
+-- Acquirers that serve the country. A join, not an IN subquery: Unity Catalog cannot resolve a function
+-- parameter inside a subquery nested in a filter.
+LEFT JOIN (SELECT acquirer_id FROM {schema}ref_acquirers
+           WHERE array_contains(split(countries, ','), ${p_country})) a
+  ON c.scope = a.acquirer_id
 WHERE (c.scope = 'ALL'
        OR array_contains(split(c.scope, ','), ${p_country})
-       OR c.scope IN (SELECT acquirer_id FROM {schema}ref_acquirers
-                      WHERE array_contains(split(countries, ','), ${p_country})))
+       OR a.acquirer_id IS NOT NULL)
   AND from_utc_timestamp(c.changed_at_utc, tz.time_zone)
         >= timestampadd(HOUR, -${p_hours_before}, ${p_start_local})
   AND from_utc_timestamp(c.changed_at_utc, tz.time_zone) < ${p_end_local}

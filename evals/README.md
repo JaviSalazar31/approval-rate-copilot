@@ -49,10 +49,12 @@ with a capable model; Genie's own benchmark feature runs the same questions insi
 | 3 | [`results/run3_model_context.md`](results/run3_model_context.md): four wording changes | 19 / 20 | 111 / 111 | 4 / 4 |
 | 4 | [`results/run4_model_context.md`](results/run4_model_context.md): a new rule, and the retry alert's new baseline | 20 / 20 | 110 / 110 | 4 / 4 |
 | 5 | [`results/run5_model_context.md`](results/run5_model_context.md): a stale table description fixed | 20 / 20 | 105 / 105 | 4 / 4 |
-| 6 | [`results/run6_model_context.md`](results/run6_model_context.md): ten table and function descriptions clarified; the final context, identical to [`model_context.md`](model_context.md) | 20 / 20 | 111 / 111 | 4 / 4 |
+| 6 | [`results/run6_model_context.md`](results/run6_model_context.md): ten table and function descriptions clarified; the last offline run (the deployed context differs in six lines, see "Deployment on Databricks") | 20 / 20 | 111 / 111 | 4 / 4 |
+| Genie | [`model_context.md`](model_context.md), deployed as a Genie agent on Databricks (29 Oct 2026) | 13 / 20 | 45 / 45 | 4 / 4 |
 
 Per-question answers, the SQL each run wrote and the judge's notes: [`results/run1.json`](results/run1.json)
-to [`results/run6.json`](results/run6.json).
+to [`results/run6.json`](results/run6.json), and for Genie
+[`results/genie_run_2026-10-29.json`](results/genie_run_2026-10-29.json).
 
 **Overruled verdict (run 1, B1).** The judge passed it. I count it as a failure: the scoring rule asks for
 the impact of the incident window, and the answer sized the calendar day (−7.1 pp and 82 approvals instead
@@ -167,15 +169,93 @@ judge noted only minor imprecisions, none material. B1 gives the hourly range on
 only, and C3 sized the incident on whole hours, to 12:00 instead of 12:10 (108 lost approvals instead of
 110), and said so. Runs 4 to 6 all passed 20 of 20.
 
-### Databricks Genie run
+### Deployment on Databricks (29 October 2026)
 
-Not run yet: the benchmark follows the deployment (`docs/runbook_databricks.md`, step 8). Results go here,
-split by mode as in `docs/genie_space_setup.md`, section 5.
+The deployment on Databricks Free Edition found two problems that the local harness could not see: it
+inlines each function body with literal arguments instead of creating the function in Unity Catalog.
 
-| Mode | Questions | Good | Bad | Manual review |
+- **`fn_changes_near` could not be created.** Unity Catalog does not resolve a function parameter inside a
+  subquery nested in a filter (`scope IN (SELECT … WHERE … p_country)`). The subquery became a join; five
+  test windows return the same rows as before.
+- **Genie rejected the agent.** Every question failed with "certified answer argument type is not
+  supported: timestamp": functions attached to a Genie agent cannot take timestamp arguments. The window
+  bounds are now strings in local time, converted inside the functions
+  ([ADR-11](../docs/decisions.md)).
+
+The second fix changed six lines of the context after run 6: the five function signatures and one example
+query. All 111 SQL statements of run 6, re-run against the new signatures, return identical results. As
+ADR-09 requires, the 20 questions then ran on the deployed version, as Genie benchmarks (next section); the
+offline evaluation was not repeated.
+
+Other checks of the deployment:
+
+- the 367 files written by notebook 01 match the local reference run byte for byte;
+- the pipeline built the 27 datasets and dropped the same 776 rows;
+- the five function bodies in Unity Catalog match the repository;
+- every column of the ten copilot tables has a description;
+- the smoke test returns 1,004 window payments and 110 lost approvals;
+- the 42 queries behind the 21 widgets of the dashboard run without errors (its layout is checked when the
+  demo is recorded).
+
+### Databricks Genie run (29 October 2026)
+
+The 20 questions ran on the deployed Genie agent, split by mode as in `docs/genie_space_setup.md`, section 5.
+
+- **Chat mode** (A1–A6, B3, C1, C2, C4) ran as a Genie benchmark through the API and was graded by Genie's
+  own grader, which compares the result of Genie's SQL with the result of the reference query (`gold_sql`).
+  The grader sent one question to manual review; I graded it with its scoring rule.
+- **Agent mode** (B1, B2, B4, B5, B6, C3, D1–D4). Benchmark runs through the API grade in chat mode only,
+  and the Databricks console does not support automated browser control, so these questions went to Genie's
+  Agent mode API (beta), one conversation each. The offline judge (Claude Opus) graded the answers with the
+  same scoring rules, against the ground truth and the query results Genie saw.
+
+| Mode | Questions | Passed | Failed | Graded by |
 |---|---|---|---|---|
-| Chat | A1–A6, B3, C1, C2, C4 (10) | – | – | – |
-| Agent | B1, B2, B4, B5, B6, C3, D1–D4 (10) | – | – | – |
+| Chat | A1–A6, B3, C1, C2, C4 (10) | 6 | 4: A4, B3, C1, C4 | Genie's grader (5 good, 4 bad); A5, sent to manual review, by hand |
+| Agent | B1, B2, B4, B5, B6, C3, D1–D4 (10) | 7 | 3: B1, B6, C3 | Claude Opus, with the offline scoring rules |
+| **Total** | 20 | **13** | 7 | |
+
+All 45 SQL statements Genie wrote returned results, and the four guardrails passed. No verdict was
+overruled. Answers, SQL, results and verdicts:
+[`results/genie_run_2026-10-29.json`](results/genie_run_2026-10-29.json).
+
+### What the Genie run found
+
+Genie named the right cause in all four diagnoses that ask for one (B1, B4, B5, B6), yet it passed 13 of
+20 questions, against 20 of 20 for the offline model with the same context. The failures fall into four
+patterns, and the first two are failure modes the offline runs had already found and fixed with
+instructions:
+
+- **It sized the calendar day again (B1, and B3 in chat mode).** B1 found both causes and wrote that the
+  drop started at 14:00, then sized 13 August as a whole day against a 28-day baseline: −7.3 pp and 84 lost
+  approvals, against −10.9 pp and 110 in the incident window. B3 sized 13 and 14 August as whole days
+  (106 approvals and USD 6,134 instead of 110 and USD 6,354). This is the failure of run 1, and the first
+  step of the method ("size that window, not the whole calendar day") did not prevent it.
+- **It claimed more than it had checked (C3).** Its alert query started on 8 August, and the answer said
+  the alerts started on 8 August, five days before the incident. They started on 6 August, in Colombia and
+  Mexico. This is the failure mode of run 3, and the rule added after it ("give the period you checked")
+  did not prevent it either. The answer also left out what broke the retries: the decline-code map v2.3.
+- **It used the wrong table or metric (A4, C4).** A4 averaged the daily p95 latencies (1,748.5 ms) instead
+  of taking the p95 of the month (1,746 ms). C4 joined the hourly table to the daily issuer table, so it
+  measured whole days instead of the window, and named a foreign issuer (INTL-ISS-03) for a question about
+  domestic cards, although the issuer table's description says it includes cross-border payments.
+- **It explained a recovery it had not checked (B6).** It found the risk rule behind the drop, but called
+  the recovery "self-corrected" and recommended reviewing the rule's thresholds. A logged change, risk rules
+  v3.1 on 20 June, had already tuned them.
+
+C1 failed on the shape of its result, not on the answer: Genie returned the right winner and gap in one row
+instead of one row per acquirer, and the chat grader compares result sets. By the offline scoring rules C1
+would pass, and so would A4 and B3 on their numbers; a verdict is never made more lenient, so Genie's
+stricter grading stands. One passing answer has a flaw the scoring rules do not grade: B5 recommends
+routing the issuer's traffic "to alternative issuers", which cannot be done, because the card determines
+the issuer.
+
+**What it means.** The offline evaluation measured the design with a Claude model and overstated how well
+Genie follows it: two rules that fixed the offline model did not hold in Genie. The PRD asks for 90% of the
+question set (R8): met offline, not yet on Genie. The next step is to carry those rules in the agent's
+examples as well as in its text (example SQL that sizes an incident window, and one that ranks issuers
+inside a window, on dates outside the benchmark) and in the descriptions (`p95_latency_ms` is a daily
+percentile and cannot be averaged into a monthly one), then run the 20 questions on Genie again (ADR-09).
 
 ### Limits of this evaluation
 
@@ -183,9 +263,11 @@ split by mode as in `docs/genie_space_setup.md`, section 5.
   so they show the fixes work on those cases, not that they generalize. Runs 4 to 6 differ only in table
   and function descriptions, so together they are three samples of almost the same design: still few. A held-out question
   set and several samples per question are the next step.
-- The judge is a model. Its verdicts and notes are published in `results/` so anyone can re-check them.
-- The model under test is not Genie. The same questions should be run as a Genie benchmark once the agent
-  is live (section above).
+- The judge is a model. Its verdicts and notes are published in `results/` so anyone can re-check them. On
+  Genie it also graded the agent-mode answers, in place of Genie's own agent-mode grader.
+- The offline model under test is not Genie, and the gap is large: 20 of 20 offline, 13 of 20 on Genie
+  with the same context. The offline runs show whether the design can work; only Genie runs show whether
+  it works in the product.
 
 ## Files
 

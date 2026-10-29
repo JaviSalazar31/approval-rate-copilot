@@ -1,0 +1,2047 @@
+{
+  "datasets": [
+    {
+      "name": "ds_kpis",
+      "displayName": "ds_kpis",
+      "queryLines": [
+        "WITH last_day AS (SELECT max(business_date) AS d FROM workspace.approval_copilot.gold_approval_daily)\n",
+        "SELECT\n",
+        "  CASE WHEN business_date > (SELECT d FROM last_day) - INTERVAL 7 DAYS THEN 'last_7_days' ELSE 'previous_7_days' END AS period,\n",
+        "  country, card_type,\n",
+        "  sum(payments_sent) AS payments_sent,\n",
+        "  sum(first_attempt_approved) AS first_attempt_approved,\n",
+        "  sum(final_approved) AS final_approved,\n",
+        "  sum(payments_sent) - sum(first_attempt_approved) AS first_attempt_failures,\n",
+        "  sum(recovered_by_cascade) AS recovered_by_cascade,\n",
+        "  sum(attempted_usd) AS attempted_usd,\n",
+        "  sum(approved_usd) AS approved_usd,\n",
+        "  sum(fees_usd) AS fees_usd\n",
+        "FROM workspace.approval_copilot.gold_approval_daily\n",
+        "WHERE NOT is_cross_border\n",
+        "  AND business_date > (SELECT d FROM last_day) - INTERVAL 14 DAYS\n",
+        "GROUP BY 1, country, card_type\n"
+      ],
+      "columns": [
+        {
+          "displayName": "final_approval_l7",
+          "description": "Final approval, last 7 days (domestic)",
+          "expression": "SUM(CASE WHEN `period` = 'last_7_days' THEN `final_approved` END) / SUM(CASE WHEN `period` = 'last_7_days' THEN `payments_sent` END)"
+        },
+        {
+          "displayName": "final_approval_p7",
+          "description": "Final approval, previous 7 days (domestic)",
+          "expression": "SUM(CASE WHEN `period` = 'previous_7_days' THEN `final_approved` END) / SUM(CASE WHEN `period` = 'previous_7_days' THEN `payments_sent` END)"
+        },
+        {
+          "displayName": "first_attempt_approval_l7",
+          "description": "First-attempt approval, last 7 days (domestic)",
+          "expression": "SUM(CASE WHEN `period` = 'last_7_days' THEN `first_attempt_approved` END) / SUM(CASE WHEN `period` = 'last_7_days' THEN `payments_sent` END)"
+        },
+        {
+          "displayName": "first_attempt_approval_p7",
+          "description": "First-attempt approval, previous 7 days (domestic)",
+          "expression": "SUM(CASE WHEN `period` = 'previous_7_days' THEN `first_attempt_approved` END) / SUM(CASE WHEN `period` = 'previous_7_days' THEN `payments_sent` END)"
+        },
+        {
+          "displayName": "approved_volume_rate_l7",
+          "description": "Approved volume rate, last 7 days (domestic)",
+          "expression": "SUM(CASE WHEN `period` = 'last_7_days' THEN `approved_usd` END) / SUM(CASE WHEN `period` = 'last_7_days' THEN `attempted_usd` END)"
+        },
+        {
+          "displayName": "approved_volume_rate_p7",
+          "description": "Approved volume rate, previous 7 days (domestic)",
+          "expression": "SUM(CASE WHEN `period` = 'previous_7_days' THEN `approved_usd` END) / SUM(CASE WHEN `period` = 'previous_7_days' THEN `attempted_usd` END)"
+        },
+        {
+          "displayName": "retry_recovery_rate_l7",
+          "description": "Retry recovery rate, last 7 days (domestic)",
+          "expression": "SUM(CASE WHEN `period` = 'last_7_days' THEN `recovered_by_cascade` END) / SUM(CASE WHEN `period` = 'last_7_days' THEN `first_attempt_failures` END)"
+        },
+        {
+          "displayName": "retry_recovery_rate_p7",
+          "description": "Retry recovery rate, previous 7 days (domestic)",
+          "expression": "SUM(CASE WHEN `period` = 'previous_7_days' THEN `recovered_by_cascade` END) / SUM(CASE WHEN `period` = 'previous_7_days' THEN `first_attempt_failures` END)"
+        },
+        {
+          "displayName": "effective_fee_bps_l7",
+          "description": "Effective fee (bps), last 7 days (domestic)",
+          "expression": "10000 * SUM(CASE WHEN `period` = 'last_7_days' THEN `fees_usd` END) / SUM(CASE WHEN `period` = 'last_7_days' THEN `approved_usd` END)"
+        },
+        {
+          "displayName": "effective_fee_bps_p7",
+          "description": "Effective fee (bps), previous 7 days (domestic)",
+          "expression": "10000 * SUM(CASE WHEN `period` = 'previous_7_days' THEN `fees_usd` END) / SUM(CASE WHEN `period` = 'previous_7_days' THEN `approved_usd` END)"
+        }
+      ]
+    },
+    {
+      "name": "ds_daily_by_segment",
+      "displayName": "ds_daily_by_segment",
+      "queryLines": [
+        "SELECT business_date, country, card_type, concat(country, ' ', card_type) AS segment,\n",
+        "       sum(payments_sent) AS payments_sent,\n",
+        "       round(sum(final_approved) / sum(payments_sent), 4) AS final_approval_rate\n",
+        "FROM workspace.approval_copilot.gold_approval_daily\n",
+        "WHERE NOT is_cross_border\n",
+        "GROUP BY business_date, country, card_type\n"
+      ]
+    },
+    {
+      "name": "ds_hourly_by_acquirer",
+      "displayName": "ds_hourly_by_acquirer",
+      "queryLines": [
+        "SELECT CAST(hour_local_ts AS DATE) AS business_date, hour_local_ts, country, card_type, acquirer_id,\n",
+        "       sum(payments_sent) AS payments_sent,\n",
+        "       round(sum(final_approved) / sum(payments_sent), 4) AS final_approval_rate\n",
+        "FROM workspace.approval_copilot.gold_approval_hourly\n",
+        "WHERE NOT is_cross_border\n",
+        "GROUP BY hour_local_ts, country, card_type, acquirer_id\n"
+      ],
+      "columns": [
+        {
+          "displayName": "hourly_final_approval",
+          "description": "Final approval weighted by payments sent",
+          "expression": "SUM(`final_approval_rate` * `payments_sent`) / SUM(`payments_sent`)"
+        }
+      ]
+    },
+    {
+      "name": "ds_decline_reasons",
+      "displayName": "ds_decline_reasons",
+      "queryLines": [
+        "SELECT business_date, country, card_type, acquirer_id, reason_code, reason, decline_type, retryable,\n",
+        "       sum(attempts) AS failed_attempts\n",
+        "FROM workspace.approval_copilot.gold_decline_reasons_daily\n",
+        "WHERE attempt_seq = 1\n",
+        "GROUP BY ALL\n"
+      ]
+    },
+    {
+      "name": "ds_cascade_daily",
+      "displayName": "ds_cascade_daily",
+      "queryLines": [
+        "SELECT business_date, country, card_type, acquirer_id,\n",
+        "       sum(first_attempt_failures) AS failures,\n",
+        "       sum(cascaded) AS cascaded,\n",
+        "       sum(recovered) AS recovered\n",
+        "FROM workspace.approval_copilot.gold_cascade_daily\n",
+        "GROUP BY business_date, country, card_type, acquirer_id\n"
+      ],
+      "columns": [
+        {
+          "displayName": "cascade_rate",
+          "description": "Share of failed first attempts retried on a second acquirer",
+          "expression": "SUM(`cascaded`) / SUM(`failures`)"
+        },
+        {
+          "displayName": "retry_recovery_rate",
+          "description": "Share of failed first attempts that a retry turned into an approval",
+          "expression": "SUM(`recovered`) / SUM(`failures`)"
+        }
+      ]
+    },
+    {
+      "name": "ds_funnel",
+      "displayName": "ds_funnel",
+      "queryLines": [
+        "SELECT business_date, country, card_type,\n",
+        "       sum(payment_intents) AS intents, sum(blocked_by_risk) AS blocked_by_risk,\n",
+        "       sum(abandoned_3ds) AS abandoned_3ds, sum(sent_to_acquirer) AS sent_to_acquirer, sum(approved) AS approved,\n",
+        "       round(sum(blocked_by_risk) / sum(payment_intents), 4) AS risk_block_rate,\n",
+        "       round(sum(approved) / sum(payment_intents), 4) AS conversion_rate\n",
+        "FROM workspace.approval_copilot.gold_funnel_daily\n",
+        "GROUP BY business_date, country, card_type\n"
+      ],
+      "columns": [
+        {
+          "displayName": "conversion",
+          "description": "Approved / payment intents",
+          "expression": "SUM(`approved`) / SUM(`intents`)"
+        },
+        {
+          "displayName": "risk_block_rate",
+          "description": "Blocked by risk / payment intents",
+          "expression": "SUM(`blocked_by_risk`) / SUM(`intents`)"
+        }
+      ]
+    },
+    {
+      "name": "ds_cost_vs_approval",
+      "displayName": "ds_cost_vs_approval",
+      "queryLines": [
+        "SELECT country, card_type, acquirer_id,\n",
+        "       sum(payments_sent) AS payments_sent,\n",
+        "       round(sum(final_approved) / sum(payments_sent), 4) AS final_approval_rate,\n",
+        "       round(10000 * sum(fees_usd) / nullif(sum(approved_usd), 0), 1) AS effective_fee_bps\n",
+        "FROM workspace.approval_copilot.gold_approval_daily\n",
+        "WHERE NOT is_cross_border\n",
+        "GROUP BY country, card_type, acquirer_id\n"
+      ]
+    },
+    {
+      "name": "ds_anomalies",
+      "displayName": "ds_anomalies",
+      "queryLines": [
+        "SELECT * FROM workspace.approval_copilot.gold_anomalies_daily WHERE is_anomaly ORDER BY business_date DESC\n"
+      ]
+    },
+    {
+      "name": "ds_cascade_alerts",
+      "displayName": "ds_cascade_alerts",
+      "queryLines": [
+        "SELECT business_date, country, acquirer_id, first_reason_code, failures, cascaded,\n",
+        "       cascade_rate, baseline_cascade_rate, mapping_versions\n",
+        "FROM workspace.approval_copilot.gold_cascade_alerts_daily\n",
+        "WHERE is_alert\n"
+      ]
+    },
+    {
+      "name": "ds_change_log",
+      "displayName": "ds_change_log",
+      "queryLines": [
+        "SELECT change_id, changed_at_utc, change_type, scope, description\n",
+        "FROM workspace.approval_copilot.gold_change_log\n",
+        "ORDER BY changed_at_utc DESC\n"
+      ]
+    },
+    {
+      "name": "ds_data_quality",
+      "displayName": "ds_data_quality",
+      "queryLines": [
+        "SELECT * FROM workspace.approval_copilot.gold_dq_summary ORDER BY rejected_rows DESC\n"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "overview",
+      "displayName": "Overview",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1",
+      "layout": [
+        {
+          "widget": {
+            "name": "kpi-final-approval",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_kpis",
+                  "fields": [
+                    {
+                      "name": "measure(final_approval_l7)",
+                      "expression": "MEASURE(`final_approval_l7`)"
+                    },
+                    {
+                      "name": "measure(final_approval_p7)",
+                      "expression": "MEASURE(`final_approval_p7`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(final_approval_l7)",
+                  "displayName": "Last 7 days",
+                  "format": {
+                    "type": "number-percent",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 1
+                    }
+                  }
+                },
+                "target": {
+                  "fieldName": "measure(final_approval_p7)",
+                  "displayName": "Previous 7 days"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Final approval",
+                "description": "Last 7 days vs the previous 7, domestic",
+                "showDescription": true
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi-first-attempt-approval",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_kpis",
+                  "fields": [
+                    {
+                      "name": "measure(first_attempt_approval_l7)",
+                      "expression": "MEASURE(`first_attempt_approval_l7`)"
+                    },
+                    {
+                      "name": "measure(first_attempt_approval_p7)",
+                      "expression": "MEASURE(`first_attempt_approval_p7`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(first_attempt_approval_l7)",
+                  "displayName": "Last 7 days",
+                  "format": {
+                    "type": "number-percent",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 1
+                    }
+                  }
+                },
+                "target": {
+                  "fieldName": "measure(first_attempt_approval_p7)",
+                  "displayName": "Previous 7 days"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "First-attempt approval",
+                "description": "Last 7 days vs the previous 7, domestic",
+                "showDescription": true
+              }
+            }
+          },
+          "position": {
+            "x": 3,
+            "y": 0,
+            "width": 3,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi-approved-volume-rate",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_kpis",
+                  "fields": [
+                    {
+                      "name": "measure(approved_volume_rate_l7)",
+                      "expression": "MEASURE(`approved_volume_rate_l7`)"
+                    },
+                    {
+                      "name": "measure(approved_volume_rate_p7)",
+                      "expression": "MEASURE(`approved_volume_rate_p7`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(approved_volume_rate_l7)",
+                  "displayName": "Last 7 days",
+                  "format": {
+                    "type": "number-percent",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 1
+                    }
+                  }
+                },
+                "target": {
+                  "fieldName": "measure(approved_volume_rate_p7)",
+                  "displayName": "Previous 7 days"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Approved volume rate",
+                "description": "Last 7 days vs the previous 7, domestic",
+                "showDescription": true
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 0,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi-retry-recovery-rate",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_kpis",
+                  "fields": [
+                    {
+                      "name": "measure(retry_recovery_rate_l7)",
+                      "expression": "MEASURE(`retry_recovery_rate_l7`)"
+                    },
+                    {
+                      "name": "measure(retry_recovery_rate_p7)",
+                      "expression": "MEASURE(`retry_recovery_rate_p7`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(retry_recovery_rate_l7)",
+                  "displayName": "Last 7 days",
+                  "format": {
+                    "type": "number-percent",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 1
+                    }
+                  }
+                },
+                "target": {
+                  "fieldName": "measure(retry_recovery_rate_p7)",
+                  "displayName": "Previous 7 days"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Retry recovery rate",
+                "description": "Last 7 days vs the previous 7, domestic",
+                "showDescription": true
+              }
+            }
+          },
+          "position": {
+            "x": 8,
+            "y": 0,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "kpi-effective-fee-bps",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_kpis",
+                  "fields": [
+                    {
+                      "name": "measure(effective_fee_bps_l7)",
+                      "expression": "MEASURE(`effective_fee_bps_l7`)"
+                    },
+                    {
+                      "name": "measure(effective_fee_bps_p7)",
+                      "expression": "MEASURE(`effective_fee_bps_p7`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "measure(effective_fee_bps_l7)",
+                  "displayName": "Last 7 days",
+                  "format": {
+                    "type": "number-plain",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 1
+                    }
+                  }
+                },
+                "target": {
+                  "fieldName": "measure(effective_fee_bps_p7)",
+                  "displayName": "Previous 7 days"
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Effective fee (bps)",
+                "description": "Last 7 days vs the previous 7, domestic",
+                "showDescription": true
+              }
+            }
+          },
+          "position": {
+            "x": 10,
+            "y": 0,
+            "width": 2,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "trend-final-approval-by-segment",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_daily_by_segment",
+                  "fields": [
+                    {
+                      "name": "business_date",
+                      "expression": "`business_date`"
+                    },
+                    {
+                      "name": "final_approval_rate",
+                      "expression": "`final_approval_rate`"
+                    },
+                    {
+                      "name": "segment",
+                      "expression": "`segment`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "business_date",
+                  "displayName": "Date",
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "fieldName": "final_approval_rate",
+                  "displayName": "Final approval",
+                  "scale": {
+                    "type": "quantitative",
+                    "domain": {
+                      "min": 0.7
+                    }
+                  },
+                  "format": {
+                    "type": "number-percent",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 1
+                    }
+                  }
+                },
+                "color": {
+                  "fieldName": "segment",
+                  "displayName": "Segment",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Final approval by segment",
+                "description": "Domestic traffic",
+                "showDescription": true
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 3,
+            "width": 12,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "table-abnormal-days",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_anomalies",
+                  "fields": [
+                    {
+                      "name": "business_date",
+                      "expression": "`business_date`"
+                    },
+                    {
+                      "name": "country",
+                      "expression": "`country`"
+                    },
+                    {
+                      "name": "card_type",
+                      "expression": "`card_type`"
+                    },
+                    {
+                      "name": "final_approval_rate",
+                      "expression": "`final_approval_rate`"
+                    },
+                    {
+                      "name": "baseline_rate",
+                      "expression": "`baseline_rate`"
+                    },
+                    {
+                      "name": "delta_pp",
+                      "expression": "`delta_pp`"
+                    },
+                    {
+                      "name": "z_binomial",
+                      "expression": "`z_binomial`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "business_date",
+                    "displayName": "Date"
+                  },
+                  {
+                    "fieldName": "country",
+                    "displayName": "Country"
+                  },
+                  {
+                    "fieldName": "card_type",
+                    "displayName": "Card type"
+                  },
+                  {
+                    "fieldName": "final_approval_rate",
+                    "displayName": "Final approval"
+                  },
+                  {
+                    "fieldName": "baseline_rate",
+                    "displayName": "Baseline"
+                  },
+                  {
+                    "fieldName": "delta_pp",
+                    "displayName": "Delta (pp)"
+                  },
+                  {
+                    "fieldName": "z_binomial",
+                    "displayName": "z (binomial)"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Abnormal days"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 9,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "table-retry-alerts",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_cascade_alerts",
+                  "fields": [
+                    {
+                      "name": "business_date",
+                      "expression": "`business_date`"
+                    },
+                    {
+                      "name": "country",
+                      "expression": "`country`"
+                    },
+                    {
+                      "name": "acquirer_id",
+                      "expression": "`acquirer_id`"
+                    },
+                    {
+                      "name": "first_reason_code",
+                      "expression": "`first_reason_code`"
+                    },
+                    {
+                      "name": "cascade_rate",
+                      "expression": "`cascade_rate`"
+                    },
+                    {
+                      "name": "baseline_cascade_rate",
+                      "expression": "`baseline_cascade_rate`"
+                    },
+                    {
+                      "name": "mapping_versions",
+                      "expression": "`mapping_versions`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "business_date",
+                    "displayName": "Date"
+                  },
+                  {
+                    "fieldName": "country",
+                    "displayName": "Country"
+                  },
+                  {
+                    "fieldName": "acquirer_id",
+                    "displayName": "First acquirer"
+                  },
+                  {
+                    "fieldName": "first_reason_code",
+                    "displayName": "First reason"
+                  },
+                  {
+                    "fieldName": "cascade_rate",
+                    "displayName": "Retry rate"
+                  },
+                  {
+                    "fieldName": "baseline_cascade_rate",
+                    "displayName": "Baseline"
+                  },
+                  {
+                    "fieldName": "mapping_versions",
+                    "displayName": "Map versions"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Retry alerts"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 9,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "table-production-changes",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_change_log",
+                  "fields": [
+                    {
+                      "name": "change_id",
+                      "expression": "`change_id`"
+                    },
+                    {
+                      "name": "changed_at_utc",
+                      "expression": "`changed_at_utc`"
+                    },
+                    {
+                      "name": "change_type",
+                      "expression": "`change_type`"
+                    },
+                    {
+                      "name": "scope",
+                      "expression": "`scope`"
+                    },
+                    {
+                      "name": "description",
+                      "expression": "`description`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "change_id",
+                    "displayName": "Change"
+                  },
+                  {
+                    "fieldName": "changed_at_utc",
+                    "displayName": "Changed at (UTC)"
+                  },
+                  {
+                    "fieldName": "change_type",
+                    "displayName": "Type"
+                  },
+                  {
+                    "fieldName": "scope",
+                    "displayName": "Scope"
+                  },
+                  {
+                    "fieldName": "description",
+                    "displayName": "Description"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Production changes"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 15,
+            "width": 12,
+            "height": 6
+          }
+        }
+      ]
+    },
+    {
+      "name": "diagnose",
+      "displayName": "Diagnose",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1",
+      "layout": [
+        {
+          "widget": {
+            "name": "hourly-approval-by-acquirer",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_hourly_by_acquirer",
+                  "fields": [
+                    {
+                      "name": "hour_local_ts",
+                      "expression": "`hour_local_ts`"
+                    },
+                    {
+                      "name": "measure(hourly_final_approval)",
+                      "expression": "MEASURE(`hourly_final_approval`)"
+                    },
+                    {
+                      "name": "acquirer_id",
+                      "expression": "`acquirer_id`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "hour_local_ts",
+                  "displayName": "Local hour",
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "fieldName": "measure(hourly_final_approval)",
+                  "displayName": "Final approval",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "format": {
+                    "type": "number-percent",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 1
+                    }
+                  }
+                },
+                "color": {
+                  "fieldName": "acquirer_id",
+                  "displayName": "First acquirer",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Hourly approval by acquirer",
+                "description": "Tip: set the dates to 12-15 Aug and the country to CO",
+                "showDescription": true
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "failure-reasons-by-acquirer",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_decline_reasons",
+                  "fields": [
+                    {
+                      "name": "acquirer_id",
+                      "expression": "`acquirer_id`"
+                    },
+                    {
+                      "name": "sum(failed_attempts)",
+                      "expression": "SUM(`failed_attempts`)"
+                    },
+                    {
+                      "name": "reason",
+                      "expression": "`reason`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "acquirer_id",
+                  "displayName": "Acquirer",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(failed_attempts)",
+                  "displayName": "Failed first attempts",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "reason",
+                  "displayName": "Reason",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Failure reasons by acquirer"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 6,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "retryable-vs-not",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_decline_reasons",
+                  "fields": [
+                    {
+                      "name": "decline_type",
+                      "expression": "`decline_type`"
+                    },
+                    {
+                      "name": "sum(failed_attempts)",
+                      "expression": "SUM(`failed_attempts`)"
+                    },
+                    {
+                      "name": "retryable",
+                      "expression": "`retryable`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "decline_type",
+                  "displayName": "Decline type",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(failed_attempts)",
+                  "displayName": "Failed first attempts",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "retryable",
+                  "displayName": "Retryable",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Retryable vs not"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 6,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "cascade-rate-weekly",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_cascade_daily",
+                  "fields": [
+                    {
+                      "name": "weekly(business_date)",
+                      "expression": "DATE_TRUNC(\"WEEK\", `business_date`)"
+                    },
+                    {
+                      "name": "measure(cascade_rate)",
+                      "expression": "MEASURE(`cascade_rate`)"
+                    },
+                    {
+                      "name": "acquirer_id",
+                      "expression": "`acquirer_id`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "weekly(business_date)",
+                  "displayName": "Week",
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "fieldName": "measure(cascade_rate)",
+                  "displayName": "Cascade rate",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "format": {
+                    "type": "number-percent",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 1
+                    }
+                  }
+                },
+                "color": {
+                  "fieldName": "acquirer_id",
+                  "displayName": "First acquirer",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Cascade rate"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 12,
+            "width": 12,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "retry-recovery-weekly",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_cascade_daily",
+                  "fields": [
+                    {
+                      "name": "weekly(business_date)",
+                      "expression": "DATE_TRUNC(\"WEEK\", `business_date`)"
+                    },
+                    {
+                      "name": "measure(retry_recovery_rate)",
+                      "expression": "MEASURE(`retry_recovery_rate`)"
+                    },
+                    {
+                      "name": "acquirer_id",
+                      "expression": "`acquirer_id`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "weekly(business_date)",
+                  "displayName": "Week",
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "fieldName": "measure(retry_recovery_rate)",
+                  "displayName": "Retry recovery rate",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "format": {
+                    "type": "number-percent",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 1
+                    }
+                  }
+                },
+                "color": {
+                  "fieldName": "acquirer_id",
+                  "displayName": "First acquirer",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Retry recovery rate"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 17,
+            "width": 12,
+            "height": 5
+          }
+        }
+      ]
+    },
+    {
+      "name": "funnel-cost-dq",
+      "displayName": "Funnel, cost and data quality",
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1",
+      "layout": [
+        {
+          "widget": {
+            "name": "conversion-by-country",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_funnel",
+                  "fields": [
+                    {
+                      "name": "business_date",
+                      "expression": "`business_date`"
+                    },
+                    {
+                      "name": "measure(conversion)",
+                      "expression": "MEASURE(`conversion`)"
+                    },
+                    {
+                      "name": "country",
+                      "expression": "`country`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "business_date",
+                  "displayName": "Date",
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "fieldName": "measure(conversion)",
+                  "displayName": "Conversion",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "format": {
+                    "type": "number-percent",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 1
+                    }
+                  }
+                },
+                "color": {
+                  "fieldName": "country",
+                  "displayName": "Country",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Conversion"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "risk-blocks-by-country",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_funnel",
+                  "fields": [
+                    {
+                      "name": "business_date",
+                      "expression": "`business_date`"
+                    },
+                    {
+                      "name": "measure(risk_block_rate)",
+                      "expression": "MEASURE(`risk_block_rate`)"
+                    },
+                    {
+                      "name": "country",
+                      "expression": "`country`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "business_date",
+                  "displayName": "Date",
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "fieldName": "measure(risk_block_rate)",
+                  "displayName": "Blocked by risk",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "format": {
+                    "type": "number-percent",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 1
+                    }
+                  }
+                },
+                "color": {
+                  "fieldName": "country",
+                  "displayName": "Country",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Risk blocks"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 5,
+            "width": 12,
+            "height": 5
+          }
+        },
+        {
+          "widget": {
+            "name": "fee-vs-approval",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_cost_vs_approval",
+                  "fields": [
+                    {
+                      "name": "effective_fee_bps",
+                      "expression": "`effective_fee_bps`"
+                    },
+                    {
+                      "name": "final_approval_rate",
+                      "expression": "`final_approval_rate`"
+                    },
+                    {
+                      "name": "payments_sent",
+                      "expression": "`payments_sent`"
+                    },
+                    {
+                      "name": "acquirer_id",
+                      "expression": "`acquirer_id`"
+                    },
+                    {
+                      "name": "country",
+                      "expression": "`country`"
+                    },
+                    {
+                      "name": "card_type",
+                      "expression": "`card_type`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 3,
+              "widgetType": "scatter",
+              "encodings": {
+                "x": {
+                  "fieldName": "effective_fee_bps",
+                  "displayName": "Effective fee (bps)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "y": {
+                  "fieldName": "final_approval_rate",
+                  "displayName": "Final approval",
+                  "scale": {
+                    "type": "quantitative"
+                  },
+                  "format": {
+                    "type": "number-percent",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 1
+                    }
+                  }
+                },
+                "size": {
+                  "fieldName": "payments_sent",
+                  "displayName": "Payments sent",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "acquirer_id",
+                  "displayName": "First acquirer",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Fee vs approval",
+                "description": "One point per country, card type and first acquirer, whole period",
+                "showDescription": true
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 10,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "table-rejected-rows",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ds_data_quality",
+                  "fields": [
+                    {
+                      "name": "source_system",
+                      "expression": "`source_system`"
+                    },
+                    {
+                      "name": "failed_rule",
+                      "expression": "`failed_rule`"
+                    },
+                    {
+                      "name": "raw_status",
+                      "expression": "`raw_status`"
+                    },
+                    {
+                      "name": "raw_code",
+                      "expression": "`raw_code`"
+                    },
+                    {
+                      "name": "rejected_rows",
+                      "expression": "`rejected_rows`"
+                    },
+                    {
+                      "name": "first_seen_utc",
+                      "expression": "`first_seen_utc`"
+                    },
+                    {
+                      "name": "last_seen_utc",
+                      "expression": "`last_seen_utc`"
+                    }
+                  ],
+                  "disaggregated": true
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "source_system",
+                    "displayName": "Source"
+                  },
+                  {
+                    "fieldName": "failed_rule",
+                    "displayName": "Rule"
+                  },
+                  {
+                    "fieldName": "raw_status",
+                    "displayName": "Raw status"
+                  },
+                  {
+                    "fieldName": "raw_code",
+                    "displayName": "Raw code"
+                  },
+                  {
+                    "fieldName": "rejected_rows",
+                    "displayName": "Rows"
+                  },
+                  {
+                    "fieldName": "first_seen_utc",
+                    "displayName": "First seen (UTC)"
+                  },
+                  {
+                    "fieldName": "last_seen_utc",
+                    "displayName": "Last seen (UTC)"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Rejected rows"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 10,
+            "width": 6,
+            "height": 6
+          }
+        }
+      ]
+    },
+    {
+      "name": "filters",
+      "displayName": "Filters",
+      "pageType": "PAGE_TYPE_GLOBAL_FILTERS",
+      "layoutVersion": "GRID_V1",
+      "layout": [
+        {
+          "widget": {
+            "name": "filter-country",
+            "queries": [
+              {
+                "name": "filter-country_ds_kpis",
+                "query": {
+                  "datasetName": "ds_kpis",
+                  "fields": [
+                    {
+                      "name": "country",
+                      "expression": "`country`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "filter-country_ds_daily_by_segment",
+                "query": {
+                  "datasetName": "ds_daily_by_segment",
+                  "fields": [
+                    {
+                      "name": "country",
+                      "expression": "`country`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "filter-country_ds_hourly_by_acquirer",
+                "query": {
+                  "datasetName": "ds_hourly_by_acquirer",
+                  "fields": [
+                    {
+                      "name": "country",
+                      "expression": "`country`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "filter-country_ds_decline_reasons",
+                "query": {
+                  "datasetName": "ds_decline_reasons",
+                  "fields": [
+                    {
+                      "name": "country",
+                      "expression": "`country`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "filter-country_ds_cascade_daily",
+                "query": {
+                  "datasetName": "ds_cascade_daily",
+                  "fields": [
+                    {
+                      "name": "country",
+                      "expression": "`country`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "filter-country_ds_funnel",
+                "query": {
+                  "datasetName": "ds_funnel",
+                  "fields": [
+                    {
+                      "name": "country",
+                      "expression": "`country`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "filter-country_ds_cost_vs_approval",
+                "query": {
+                  "datasetName": "ds_cost_vs_approval",
+                  "fields": [
+                    {
+                      "name": "country",
+                      "expression": "`country`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "filter-country_ds_anomalies",
+                "query": {
+                  "datasetName": "ds_anomalies",
+                  "fields": [
+                    {
+                      "name": "country",
+                      "expression": "`country`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "filter-country_ds_cascade_alerts",
+                "query": {
+                  "datasetName": "ds_cascade_alerts",
+                  "fields": [
+                    {
+                      "name": "country",
+                      "expression": "`country`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "country",
+                    "displayName": "Country",
+                    "queryName": "filter-country_ds_kpis"
+                  },
+                  {
+                    "fieldName": "country",
+                    "displayName": "Country",
+                    "queryName": "filter-country_ds_daily_by_segment"
+                  },
+                  {
+                    "fieldName": "country",
+                    "displayName": "Country",
+                    "queryName": "filter-country_ds_hourly_by_acquirer"
+                  },
+                  {
+                    "fieldName": "country",
+                    "displayName": "Country",
+                    "queryName": "filter-country_ds_decline_reasons"
+                  },
+                  {
+                    "fieldName": "country",
+                    "displayName": "Country",
+                    "queryName": "filter-country_ds_cascade_daily"
+                  },
+                  {
+                    "fieldName": "country",
+                    "displayName": "Country",
+                    "queryName": "filter-country_ds_funnel"
+                  },
+                  {
+                    "fieldName": "country",
+                    "displayName": "Country",
+                    "queryName": "filter-country_ds_cost_vs_approval"
+                  },
+                  {
+                    "fieldName": "country",
+                    "displayName": "Country",
+                    "queryName": "filter-country_ds_anomalies"
+                  },
+                  {
+                    "fieldName": "country",
+                    "displayName": "Country",
+                    "queryName": "filter-country_ds_cascade_alerts"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Country"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 4,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "filter-card-type",
+            "queries": [
+              {
+                "name": "filter-card-type_ds_kpis",
+                "query": {
+                  "datasetName": "ds_kpis",
+                  "fields": [
+                    {
+                      "name": "card_type",
+                      "expression": "`card_type`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "filter-card-type_ds_daily_by_segment",
+                "query": {
+                  "datasetName": "ds_daily_by_segment",
+                  "fields": [
+                    {
+                      "name": "card_type",
+                      "expression": "`card_type`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "filter-card-type_ds_hourly_by_acquirer",
+                "query": {
+                  "datasetName": "ds_hourly_by_acquirer",
+                  "fields": [
+                    {
+                      "name": "card_type",
+                      "expression": "`card_type`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "filter-card-type_ds_decline_reasons",
+                "query": {
+                  "datasetName": "ds_decline_reasons",
+                  "fields": [
+                    {
+                      "name": "card_type",
+                      "expression": "`card_type`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "filter-card-type_ds_cascade_daily",
+                "query": {
+                  "datasetName": "ds_cascade_daily",
+                  "fields": [
+                    {
+                      "name": "card_type",
+                      "expression": "`card_type`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "filter-card-type_ds_funnel",
+                "query": {
+                  "datasetName": "ds_funnel",
+                  "fields": [
+                    {
+                      "name": "card_type",
+                      "expression": "`card_type`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "filter-card-type_ds_cost_vs_approval",
+                "query": {
+                  "datasetName": "ds_cost_vs_approval",
+                  "fields": [
+                    {
+                      "name": "card_type",
+                      "expression": "`card_type`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "filter-card-type_ds_anomalies",
+                "query": {
+                  "datasetName": "ds_anomalies",
+                  "fields": [
+                    {
+                      "name": "card_type",
+                      "expression": "`card_type`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-multi-select",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "card_type",
+                    "displayName": "Card type",
+                    "queryName": "filter-card-type_ds_kpis"
+                  },
+                  {
+                    "fieldName": "card_type",
+                    "displayName": "Card type",
+                    "queryName": "filter-card-type_ds_daily_by_segment"
+                  },
+                  {
+                    "fieldName": "card_type",
+                    "displayName": "Card type",
+                    "queryName": "filter-card-type_ds_hourly_by_acquirer"
+                  },
+                  {
+                    "fieldName": "card_type",
+                    "displayName": "Card type",
+                    "queryName": "filter-card-type_ds_decline_reasons"
+                  },
+                  {
+                    "fieldName": "card_type",
+                    "displayName": "Card type",
+                    "queryName": "filter-card-type_ds_cascade_daily"
+                  },
+                  {
+                    "fieldName": "card_type",
+                    "displayName": "Card type",
+                    "queryName": "filter-card-type_ds_funnel"
+                  },
+                  {
+                    "fieldName": "card_type",
+                    "displayName": "Card type",
+                    "queryName": "filter-card-type_ds_cost_vs_approval"
+                  },
+                  {
+                    "fieldName": "card_type",
+                    "displayName": "Card type",
+                    "queryName": "filter-card-type_ds_anomalies"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Card type"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 0,
+            "width": 4,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "filter-dates",
+            "queries": [
+              {
+                "name": "filter-dates_ds_daily_by_segment",
+                "query": {
+                  "datasetName": "ds_daily_by_segment",
+                  "fields": [
+                    {
+                      "name": "business_date",
+                      "expression": "`business_date`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "filter-dates_ds_hourly_by_acquirer",
+                "query": {
+                  "datasetName": "ds_hourly_by_acquirer",
+                  "fields": [
+                    {
+                      "name": "business_date",
+                      "expression": "`business_date`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "filter-dates_ds_decline_reasons",
+                "query": {
+                  "datasetName": "ds_decline_reasons",
+                  "fields": [
+                    {
+                      "name": "business_date",
+                      "expression": "`business_date`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "filter-dates_ds_cascade_daily",
+                "query": {
+                  "datasetName": "ds_cascade_daily",
+                  "fields": [
+                    {
+                      "name": "business_date",
+                      "expression": "`business_date`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "filter-dates_ds_funnel",
+                "query": {
+                  "datasetName": "ds_funnel",
+                  "fields": [
+                    {
+                      "name": "business_date",
+                      "expression": "`business_date`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "filter-dates_ds_anomalies",
+                "query": {
+                  "datasetName": "ds_anomalies",
+                  "fields": [
+                    {
+                      "name": "business_date",
+                      "expression": "`business_date`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              },
+              {
+                "name": "filter-dates_ds_cascade_alerts",
+                "query": {
+                  "datasetName": "ds_cascade_alerts",
+                  "fields": [
+                    {
+                      "name": "business_date",
+                      "expression": "`business_date`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "version": 2,
+              "widgetType": "filter-date-range-picker",
+              "encodings": {
+                "fields": [
+                  {
+                    "fieldName": "business_date",
+                    "displayName": "Dates",
+                    "queryName": "filter-dates_ds_daily_by_segment"
+                  },
+                  {
+                    "fieldName": "business_date",
+                    "displayName": "Dates",
+                    "queryName": "filter-dates_ds_hourly_by_acquirer"
+                  },
+                  {
+                    "fieldName": "business_date",
+                    "displayName": "Dates",
+                    "queryName": "filter-dates_ds_decline_reasons"
+                  },
+                  {
+                    "fieldName": "business_date",
+                    "displayName": "Dates",
+                    "queryName": "filter-dates_ds_cascade_daily"
+                  },
+                  {
+                    "fieldName": "business_date",
+                    "displayName": "Dates",
+                    "queryName": "filter-dates_ds_funnel"
+                  },
+                  {
+                    "fieldName": "business_date",
+                    "displayName": "Dates",
+                    "queryName": "filter-dates_ds_anomalies"
+                  },
+                  {
+                    "fieldName": "business_date",
+                    "displayName": "Dates",
+                    "queryName": "filter-dates_ds_cascade_alerts"
+                  }
+                ]
+              },
+              "frame": {
+                "showTitle": true,
+                "title": "Dates"
+              }
+            }
+          },
+          "position": {
+            "x": 8,
+            "y": 0,
+            "width": 4,
+            "height": 2
+          }
+        }
+      ]
+    }
+  ]
+}
