@@ -50,11 +50,13 @@ with a capable model; Genie's own benchmark feature runs the same questions insi
 | 4 | [`results/run4_model_context.md`](results/run4_model_context.md): a new rule, and the retry alert's new baseline | 20 / 20 | 110 / 110 | 4 / 4 |
 | 5 | [`results/run5_model_context.md`](results/run5_model_context.md): a stale table description fixed | 20 / 20 | 105 / 105 | 4 / 4 |
 | 6 | [`results/run6_model_context.md`](results/run6_model_context.md): ten table and function descriptions clarified; the last offline run (the deployed context differs in six lines, see "Deployment on Databricks") | 20 / 20 | 111 / 111 | 4 / 4 |
-| Genie | [`model_context.md`](model_context.md), deployed as a Genie agent on Databricks (29 Oct 2026) | 13 / 20 | 45 / 45 | 4 / 4 |
+| Genie 1 | [`results/genie_run1_model_context.md`](results/genie_run1_model_context.md): the run-6 context with string window bounds, deployed as a Genie agent (29 Oct 2026) | 13 / 20 | 45 / 45 | 4 / 4 |
+| Genie 2 | [`results/genie_run2_model_context.md`](results/genie_run2_model_context.md): the method carried in functions and examples ([ADR-12](../docs/decisions.md)) | 14 / 20 | 47 / 47 | 4 / 4 |
+| Genie 3 | [`results/genie_run3_model_context.md`](results/genie_run3_model_context.md): retry flags in `fn_cascade_health`, and fixes for chat mode | 15 / 20 | 61 / 61 | 4 / 4 |
 
 Per-question answers, the SQL each run wrote and the judge's notes: [`results/run1.json`](results/run1.json)
 to [`results/run6.json`](results/run6.json), and for Genie
-[`results/genie_run_2026-10-29.json`](results/genie_run_2026-10-29.json).
+[`results/genie_run1.json`](results/genie_run1.json) to [`results/genie_run3.json`](results/genie_run3.json).
 
 **Overruled verdict (run 1, B1).** The judge passed it. I count it as a failure: the scoring rule asks for
 the impact of the incident window, and the answer sized the calendar day (−7.1 pp and 82 approvals instead
@@ -197,7 +199,7 @@ Other checks of the deployment:
 - the 42 queries behind the 21 widgets of the dashboard run without errors (its layout is checked when the
   demo is recorded).
 
-### Databricks Genie run (29 October 2026)
+### Databricks Genie, run 1 (29 October 2026)
 
 The 20 questions ran on the deployed Genie agent, split by mode as in `docs/genie_space_setup.md`, section 5.
 
@@ -217,9 +219,9 @@ The 20 questions ran on the deployed Genie agent, split by mode as in `docs/geni
 
 All 45 SQL statements Genie wrote returned results, and the four guardrails passed. No verdict was
 overruled. Answers, SQL, results and verdicts:
-[`results/genie_run_2026-10-29.json`](results/genie_run_2026-10-29.json).
+[`results/genie_run1.json`](results/genie_run1.json).
 
-### What the Genie run found
+### What Genie run 1 found
 
 Genie named the right cause in all four diagnoses that ask for one (B1, B4, B5, B6), yet it passed 13 of
 20 questions, against 20 of 20 for the offline model with the same context. The failures fall into four
@@ -252,22 +254,164 @@ the issuer.
 
 **What it means.** The offline evaluation measured the design with a Claude model and overstated how well
 Genie follows it: two rules that fixed the offline model did not hold in Genie. The PRD asks for 90% of the
-question set (R8): met offline, not yet on Genie. The next step is to carry those rules in the agent's
+question set (R8): met offline, not yet on Genie. The next step was to carry those rules in the agent's
 examples as well as in its text (example SQL that sizes an incident window, and one that ranks issuers
 inside a window, on dates outside the benchmark) and in the descriptions (`p95_latency_ms` is a daily
 percentile and cannot be averaged into a monthly one), then run the 20 questions on Genie again (ADR-09).
 
+### What changed between Genie runs 1 and 2
+
+Each fix went into the most structured place that could carry it, as Databricks recommends for Genie
+agents: example queries and functions first, and text instructions "only for context that should be applied
+globally" ([tune quality](https://docs.databricks.com/aws/en/genie-agents/tune-quality); ADR-12). The
+context of run 1 is kept in [`results/genie_run1_model_context.md`](results/genie_run1_model_context.md).
+
+| Failure in run 1 | Change |
+|---|---|
+| Sized the calendar day (B1, B3) | `fn_changes_near` also returns the changes in the 72 hours after the window, with their position (before, during, after). In run 1 it stopped at the end of the window, so the rollback of 14 August was out of sight. `fn_drop_impact` says in its description to pass the window of the drop. Two example queries: hourly approval next to the changes of each hour, and a window sized between two changes. The first step of the method says where a drop usually ends, and that an incident named by its dates takes its window from the change log. |
+| Claimed more than it had checked (C3) | An example that searches the whole period for the first flagged day, a note on the alert column to query from 2026-06-01, and a rule for early warnings: search from the start of the data, give the first day, and say what it caught and what caused it. |
+| Wrong table or metric (A4, C4) | An example that recomputes p95 from payments and one that ranks a dimension inside a window with `fn_approval_drivers`; descriptions on `first_latency_ms`, the issuer table's `issuer_id` and `fn_approval_drivers`; a definition: rates and percentiles of a period are recomputed, never averaged. |
+| Explained a recovery it had not checked (B6) | The longer `fn_changes_near`, and one sentence in step 6: check the changes after a drop before saying how it ended. |
+| Shape of a comparison (C1) | A rule: a comparison returns one row per item, with its rate and its payments. |
+| Flaws in passing answers (B5, D4) | Issuer-side causes cannot be routed around; deleting incident rows would hide an incident. |
+
+The new examples use dates, segments and changes the benchmark does not ask about, and none copies a
+benchmark query. All eight examples ran on the warehouse before they went into the agent, together with the
+dataset queries, the benchmark answers, the functions and the tables (59 checks, no errors).
+
+Of the 111 statements of run 6, re-run with the new functions, the 107 that do not call `fn_changes_near`
+return identical results. The 4 that call it keep every row and gain the `position` column and the changes
+after their window: a call on 13 August now also shows the rollback and the mapping hotfix. The ground
+truth of B1 and B5 was refreshed for the same reason; no scoring rule changed. The offline evaluation was not
+repeated: the deployed product is the Genie agent, and run 2 measures it directly.
+
+Run 2 also checks that the fixes are not tied to the benchmark's wording. B1 and C3, the two questions of the
+demo, were asked three times each, and six reworded variants of failed questions (V1–V6), which are not in
+the benchmark or in the agent, were asked once and graded with the same kind of scoring rule.
+
+### Databricks Genie, run 2
+
+| Mode | Questions | Passed | Failed | Graded by |
+|---|---|---|---|---|
+| Chat | A1–A6, B3, C1, C2, C4 (10) | 6 | 4: A5, B3, C1, C4 | Genie's grader (6 good, 4 bad) |
+| Agent | B1, B2, B4, B5, B6, C3, D1–D4 (10) | 8 | 2: B1, B6 | Claude Opus, with the offline scoring rules |
+| **Total** | 20 | **14** | 6 | |
+
+Repeated samples: B1 passed 0 of 3, C3 3 of 3. Reworded variants: 2 of 6 (V1 and V4). Answers, SQL and
+verdicts: [`results/genie_run2.json`](results/genie_run2.json); context:
+[`results/genie_run2_model_context.md`](results/genie_run2_model_context.md).
+
+### What Genie run 2 found
+
+The fixes worked on what they targeted. In agent mode every answer to the incident sized its window, from
+14:00 to the rollback at 12:10 the next day: 110 lost approvals and USD 6,354, in the three B1 samples and in
+the variant V1. B2 named the rollback as the end of the drop, every early-warning answer (C3 three times,
+and V2) found the first alert on 6 August, and A4 recomputed the p95 from payments. What failed instead:
+
+- **B1 failed in all three samples, on its explanation rather than its numbers.** Sample 1 called the hard
+  mapping of code 05 "correct" and blamed code 51, which the map never retries, by policy. Sample 2 called
+  the 05 declines issuer-side and unrecoverable: it applied the run-2 sentence about issuer-side causes to a
+  code that grew on one acquirer only. `fn_cascade_health` showed whether the map classified a code as soft
+  or hard, but not whether it allowed a retry. Sample 3 led with the calendar day's −7.3 pp and gave the
+  window's −10.9 pp only after.
+- **It stated numbers no query returned (B6, V3).** B6 compared each card type with a blended baseline and
+  stated a "2×" difference; V3 put 30 hours between two changes that are 54 hours apart.
+- **An early warning without its trigger (V2).** It traced the alert to map v2.3 but left out the routing
+  change that turned it into the drop a week later.
+- **Chat mode used `fn_approval_drivers` too widely (C1, C4, V5, V6).** The run-2 line that sent rankings
+  inside a window to that function also drew Genie to it for whole months, and chat mode returned its 24 or
+  25 rows across six dimensions without filtering them. C4 called it on the right window, but the right
+  answer, CO-ISS-07, is one row among 24. A5 multiplied the share by 100 in SQL, which the grader read as a
+  missing column, and B3 still sized the two calendar days.
+
+### What changed between Genie runs 2 and 3
+
+| Failure in run 2 | Change |
+|---|---|
+| The retry data misread (B1) | `fn_cascade_health` also returns whether the map allowed a retry in each period (`baseline_retryable`, `window_retryable`). Step 5 says how to read it: a code that is never retryable (51) is policy, and a code the acquirer used to retry and no longer does points to a map change, which the alert table shows against the acquirer's own history. Step 7 defines an issuer-side cause as one issuer failing on every acquirer, and a code that grows on one acquirer only as acquirer-side, even 05. |
+| Two figures for one drop (B1) | Step 7: lead with the impact of the window sized; a calendar-day figure is labeled as context. |
+| Numbers no query returned (B6, V3) | Rules: a duration, ratio or difference that no query returned is not stated, and each segment is compared with its own baseline. |
+| An early warning without its trigger (V2) | The early-warning rule also asks what turned the alert into the drop. |
+| `fn_approval_drivers` used too widely (C1, C4, V5, V6) | Whole days and months go to the daily tables, one row per item; the function returns every dimension, so it is filtered to the one asked about, as its description now says too. The example that compares acquirers is worded the way users ask: which one is higher, and by how much. |
+| Shape of a result (A5) | Rates stay fractions in SQL results; percentages belong in the text. |
+| Window in one query (B3) | Step 1: an answer in a single query reads the window from the change log inside that query. |
+
+Of the 111 statements of run 6, 103 return identical results; the 4 that call `fn_changes_near` and the 4
+that call `fn_cascade_health` keep every row and gain the new columns. The ground truth of B1 was refreshed
+for the same reason. The context of run 3 is kept in
+[`results/genie_run3_model_context.md`](results/genie_run3_model_context.md); it is also the current
+[`model_context.md`](model_context.md).
+
+### Databricks Genie, run 3
+
+| Mode | Questions | Passed | Failed | Graded by |
+|---|---|---|---|---|
+| Chat | A1–A6, B3, C1, C2, C4 (10) | 7 | 3: B3, C1, C4 | Genie's grader (6 good, 3 bad); A5, sent to manual review, by hand |
+| Agent | B1, B2, B4, B5, B6, C3, D1–D4 (10) | 8 | 2: B1, B4 | Claude Opus, with the offline scoring rules |
+| **Total** | 20 | **15** | 5 | |
+
+Repeated samples: B1 passed 1 of 3, C3 3 of 3. Reworded variants: 4 of 6 (V1, V3, V4 and V6). All 61 SQL
+statements of the 20 questions returned results, and no verdict was overruled. Answers, SQL and verdicts:
+[`results/genie_run3.json`](results/genie_run3.json); context:
+[`results/genie_run3_model_context.md`](results/genie_run3_model_context.md).
+
+### What Genie run 3 found
+
+Run 3 passed 15 of 20 (13 in run 1, 14 in run 2), and the reworded variants 4 of 6 (2 in run 2). The
+changes fixed what they targeted:
+
+- **The retry data was read right.** No B1 sample took code 51, which is never retried by policy, for the
+  fault, called the 05 declines issuer-side or led with the calendar day's figure.
+- **B6 and V3 passed.** B6 compared each card type with its own baseline instead of a blended one, and V3
+  gave the time of both changes instead of a wrong duration between them.
+- **Chat-mode results had the right shape.** A5 kept its rate as a fraction (the grader sent it to manual
+  review because of two `NOT NULL` filters that do not change the result), and V6, the reworded C1, compared
+  the acquirers with one row each: C at 91.5% against A at 89.6%.
+
+What still fails:
+
+- **B1 passed one sample of three.** Sample 2 is complete and right. Sample 1 ended the window at midnight
+  instead of at the rollback, so it reported −12.2 pp and 79 lost approvals for ten hours of the incident,
+  and wrote that about 98 of 93 failures would have been retried. Sample 3 had the right window and numbers,
+  but offered "0 baseline failures on A" for code 05 as evidence. `fn_decline_shift` compares each acquirer
+  with its own baseline: B had none, because it carried no Colombian debit before the change, and A's 628
+  baseline 05 declines fell outside the 15 rows the query kept. The same split makes B's code 05 look like
+  growth from zero (+13.7 pp), when across acquirers it went from 4.1% to 13.7% of payments.
+- **B4 failed for the first time.** Cause and fix were right, but it grouped 6 to 15 August as "v2.3",
+  although that period also holds v2.2 traffic from the morning of 6 August and v2.3.1 traffic after the
+  hotfix of 15 August. It put the 48 retries of the period on "residual v2.2 traffic" (44 were v2.3.1) and
+  estimated 70–75 lost approvals that no query returned; the ground truth is about 220.
+- **Chat mode is where the rest fails (B3, C1, C4, and V5, the reworded C4).** C1, C4 and V5 called
+  `fn_approval_drivers` and returned all of its 24 or 25 rows, across six dimensions, without filtering them,
+  although its description and the instructions say to filter by dimension. B3 sized 13 and 14 August as
+  whole days again; its one query did not read the window from the change log.
+- **Two rules held most of the time, not every time.** Two of the three C3 samples searched the alerts only
+  from 1 August; they named the right first day because no alert fired earlier. V2 again left out the
+  routing change that turned the alert into the drop.
+
+**What it means.** On Genie, structure carries the method better than text. The changes in functions and
+examples fixed their targets: since run 2, 7 of the 8 agent-mode answers that sized the incident used the
+window from 14:00 to the rollback, and the retry flags ended the misreadings of run 2. Text rules about how
+to answer (search from the start of the data, name the trigger, state no number that no query returned)
+hold most of the time. The questions that still fail point to two functions, not to more text: `fn_approval_drivers` needs a
+dimension parameter, so that the one call chat mode makes returns only the rows asked for, and
+`fn_decline_shift` needs a baseline across acquirers, for drops that move traffic from one acquirer to
+another. R8 asks for 90%: met offline, not on Genie (75%). Three rounds on the same 20 questions also start
+to fit the benchmark, so the next round adds a held-out question set.
+
 ### Limits of this evaluation
 
-- 20 questions, one sample per question and run. Runs 2 to 6 re-ask the questions that drove the fixes,
-  so they show the fixes work on those cases, not that they generalize. Runs 4 to 6 differ only in table
-  and function descriptions, so together they are three samples of almost the same design: still few. A held-out question
-  set and several samples per question are the next step.
+- 20 questions. Offline, one sample per question and run; on Genie, B1 and C3 also ran three times in runs 2
+  and 3, with six reworded variants of failed questions. Every run after the first re-asks the questions that
+  drove the fixes, so it shows the fixes work on those cases, not that they generalize; the variants are a
+  first check (2 of 6, then 4 of 6). Offline runs 4 to 6 differ only in table and function descriptions, so
+  together they are three samples of almost the same design: still few. A held-out question set and more
+  samples per question are the next step.
 - The judge is a model. Its verdicts and notes are published in `results/` so anyone can re-check them. On
   Genie it also graded the agent-mode answers, in place of Genie's own agent-mode grader.
 - The offline model under test is not Genie, and the gap is large: 20 of 20 offline, 13 of 20 on Genie
-  with the same context. The offline runs show whether the design can work; only Genie runs show whether
-  it works in the product.
+  with the same context, and 15 of 20 after two rounds of fixes. The offline runs show whether the design
+  can work; only Genie runs show whether it works in the product.
 
 ## Files
 

@@ -1,5 +1,5 @@
 -- Did failed first attempts get retried on another acquirer, and did the retries work?
--- Shows how the normalization map classified each reason in each period.
+-- Shows how the normalization map classified each reason in each period, and whether it allowed a retry.
 WITH scope AS (
   SELECT *
   FROM {schema}silver_payments
@@ -23,7 +23,8 @@ cw AS (
          count(*) AS failures, sum(CAST(is_cascaded AS INT)) AS cascaded,
          sum(CAST(recovered_by_cascade AS INT)) AS recovered,
          concat_ws(',', sort_array(collect_set(first_mapping_version))) AS mapping_versions,
-         concat_ws(',', sort_array(collect_set(first_decline_type))) AS mapped_as
+         concat_ws(',', sort_array(collect_set(first_decline_type))) AS mapped_as,
+         concat_ws(',', sort_array(collect_set(CAST(first_retryable AS STRING)))) AS retryable
   FROM win GROUP BY first_acquirer_id, coalesce(first_iso_code, first_status)
 ),
 cb AS (
@@ -31,7 +32,8 @@ cb AS (
          count(*) AS failures, sum(CAST(is_cascaded AS INT)) AS cascaded,
          sum(CAST(recovered_by_cascade AS INT)) AS recovered,
          concat_ws(',', sort_array(collect_set(first_mapping_version))) AS mapping_versions,
-         concat_ws(',', sort_array(collect_set(first_decline_type))) AS mapped_as
+         concat_ws(',', sort_array(collect_set(first_decline_type))) AS mapped_as,
+         concat_ws(',', sort_array(collect_set(CAST(first_retryable AS STRING)))) AS retryable
   FROM base GROUP BY first_acquirer_id, coalesce(first_iso_code, first_status)
 )
 SELECT
@@ -45,6 +47,8 @@ SELECT
   round(w.cascaded / nullif(w.failures, 0), 4) AS window_cascade_rate,
   round(w.recovered / nullif(w.failures, 0), 4) AS window_recovery_rate,
   w.mapped_as AS window_mapped_as,
-  w.mapping_versions AS window_mapping_versions
+  w.mapping_versions AS window_mapping_versions,
+  b.retryable AS baseline_retryable,
+  w.retryable AS window_retryable
 FROM cw w
 FULL OUTER JOIN cb b ON w.acquirer_id = b.acquirer_id AND w.reason_code = b.reason_code

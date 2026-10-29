@@ -273,86 +273,236 @@
  "links_note": "",
  "genie": {
   "date": "29 October 2026",
-  "passed": 13,
-  "total": 20,
-  "chat": {
-   "passed": 6,
-   "total": 10,
-   "genie_good": 5,
-   "genie_bad": 4,
-   "needs_review": 1
+  "runs": [
+   {
+    "run": 1,
+    "passed": 13,
+    "total": 20,
+    "chat": {
+     "passed": 6,
+     "total": 10,
+     "genie_good": 5,
+     "genie_bad": 4,
+     "needs_review": 1
+    },
+    "agent": {
+     "passed": 7,
+     "total": 10,
+     "guardrails": "4/4"
+    },
+    "verdicts": {
+     "A1": "PASS",
+     "A2": "PASS",
+     "A3": "PASS",
+     "A4": "FAIL",
+     "A5": "PASS",
+     "A6": "PASS",
+     "B1": "FAIL",
+     "B2": "PASS",
+     "B3": "FAIL",
+     "B4": "PASS",
+     "B5": "PASS",
+     "B6": "FAIL",
+     "C1": "FAIL",
+     "C2": "PASS",
+     "C3": "FAIL",
+     "C4": "FAIL",
+     "D1": "PASS",
+     "D2": "PASS",
+     "D3": "PASS",
+     "D4": "PASS"
+    },
+    "modes": {
+     "A1": "chat",
+     "A2": "chat",
+     "A3": "chat",
+     "A4": "chat",
+     "A5": "chat",
+     "A6": "chat",
+     "B1": "agent",
+     "B2": "agent",
+     "B3": "chat",
+     "B4": "agent",
+     "B5": "agent",
+     "B6": "agent",
+     "C1": "chat",
+     "C2": "chat",
+     "C3": "agent",
+     "C4": "chat",
+     "D1": "agent",
+     "D2": "agent",
+     "D3": "agent",
+     "D4": "agent"
+    },
+    "label": "Genie run 1: chat mode 6/10, agent mode 7/10"
+   },
+   {
+    "run": 2,
+    "passed": 14,
+    "total": 20,
+    "chat": {
+     "passed": 6,
+     "total": 10,
+     "genie_good": 6,
+     "genie_bad": 4,
+     "needs_review": 0
+    },
+    "agent": {
+     "passed": 8,
+     "total": 10,
+     "guardrails": "4/4"
+    },
+    "verdicts": {
+     "A1": "PASS",
+     "A2": "PASS",
+     "A3": "PASS",
+     "A4": "PASS",
+     "A5": "FAIL",
+     "A6": "PASS",
+     "B1": "FAIL",
+     "B2": "PASS",
+     "B3": "FAIL",
+     "B4": "PASS",
+     "B5": "PASS",
+     "B6": "FAIL",
+     "C1": "FAIL",
+     "C2": "PASS",
+     "C3": "PASS",
+     "C4": "FAIL",
+     "D1": "PASS",
+     "D2": "PASS",
+     "D3": "PASS",
+     "D4": "PASS"
+    },
+    "modes": {
+     "A1": "chat",
+     "A2": "chat",
+     "A3": "chat",
+     "A4": "chat",
+     "A5": "chat",
+     "A6": "chat",
+     "B1": "agent",
+     "B2": "agent",
+     "B3": "chat",
+     "B4": "agent",
+     "B5": "agent",
+     "B6": "agent",
+     "C1": "chat",
+     "C2": "chat",
+     "C3": "agent",
+     "C4": "chat",
+     "D1": "agent",
+     "D2": "agent",
+     "D3": "agent",
+     "D4": "agent"
+    },
+    "label": "Genie run 2, fixes in functions and examples: chat 6/10, agent 8/10",
+    "repeated_samples": {
+     "B1": "0/3",
+     "C3": "3/3"
+    },
+    "variants_passed": "2/6"
+   },
+   {
+    "run": 3,
+    "passed": 15,
+    "total": 20,
+    "chat": {
+     "passed": 7,
+     "total": 10,
+     "genie_good": 6,
+     "genie_bad": 3,
+     "needs_review": 1
+    },
+    "agent": {
+     "passed": 8,
+     "total": 10,
+     "guardrails": "4/4"
+    },
+    "verdicts": {
+     "A1": "PASS",
+     "A2": "PASS",
+     "A3": "PASS",
+     "A4": "PASS",
+     "A5": "PASS",
+     "A6": "PASS",
+     "B1": "FAIL",
+     "B2": "PASS",
+     "B3": "FAIL",
+     "B4": "FAIL",
+     "B5": "PASS",
+     "B6": "PASS",
+     "C1": "FAIL",
+     "C2": "PASS",
+     "C3": "PASS",
+     "C4": "FAIL",
+     "D1": "PASS",
+     "D2": "PASS",
+     "D3": "PASS",
+     "D4": "PASS"
+    },
+    "modes": {
+     "A1": "chat",
+     "A2": "chat",
+     "A3": "chat",
+     "A4": "chat",
+     "A5": "chat",
+     "A6": "chat",
+     "B1": "agent",
+     "B2": "agent",
+     "B3": "chat",
+     "B4": "agent",
+     "B5": "agent",
+     "B6": "agent",
+     "C1": "chat",
+     "C2": "chat",
+     "C3": "agent",
+     "C4": "chat",
+     "D1": "agent",
+     "D2": "agent",
+     "D3": "agent",
+     "D4": "agent"
+    },
+    "label": "Genie run 3, retry flags and chat fixes: chat 7/10, agent 8/10",
+    "repeated_samples": {
+     "B1": "1/3",
+     "C3": "3/3"
+    },
+    "variants_passed": "4/6"
+   }
+  ],
+  "repeated_samples": {
+   "B1": "1/3",
+   "C3": "3/3"
   },
-  "agent": {
-   "passed": 7,
-   "total": 10,
-   "guardrails": "4/4"
-  },
-  "verdicts": {
-   "A1": "PASS",
-   "A2": "PASS",
-   "A3": "PASS",
-   "A4": "FAIL",
-   "A5": "PASS",
-   "A6": "PASS",
-   "B1": "FAIL",
-   "B2": "PASS",
-   "B3": "FAIL",
-   "B4": "PASS",
-   "B5": "PASS",
-   "B6": "FAIL",
-   "C1": "FAIL",
-   "C2": "PASS",
-   "C3": "FAIL",
-   "C4": "FAIL",
-   "D1": "PASS",
-   "D2": "PASS",
-   "D3": "PASS",
-   "D4": "PASS"
-  },
-  "modes": {
-   "A1": "chat",
-   "A2": "chat",
-   "A3": "chat",
-   "A4": "chat",
-   "A5": "chat",
-   "A6": "chat",
-   "B1": "agent",
-   "B2": "agent",
-   "B3": "chat",
-   "B4": "agent",
-   "B5": "agent",
-   "B6": "agent",
-   "C1": "chat",
-   "C2": "chat",
-   "C3": "agent",
-   "C4": "chat",
-   "D1": "agent",
-   "D2": "agent",
-   "D3": "agent",
-   "D4": "agent"
-  },
+  "variants_passed": "4/6",
   "findings": [
    {
-    "title": "It sized the calendar day again",
-    "problem": "Asked why Colombian debit dropped on 13 August (B1), Genie found both causes and saw that the drop began at 14:00, then sized 13 August as a whole day: −7.3 points and 84 approvals instead of −10.9 and 110. In chat mode it sized B3 on whole days too. The instruction that fixed this in run 2 did not hold in Genie.",
-    "next": "Next: example SQL that finds an incident window in the hourly data and sizes it, on dates outside the benchmark, so the pattern sits in the agent's examples as well as in its text."
+    "title": "It sized the calendar day",
+    "problem": "In run 1, asked why Colombian debit dropped on 13 August (B1), Genie found both causes, then sized 13 August as a whole day: −7.3 points and 84 approvals instead of −10.9 and 110 in the incident window.",
+    "change": "The change function now also returns the changes after a window, so the rollback is in sight, and two example queries size a window between two changes. Since then, 7 of the 8 agent-mode answers that sized the incident (B1 and its reworded variant, runs 2 and 3) used the window from 14:00 to the rollback; one ended it at midnight."
    },
    {
     "title": "It claimed more than it had checked",
-    "problem": "Asked about an early warning (C3), Genie queried the retry alerts from 8 August and wrote that they started then, five days before the incident. They started on 6 August. This is the failure mode of run 3, and the rule added after it did not hold either.",
-    "next": "Next: example SQL that looks for the first alert from the start of the data, and the rule repeated in the description of the alert table."
+    "problem": "In run 1, asked about an early warning (C3), Genie searched the retry alerts from 8 August and wrote that they started then. They started on 6 August.",
+    "change": "An example query that searches the whole period for the first flagged day, and a rule for early warnings. C3 passed all six samples of runs 2 and 3, although two in run 3 searched the alerts only from 1 August. Its reworded variant failed both times: it left out the routing change that turned the alert into the drop."
    },
    {
-    "title": "It used the wrong table or metric",
-    "problem": "It averaged daily p95 latencies into a monthly figure (A4), and ranked issuers by joining hourly rows to a daily table, which measured whole days and put a foreign issuer first in a question about domestic cards (C4).",
-    "next": "Next: a column description that says daily p95 values cannot be averaged, and example SQL that ranks issuers inside a window with fn_approval_drivers."
+    "title": "It misread the retry data",
+    "problem": "In run 2, B1 sized the window right in all three samples and still failed them: one blamed a code the map never retries, by policy, one called the 'do not honor' declines issuer-side although they grew on one acquirer only, and one led with the calendar day's figure.",
+    "change": "The retry function now says whether the map allowed a retry, and the instructions define an issuer-side cause. No run-3 sample repeated those errors, but B1 passed one of three: one ended the window at midnight, and one read Acquirer B's empty baseline as Acquirer A's. Next: a baseline across acquirers in the decline function, for drops that move traffic from one acquirer to another."
    },
    {
-    "title": "It explained a recovery it had not checked",
-    "problem": "It found the risk rule behind the Brazilian conversion drop (B6), but called the recovery “self-corrected”. A logged change, risk rules v3.1 on 20 June, had tuned the rule.",
-    "next": "Next: a method step that checks the change log until the metric recovers, not only around the start of the drop."
+    "title": "It stated numbers no query returned",
+    "problem": "In run 2 it stated a '2×' difference (B6) and 30 hours between two changes that are 54 hours apart (V3). In run 3, B4, which had passed twice, misread a period that mixed three map versions and estimated lost recoveries that no query returned.",
+    "change": "Rules: a duration, ratio or difference that no query returned is not stated, and each segment is compared with its own baseline. B6 and V3 passed in run 3; B4 shows the rule does not hold every time."
+   },
+   {
+    "title": "Chat mode calls a trusted function whole",
+    "problem": "Asked to compare acquirers over July (C1) or rank issuers inside the incident window (C4), chat mode called the drivers function and returned all of its 24 or 25 rows, across six dimensions, without filtering them. Its single query never read the incident window from the change log either (B3).",
+    "change": "Next: a dimension parameter on the drivers function, so that the one call chat mode makes returns only the rows asked for, and a held-out question set, because three rounds on the same 20 questions start to fit the benchmark."
    }
   ],
-  "table_note": "Genie: the deployed agent, 29 October 2026. A1–A6, B3, C1, C2 and C4 ran in chat mode and were graded by Genie's own benchmark grader, which compares result sets (A5, which it sent to manual review, was graded by hand). The other ten ran in agent mode and were graded by the same judge as the offline runs. C1 failed on the shape of its result: the right winner and gap, in one row instead of one row per acquirer."
+  "table_note": "G1 to G3: the deployed agent, three runs on 29 October 2026. A1–A6, B3, C1, C2 and C4 ran in chat mode and were graded by Genie's own benchmark grader, which compares result sets (A5 was graded by hand when the grader sent it to manual review). The other ten ran in agent mode and were graded by the same judge as the offline runs. Runs 2 and 3 also asked B1 and C3 three times each: B1 passed 0 of 3, then 1 of 3; C3 passed 3 of 3 both times."
  }
 }

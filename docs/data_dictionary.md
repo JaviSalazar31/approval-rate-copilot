@@ -103,7 +103,7 @@ Daily cascade (retry) rate per country, first acquirer and first-attempt reason 
 | `cascade_rate` | double | cascaded / failures |
 | `baseline_cascade_rate` | double | Cascade rate on the healthy days (cascade rate of at least 50%) among the previous 56 days with failures, same country, acquirer and reason; collapsed days are left out, so a long outage does not lower it |
 | `mapping_versions` | string | Decline-code map versions active that day (comma-separated) |
-| `is_alert` | boolean | True when the cascade rate collapsed: at least 50 pp below its healthy baseline, with enough volume |
+| `is_alert` | boolean | True when the cascade rate collapsed: at least 50 pp below its healthy baseline, with enough volume. To find when an alert began, query from the start of the data (2026-06-01) |
 
 ### `gold_issuer_daily`
 
@@ -113,7 +113,7 @@ Daily approval by issuer. Includes cross-border payments (there is no cross-bord
 |---|---|---|
 | `business_date` | date | Local calendar date of the payment (country time zone) |
 | `country` | string | MX, CO or BR |
-| `issuer_id` | string | Fictional issuer code (e.g. CO-ISS-03); INTL-ISS-* are foreign issuers |
+| `issuer_id` | string | Fictional issuer code (e.g. CO-ISS-03); INTL-ISS-* are foreign issuers. This table is daily and includes cross-border payments: to rank domestic issuers inside a window, use fn_approval_drivers (dimension 'issuer') |
 | `card_type` | string | credit or debit |
 | `acquirer_id` | string | First acquirer chosen by routing (A, B or C); results are attributed to it |
 | `payments_sent` | bigint | Payments that reached at least one acquirer |
@@ -164,9 +164,9 @@ Change log with local times per country. Grain: one row per production change.
 |---|---|---|
 | `change_id` | string | Change identifier (CHG-* internal change, EXT-* partner notice) |
 | `changed_at_utc` | timestamp | When the change happened (UTC) |
-| `changed_at_mexico_city` | timestamp | Same, Mexico City time |
-| `changed_at_bogota` | timestamp | Same, Bogota time |
-| `changed_at_sao_paulo` | timestamp | Same, Sao Paulo time |
+| `changed_at_mexico_city` | timestamp | Same, Mexico City time (the local time of MX windows) |
+| `changed_at_bogota` | timestamp | Same, Bogota time (the local time of CO windows) |
+| `changed_at_sao_paulo` | timestamp | Same, Sao Paulo time (the local time of BR windows) |
 | `change_type` | string | release, routing, rollback, risk_rules, decline_mapping, external_notice or merchant_onboarding |
 | `scope` | string | Country code(s), acquirer id, or ALL |
 | `description` | string | What changed |
@@ -207,7 +207,7 @@ One row per payment with first attempt, cascade attempt and final outcome. Grain
 | `first_decline_type` | string | How the normalization map classified the first attempt: none (approved), soft, hard, technical |
 | `first_retryable` | boolean | Whether the map allowed retrying the first attempt on another acquirer |
 | `first_mapping_version` | string | Version of the decline-code map active at the time of the first attempt |
-| `first_latency_ms` | int | Latency of the first authorization attempt, ms |
+| `first_latency_ms` | int | Latency of the first authorization attempt, ms; the p95 of a period is percentile_approx(first_latency_ms, 0.95) over its payments |
 | `is_3ds_authenticated` | boolean | Whether the payment was authenticated with 3DS |
 | `is_cascaded` | boolean | Whether the payment was retried on a second acquirer |
 | `cascade_acquirer_id` | string | Acquirer used for the retry |
@@ -436,7 +436,7 @@ Country time zones and currencies. Grain: one row per country.
 
 ### `fn_approval_drivers(p_country STRING, p_start_local STRING, p_end_local STRING, p_card_type STRING DEFAULT NULL, p_baseline_days INT DEFAULT 14)`
 
-Explains a change in final approval for a country (and card type) between a baseline and a window: contribution of each acquirer, issuer, card brand, 3DS, merchant segment and routing version, split into rate effect and mix effect, in percentage points. Domestic payments only.
+Explains a change in final approval for a country (and card type) between a baseline and a window: contribution of each acquirer, issuer, card brand, 3DS, merchant segment and routing version, split into rate effect and mix effect, in percentage points. It returns one row per value of every dimension: filter on dimension to answer about one of them (for example the issuers with the lowest approval in a window) and order by window_rate to rank. Domestic payments only.
 
 Returns: `dimension STRING, segment_value STRING, baseline_payments BIGINT, window_payments BIGINT, baseline_share DOUBLE, window_share DOUBLE, baseline_rate DOUBLE, window_rate DOUBLE, rate_effect_pp DOUBLE, mix_effect_pp DOUBLE, total_effect_pp DOUBLE, total_change_pp DOUBLE`
 
@@ -448,18 +448,18 @@ Returns: `acquirer_id STRING, reason_code STRING, reason STRING, baseline_failur
 
 ### `fn_cascade_health(p_country STRING, p_start_local STRING, p_end_local STRING, p_card_type STRING DEFAULT NULL, p_baseline_days INT DEFAULT 14)`
 
-For failed first attempts: share retried on another acquirer (cascade), share recovered, and how the normalization map classified each reason (soft/hard) in baseline vs window. Domestic payments only.
+For failed first attempts: share retried on another acquirer (cascade), share recovered, how the normalization map classified each reason (soft/hard) and whether it allowed a retry (retryable), in baseline vs window. A code the map does not allow to retry is never cascaded. Domestic payments only.
 
-Returns: `acquirer_id STRING, reason_code STRING, baseline_failures BIGINT, baseline_cascade_rate DOUBLE, baseline_recovery_rate DOUBLE, baseline_mapped_as STRING, window_failures BIGINT, window_cascade_rate DOUBLE, window_recovery_rate DOUBLE, window_mapped_as STRING, window_mapping_versions STRING`
+Returns: `acquirer_id STRING, reason_code STRING, baseline_failures BIGINT, baseline_cascade_rate DOUBLE, baseline_recovery_rate DOUBLE, baseline_mapped_as STRING, window_failures BIGINT, window_cascade_rate DOUBLE, window_recovery_rate DOUBLE, window_mapped_as STRING, window_mapping_versions STRING, baseline_retryable STRING, window_retryable STRING`
 
-### `fn_changes_near(p_country STRING, p_start_local STRING, p_end_local STRING, p_hours_before INT DEFAULT 72)`
+### `fn_changes_near(p_country STRING, p_start_local STRING, p_end_local STRING, p_hours_before INT DEFAULT 72, p_hours_after INT DEFAULT 72)`
 
-Production changes (routing, risk, mapping, releases, partner notices) that affect a country, from N hours before a window until its end, with hours relative to the window start.
+Production changes (routing, risk, mapping, releases, partner notices) that affect a country, from N hours before a window to M hours after it, with hours relative to the window start. The changes after the window show what ended a drop (a rollback, a fix, a tuning); position says whether each change came before, during or after the window.
 
-Returns: `change_id STRING, changed_at_utc TIMESTAMP, changed_at_local TIMESTAMP, change_type STRING, scope STRING, description STRING, hours_from_window_start DOUBLE`
+Returns: `change_id STRING, changed_at_utc TIMESTAMP, changed_at_local TIMESTAMP, change_type STRING, scope STRING, description STRING, hours_from_window_start DOUBLE, position STRING`
 
 ### `fn_drop_impact(p_country STRING, p_start_local STRING, p_end_local STRING, p_card_type STRING DEFAULT NULL, p_baseline_days INT DEFAULT 14)`
 
-Size of an approval drop versus the baseline rate: lost approvals, lost approved volume (USD) and fees paid in the window. Domestic payments only.
+Size of an approval drop versus the baseline rate: lost approvals, lost approved volume (USD) and fees paid in the window. Pass the window of the drop, from the change or hour it started to the change or hour it ended, not a calendar day: normal hours in the window understate the drop. Domestic payments only.
 
 Returns: `window_payments BIGINT, baseline_payments BIGINT, baseline_first_attempt_rate DOUBLE, window_first_attempt_rate DOUBLE, baseline_final_rate DOUBLE, window_final_rate DOUBLE, final_rate_change_pp DOUBLE, window_approvals BIGINT, expected_approvals_at_baseline DOUBLE, lost_approvals DOUBLE, window_attempted_usd DOUBLE, window_approved_usd DOUBLE, lost_approved_usd DOUBLE, window_fees_usd DOUBLE`

@@ -21,7 +21,7 @@ CREATE OR REPLACE FUNCTION fn_approval_drivers(
   p_baseline_days INT DEFAULT 14 COMMENT 'Days before the window used as baseline'
 )
 RETURNS TABLE (dimension STRING, segment_value STRING, baseline_payments BIGINT, window_payments BIGINT, baseline_share DOUBLE, window_share DOUBLE, baseline_rate DOUBLE, window_rate DOUBLE, rate_effect_pp DOUBLE, mix_effect_pp DOUBLE, total_effect_pp DOUBLE, total_change_pp DOUBLE)
-COMMENT 'Explains a change in final approval for a country (and card type) between a baseline and a window: contribution of each acquirer, issuer, card brand, 3DS, merchant segment and routing version, split into rate effect and mix effect, in percentage points. Domestic payments only.'
+COMMENT 'Explains a change in final approval for a country (and card type) between a baseline and a window: contribution of each acquirer, issuer, card brand, 3DS, merchant segment and routing version, split into rate effect and mix effect, in percentage points. It returns one row per value of every dimension: filter on dimension to answer about one of them (for example the issuers with the lowest approval in a window) and order by window_rate to rank. Domestic payments only.'
 RETURN
 -- Explains a change in final approval between a baseline period and a window.
 -- For each dimension value, splits its contribution into:
@@ -170,11 +170,11 @@ CREATE OR REPLACE FUNCTION fn_cascade_health(
   p_card_type STRING DEFAULT NULL COMMENT 'credit, debit, or NULL for both',
   p_baseline_days INT DEFAULT 14 COMMENT 'Days before the window used as baseline'
 )
-RETURNS TABLE (acquirer_id STRING, reason_code STRING, baseline_failures BIGINT, baseline_cascade_rate DOUBLE, baseline_recovery_rate DOUBLE, baseline_mapped_as STRING, window_failures BIGINT, window_cascade_rate DOUBLE, window_recovery_rate DOUBLE, window_mapped_as STRING, window_mapping_versions STRING)
-COMMENT 'For failed first attempts: share retried on another acquirer (cascade), share recovered, and how the normalization map classified each reason (soft/hard) in baseline vs window. Domestic payments only.'
+RETURNS TABLE (acquirer_id STRING, reason_code STRING, baseline_failures BIGINT, baseline_cascade_rate DOUBLE, baseline_recovery_rate DOUBLE, baseline_mapped_as STRING, window_failures BIGINT, window_cascade_rate DOUBLE, window_recovery_rate DOUBLE, window_mapped_as STRING, window_mapping_versions STRING, baseline_retryable STRING, window_retryable STRING)
+COMMENT 'For failed first attempts: share retried on another acquirer (cascade), share recovered, how the normalization map classified each reason (soft/hard) and whether it allowed a retry (retryable), in baseline vs window. A code the map does not allow to retry is never cascaded. Domestic payments only.'
 RETURN
 -- Did failed first attempts get retried on another acquirer, and did the retries work?
--- Shows how the normalization map classified each reason in each period.
+-- Shows how the normalization map classified each reason in each period, and whether it allowed a retry.
 WITH scope AS (
   SELECT *
   FROM workspace.approval_copilot.silver_payments
@@ -198,7 +198,8 @@ cw AS (
          count(*) AS failures, sum(CAST(is_cascaded AS INT)) AS cascaded,
          sum(CAST(recovered_by_cascade AS INT)) AS recovered,
          concat_ws(',', sort_array(collect_set(first_mapping_version))) AS mapping_versions,
-         concat_ws(',', sort_array(collect_set(first_decline_type))) AS mapped_as
+         concat_ws(',', sort_array(collect_set(first_decline_type))) AS mapped_as,
+         concat_ws(',', sort_array(collect_set(CAST(first_retryable AS STRING)))) AS retryable
   FROM win GROUP BY first_acquirer_id, coalesce(first_iso_code, first_status)
 ),
 cb AS (
@@ -206,7 +207,8 @@ cb AS (
          count(*) AS failures, sum(CAST(is_cascaded AS INT)) AS cascaded,
          sum(CAST(recovered_by_cascade AS INT)) AS recovered,
          concat_ws(',', sort_array(collect_set(first_mapping_version))) AS mapping_versions,
-         concat_ws(',', sort_array(collect_set(first_decline_type))) AS mapped_as
+         concat_ws(',', sort_array(collect_set(first_decline_type))) AS mapped_as,
+         concat_ws(',', sort_array(collect_set(CAST(first_retryable AS STRING)))) AS retryable
   FROM base GROUP BY first_acquirer_id, coalesce(first_iso_code, first_status)
 )
 SELECT
@@ -220,7 +222,9 @@ SELECT
   round(w.cascaded / nullif(w.failures, 0), 4) AS window_cascade_rate,
   round(w.recovered / nullif(w.failures, 0), 4) AS window_recovery_rate,
   w.mapped_as AS window_mapped_as,
-  w.mapping_versions AS window_mapping_versions
+  w.mapping_versions AS window_mapping_versions,
+  b.retryable AS baseline_retryable,
+  w.retryable AS window_retryable
 FROM cw w
 FULL OUTER JOIN cb b ON w.acquirer_id = b.acquirer_id AND w.reason_code = b.reason_code;
 
@@ -230,13 +234,15 @@ CREATE OR REPLACE FUNCTION fn_changes_near(
   p_country STRING COMMENT 'Country code: MX, CO or BR',
   p_start_local STRING COMMENT 'Window start, local time, as \'YYYY-MM-DD HH:MM:SS\'',
   p_end_local STRING COMMENT 'Window end (exclusive), local time, as \'YYYY-MM-DD HH:MM:SS\'',
-  p_hours_before INT DEFAULT 72 COMMENT 'How many hours before the window to include'
+  p_hours_before INT DEFAULT 72 COMMENT 'How many hours before the window to include',
+  p_hours_after INT DEFAULT 72 COMMENT 'How many hours after the window to include'
 )
-RETURNS TABLE (change_id STRING, changed_at_utc TIMESTAMP, changed_at_local TIMESTAMP, change_type STRING, scope STRING, description STRING, hours_from_window_start DOUBLE)
-COMMENT 'Production changes (routing, risk, mapping, releases, partner notices) that affect a country, from N hours before a window until its end, with hours relative to the window start.'
+RETURNS TABLE (change_id STRING, changed_at_utc TIMESTAMP, changed_at_local TIMESTAMP, change_type STRING, scope STRING, description STRING, hours_from_window_start DOUBLE, position STRING)
+COMMENT 'Production changes (routing, risk, mapping, releases, partner notices) that affect a country, from N hours before a window to M hours after it, with hours relative to the window start. The changes after the window show what ended a drop (a rollback, a fix, a tuning); position says whether each change came before, during or after the window.'
 RETURN
--- Production changes that could explain a window: same country, an acquirer used in
--- that country, or global changes, from N hours before the window until its end.
+-- Production changes that could explain a window: same country, an acquirer used in that country, or
+-- global changes, from N hours before the window until M hours after it. The hours after show what ended
+-- a drop (a rollback, a fix, a tuning); position says where each change falls.
 SELECT
   c.change_id,
   c.changed_at_utc,
@@ -245,7 +251,10 @@ SELECT
   c.scope,
   c.description,
   round((unix_timestamp(from_utc_timestamp(c.changed_at_utc, tz.time_zone))
-         - unix_timestamp(CAST(p_start_local AS TIMESTAMP))) / 3600, 1) AS hours_from_window_start
+         - unix_timestamp(CAST(p_start_local AS TIMESTAMP))) / 3600, 1) AS hours_from_window_start,
+  CASE WHEN from_utc_timestamp(c.changed_at_utc, tz.time_zone) < CAST(p_start_local AS TIMESTAMP) THEN 'before'
+       WHEN from_utc_timestamp(c.changed_at_utc, tz.time_zone) < CAST(p_end_local AS TIMESTAMP) THEN 'during'
+       ELSE 'after' END AS position
 FROM workspace.approval_copilot.ref_change_log c
 CROSS JOIN (SELECT time_zone FROM workspace.approval_copilot.ref_country_tz WHERE country = p_country) tz
 -- Acquirers that serve the country. A join, not an IN subquery: Unity Catalog cannot resolve a function
@@ -258,7 +267,8 @@ WHERE (c.scope = 'ALL'
        OR a.acquirer_id IS NOT NULL)
   AND from_utc_timestamp(c.changed_at_utc, tz.time_zone)
         >= timestampadd(HOUR, -p_hours_before, CAST(p_start_local AS TIMESTAMP))
-  AND from_utc_timestamp(c.changed_at_utc, tz.time_zone) < CAST(p_end_local AS TIMESTAMP);
+  AND from_utc_timestamp(c.changed_at_utc, tz.time_zone)
+        < timestampadd(HOUR, p_hours_after, CAST(p_end_local AS TIMESTAMP));
 
 -- COMMAND ----------
 
@@ -270,7 +280,7 @@ CREATE OR REPLACE FUNCTION fn_drop_impact(
   p_baseline_days INT DEFAULT 14 COMMENT 'Days before the window used as baseline'
 )
 RETURNS TABLE (window_payments BIGINT, baseline_payments BIGINT, baseline_first_attempt_rate DOUBLE, window_first_attempt_rate DOUBLE, baseline_final_rate DOUBLE, window_final_rate DOUBLE, final_rate_change_pp DOUBLE, window_approvals BIGINT, expected_approvals_at_baseline DOUBLE, lost_approvals DOUBLE, window_attempted_usd DOUBLE, window_approved_usd DOUBLE, lost_approved_usd DOUBLE, window_fees_usd DOUBLE)
-COMMENT 'Size of an approval drop versus the baseline rate: lost approvals, lost approved volume (USD) and fees paid in the window. Domestic payments only.'
+COMMENT 'Size of an approval drop versus the baseline rate: lost approvals, lost approved volume (USD) and fees paid in the window. Pass the window of the drop, from the change or hour it started to the change or hour it ended, not a calendar day: normal hours in the window understate the drop. Domestic payments only.'
 RETURN
 -- Size of a drop: approvals and approved volume lost versus the baseline rate,
 -- and acquirer fees paid in the window.

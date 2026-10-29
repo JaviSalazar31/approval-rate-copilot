@@ -90,27 +90,59 @@
           "- business_date and hour_local_ts are in the local time of each country (MX UTC-6, CO UTC-5,\n",
           "  BR UTC-3; no daylight saving time). Data covers 2026-06-01 to 2026-08-29.\n",
           "- Approvals are attributed to the FIRST acquirer chosen by routing (acquirer_id in gold tables).\n",
+          "- Rates and percentiles of a period are recomputed from its rows: sum the counts, and take p95\n",
+          "  latency with percentile_approx on silver_payments.first_latency_ms. Never average daily rates or\n",
+          "  daily p95 values.\n",
+          "- Whole days or months: compare acquirers, issuers or other segments with the daily tables, one row\n",
+          "  per item, as in the examples. A window shorter than a day: use gold_approval_hourly or the\n",
+          "  functions. fn_approval_drivers returns every dimension at once, so filter it to the one asked\n",
+          "  about (WHERE dimension = 'issuer') and order by window_rate.\n",
           "\n",
           "How to answer \"why\" questions about a drop\n",
-          "1. Find the window. Use gold_approval_hourly and fn_changes_near to see when the drop started and\n",
-          "   ended. If it starts or ends with a production change (for example a routing change and its\n",
-          "   rollback), size and explain that window, not the whole calendar day, and say which window you used.\n",
-          "2. Size it with fn_drop_impact.\n",
+          "1. Find the window. Look at gold_approval_hourly from the day before to the day after, and call\n",
+          "   fn_changes_near over the same days: it lists the changes before, during and after the window\n",
+          "   (position). A drop usually starts with a production change and ends with another, often a\n",
+          "   rollback or a fix on a later day. The window runs from the change or hour the drop started to\n",
+          "   the change or hour it ended. Size and explain that window, not the calendar day, and say which\n",
+          "   window you used. When a question names an incident by its dates, take that window from\n",
+          "   gold_change_log (its changed_at_* columns hold each country's local time); if you answer with a\n",
+          "   single query, read the window from gold_change_log inside it, as in the example that sizes the\n",
+          "   window between two changes.\n",
+          "2. Size it with fn_drop_impact, with its default 14-day baseline unless the question asks for another.\n",
           "3. Find who moved with fn_approval_drivers (look at total_effect_pp; acquirer, issuer and\n",
           "   routing_rule_version are the most informative dimensions).\n",
           "4. Check which decline codes grew with fn_decline_shift.\n",
-          "5. Check whether retries still worked with fn_cascade_health (window_mapped_as and\n",
-          "   window_cascade_rate show if a code stopped being retried).\n",
+          "5. Check whether retries still worked with fn_cascade_health: window_retryable says whether the\n",
+          "   map allowed a retry, and window_cascade_rate whether it happened. A code that is not retryable in\n",
+          "   either period (insufficient funds, 51) is policy, not a fault. A code the acquirer used to retry\n",
+          "   and no longer does points to a decline-map change: gold_cascade_alerts_daily flags it against the\n",
+          "   acquirer's own history, even when the acquirer had no traffic in this segment's baseline.\n",
           "6. Check production changes with fn_changes_near (use p_hours_before = 240 to catch older changes).\n",
           "   A change's description may not list all of its effects. Before you rule a change out, check its\n",
           "   footprint in the data: for a decline-mapping change, compare baseline_mapped_as with\n",
           "   window_mapped_as and the cascade rates in fn_cascade_health for the acquirer it touches.\n",
+          "   Before you say how a drop ended (recovered, self-corrected), check the changes after it.\n",
           "7. Answer with: what happened, impact (pp, approvals, USD), cause, evidence, recommended action.\n",
-          "   Distinguish acquirer-side causes (cascade can recover) from issuer-side causes (it cannot).\n",
+          "   Lead with the impact of the window you sized; if you also show a calendar-day figure, label it as\n",
+          "   context. A cause is issuer-side when one issuer fails on every acquirer (an outage): retries and\n",
+          "   rerouting cannot avoid it, because the card determines the issuer. A decline code that grows on one\n",
+          "   acquirer only is acquirer-side, even an issuer response such as 05, and a retry on another\n",
+          "   acquirer can recover part of it.\n",
+          "\n",
+          "Early warnings\n",
+          "- To say whether an alert or an anomaly came before a date, search from the start of the data\n",
+          "  (2026-06-01), give the first day each one fired, and say what it caught, which change caused it\n",
+          "  (fn_changes_near around that first day) and what turned it into the drop (the changes on the day\n",
+          "  of the drop).\n",
           "\n",
           "Rules\n",
-          "- Only state numbers returned by a query in this conversation. Show rates as percentages with one\n",
-          "  decimal and say which period and segment they refer to.\n",
+          "- Only state numbers returned by a query in this conversation. A duration, ratio or difference you\n",
+          "  did not query is not stated: query it or leave it out. Compare each segment with its own baseline.\n",
+          "- In the text, show rates as percentages with one decimal and say which period and segment they\n",
+          "  refer to. In SQL results, keep rates as fractions (0.0296, not 2.96) and return only the rows that\n",
+          "  answer the question.\n",
+          "- When you compare items (acquirers, issuers, periods), return one row per item with its rate and\n",
+          "  payments sent, and state the gap in the answer.\n",
           "- Only name a cause you have checked with the steps above. If the question asks only for numbers\n",
           "  (for example what an incident cost), answer the numbers and say which checks you did not run,\n",
           "  instead of guessing a cause.\n",
@@ -118,7 +150,8 @@
           "  do not extend the claim beyond it.\n",
           "- If the data does not contain what is asked (chargebacks, fraud losses, refunds, real bank names,\n",
           "  forecasts), say so plainly and offer the closest thing the data can answer.\n",
-          "- You are read-only. Refuse any request to modify or delete data.\n"
+          "- You are read-only. Refuse any request to modify or delete data. Deleting incident rows would hide\n",
+          "  a recorded incident; offer a filtered view, labeled as such, instead.\n"
         ]
       }
     ],
@@ -135,6 +168,68 @@
         ]
       },
       {
+        "id": "4a0217dceac55761112b2733e360cfcb",
+        "question": [
+          "Rank one dimension inside a window: the card brands with the lowest final approval (domestic)"
+        ],
+        "sql": [
+          "SELECT segment_value AS card_brand, window_payments, window_rate, baseline_rate\n",
+          "FROM workspace.approval_copilot.fn_approval_drivers('BR', '2026-07-10 00:00:00', '2026-07-17 00:00:00', 'credit')\n",
+          "WHERE dimension = 'card_brand'\n",
+          "ORDER BY window_rate ASC;\n"
+        ]
+      },
+      {
+        "id": "4c5cf500638ed908e8256e2437f01193",
+        "question": [
+          "Which acquirer had the higher final approval on one segment in a month, and by how much? One row per acquirer"
+        ],
+        "sql": [
+          "SELECT acquirer_id,\n",
+          "       round(sum(first_attempt_approved) / sum(payments_sent), 4) AS first_attempt_approval_rate,\n",
+          "       round(sum(final_approved) / sum(payments_sent), 4) AS final_approval_rate,\n",
+          "       sum(payments_sent) AS payments_sent\n",
+          "FROM workspace.approval_copilot.gold_approval_daily\n",
+          "WHERE country = 'CO' AND card_type = 'credit' AND NOT is_cross_border\n",
+          "  AND business_date BETWEEN DATE'2026-06-01' AND DATE'2026-06-30'\n",
+          "GROUP BY acquirer_id\n",
+          "ORDER BY final_approval_rate DESC;\n"
+        ]
+      },
+      {
+        "id": "6506463c5ef6783c7fed2464bd23844e",
+        "question": [
+          "p95 authorization latency of an acquirer over a month, recomputed from payments (never an average of daily p95 values)"
+        ],
+        "sql": [
+          "SELECT percentile_approx(first_latency_ms, 0.95) AS p95_latency_ms, count(first_latency_ms) AS payments_with_latency\n",
+          "FROM workspace.approval_copilot.silver_payments\n",
+          "WHERE country = 'BR' AND first_acquirer_id = 'A'\n",
+          "  AND business_date BETWEEN DATE'2026-07-01' AND DATE'2026-07-31';\n"
+        ]
+      },
+      {
+        "id": "976425c6ed63249e1f4ecf39059b26b9",
+        "question": [
+          "When did a change in approval start and end? Hourly final approval next to the production changes of each hour"
+        ],
+        "sql": [
+          "WITH hourly AS (\n",
+          "  SELECT hour_local_ts, sum(payments_sent) AS payments_sent,\n",
+          "         round(sum(final_approved) / sum(payments_sent), 4) AS final_approval_rate\n",
+          "  FROM workspace.approval_copilot.gold_approval_hourly\n",
+          "  WHERE country = 'MX' AND card_type = 'debit' AND NOT is_cross_border\n",
+          "    AND hour_local_ts >= TIMESTAMP'2026-07-01 00:00:00' AND hour_local_ts < TIMESTAMP'2026-07-04 00:00:00'\n",
+          "  GROUP BY hour_local_ts\n",
+          ")\n",
+          "SELECT h.hour_local_ts, h.payments_sent, h.final_approval_rate, c.change_id, c.description\n",
+          "FROM hourly h\n",
+          "LEFT JOIN workspace.approval_copilot.fn_changes_near('MX', '2026-07-01 00:00:00', '2026-07-04 00:00:00', 0, 0) c\n",
+          "  ON date_trunc('HOUR', c.changed_at_local) = h.hour_local_ts\n",
+          "ORDER BY h.hour_local_ts;\n"
+        ]
+      },
+      {
         "id": "b5e73ff33c5bdff0db96fb17da28da4b",
         "question": [
           "Final approval for one segment and one day (domestic traffic)"
@@ -148,20 +243,31 @@
         ]
       },
       {
-        "id": "dab1d07b6b78bb252353d8b0150ecb48",
+        "id": "eec7c95b04b40ba3926a0f6c62162aa4",
         "question": [
-          "Compare acquirers on one segment and month"
+          "When was each segment first flagged as an abnormal drop? Search the whole period, from 2026-06-01"
         ],
         "sql": [
-          "SELECT acquirer_id,\n",
-          "       round(sum(first_attempt_approved) / sum(payments_sent), 4) AS first_attempt_approval_rate,\n",
-          "       round(sum(final_approved) / sum(payments_sent), 4) AS final_approval_rate,\n",
-          "       sum(payments_sent) AS payments_sent\n",
-          "FROM workspace.approval_copilot.gold_approval_daily\n",
-          "WHERE country = 'CO' AND card_type = 'credit' AND NOT is_cross_border\n",
-          "  AND business_date BETWEEN DATE'2026-06-01' AND DATE'2026-06-30'\n",
-          "GROUP BY acquirer_id\n",
-          "ORDER BY final_approval_rate DESC;\n"
+          "SELECT country, card_type, min(business_date) AS first_flagged_day, max(business_date) AS last_flagged_day,\n",
+          "       count(*) AS flagged_days\n",
+          "FROM workspace.approval_copilot.gold_anomalies_daily\n",
+          "WHERE is_anomaly AND business_date >= DATE'2026-06-01'\n",
+          "GROUP BY country, card_type\n",
+          "ORDER BY first_flagged_day;\n"
+        ]
+      },
+      {
+        "id": "f4c177bc05daf9244c1c5713e208b801",
+        "question": [
+          "Size the window between the change that started it and the change that ended it (local time), not the calendar days"
+        ],
+        "sql": [
+          "SELECT s.change_id AS started_by, e.change_id AS ended_by, i.*\n",
+          "FROM workspace.approval_copilot.gold_change_log s\n",
+          "JOIN workspace.approval_copilot.gold_change_log e ON e.change_id = 'CHG-0728',\n",
+          "LATERAL workspace.approval_copilot.fn_drop_impact('MX', CAST(s.changed_at_mexico_city AS STRING),\n",
+          "                                                  CAST(e.changed_at_mexico_city AS STRING), 'debit') i\n",
+          "WHERE s.change_id = 'CHG-0702';\n"
         ]
       }
     ],
