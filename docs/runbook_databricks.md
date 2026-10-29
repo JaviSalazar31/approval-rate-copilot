@@ -17,10 +17,10 @@ October 2026; if a label differs in your workspace, look for the closest equival
 
 ## 1. Get the code into the workspace
 
-**Option A, recommended: Git folder.** Workspace → Create → Git folder → paste the GitHub URL of this
-repository → Create. All paths below are relative to that folder.
+Option A (recommended) uses a Git folder: Workspace > Create > Git folder, then paste the GitHub URL of this
+repository and click Create. All paths below are relative to that folder.
 
-**Option B: import files.** Workspace → your user folder → Import → upload, one by one:
+Option B imports the files one by one: in Workspace, open your user folder, choose Import and upload
 `databricks/notebooks/00_setup.sql`, `01_generate_data.py`, `02_build_tables_without_pipeline.sql`,
 `03_dashboard_queries.sql`, `04_copilot_functions.sql`, `05_column_comments.py` and
 `databricks/pipeline/approval_copilot_pipeline.sql`. Notebook 01 contains its own copy of the data
@@ -49,21 +49,20 @@ The generator was tested with the package versions of environment version 4 (num
 
 ## 4. Build the tables with the pipeline
 
-1. **New → ETL pipeline** (also under **Jobs & Pipelines → New → ETL Pipeline**). New pipelines use
+1. **New > ETL pipeline** (also under **Jobs & Pipelines > New > ETL Pipeline**). New pipelines use
    Unity Catalog and serverless compute by default.
 2. Name it `approval_copilot` at the top. Click the default catalog and schema next to the name and set
    them to `workspace` and `approval_copilot`.
 3. Next to **Use sample code**, open the menu and choose **Add existing source code**; select
-   `databricks/pipeline/approval_copilot_pipeline.sql` (or **Settings → Source code → Configure paths →
-   Add path**).
+   `databricks/pipeline/approval_copilot_pipeline.sql` (or **Settings > Source code > Configure paths > Add path**).
 4. Click **Run pipeline** (5–10 minutes).
 
 Check in the **Pipeline graph** tab: 27 datasets (4 streaming tables and 23 materialized views). In the
 **Tables** view, `silver_auth_attempts` shows 776 rows dropped by expectations; they appear, with the rule
 they failed, in `silver_dq_quarantine`.
 
-**Fallback:** if the pipeline cannot run in your workspace, open `02_build_tables_without_pipeline` and Run
-all. It creates the same tables as plain Delta tables (see "Choose one build path" in step 0).
+If the pipeline cannot run in your workspace, use the fallback: open `02_build_tables_without_pipeline` and
+Run all. It creates the same tables as plain Delta tables (see "Choose one build path" in step 0).
 
 ## 5. Create the copilot functions and column descriptions
 
@@ -78,7 +77,7 @@ Follow [dashboard_setup.md](dashboard_setup.md) with the queries in `03_dashboar
 
 ## 7. Create the Genie agent (the copilot)
 
-Follow [genie_space_setup.md](genie_space_setup.md): **Genie Agents → New**, add the tables, paste the
+Follow [genie_space_setup.md](genie_space_setup.md): **Genie Agents > New**, add the tables, paste the
 general instructions, attach the five functions, add the example SQL and the sample questions.
 
 Genie evaluates data access with each user's own Unity Catalog permissions. Free Edition has a single user,
@@ -152,7 +151,7 @@ byte for byte.
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | `read_files` finds no files | Notebook 01 did not finish, or the volume path differs | Re-run 01; check `/Volumes/workspace/approval_copilot/landing/raw/` |
-| Notebook 01 fails on a pandas or numpy call | Old serverless environment | Environment side panel → version 4 or later |
+| Notebook 01 fails on a pandas or numpy call | Old serverless environment | Choose version 4 or later in the Environment side panel |
 | Pipeline error on a table | Workspace-specific limit or a runtime difference | Switch to notebook 02 as in step 0 (delete the pipeline, drop the schema) and keep the error message |
 | A table "already exists" error | Both build paths were run into the same schema | Delete the pipeline, drop the schema and use one path (step 0) |
 | Local dates look shifted by a few hours | The session time zone was changed from the UTC default | `SET TIME ZONE 'UTC'` (SQL) or remove the override from the pipeline settings |

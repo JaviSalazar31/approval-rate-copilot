@@ -7,49 +7,47 @@
 | Scope | Card payments of a fictional LATAM orchestrator: Mexico, Colombia, Brazil · Acquirers A, B, C |
 
 All figures below come from the synthetic dataset in this repository (90 days, 661k payment intents).
-They illustrate the method; they are not market statistics.
+They illustrate the method and are not market statistics.
 
 ## 1. Problem
 
 A payment orchestrator earns money only when payments are approved. At this synthetic volume (USD 45M
 attempted in 90 days), one point of final approval is worth about USD 450k of approved sales per quarter.
 
-Working hypothesis, to be measured in the pilot: when approval drops, the payments team finds out late
-and takes hours to explain why, because the answer is spread across four sources: the orchestrator log
-and three acquirer feeds, each with its own file format, time zone, amount format and decline-code
-dialect.
+The working hypothesis, to be measured in the pilot, is that when approval drops, the payments team finds out
+late and takes hours to explain why, because the answer is spread across four sources: the orchestrator log
+and three acquirer feeds, each with its own file format, time zone, amount format and decline-code dialect.
 
 Two kinds of failure are especially expensive because they look fine on the usual dashboards:
 
-1. **Routing changes that save fees but approve less.** On 13 Aug a routing change sent all Colombian
-   domestic debit to Acquirer B to save 40 bps. Final approval fell from 86.5% to 75.6% for 22 hours:
-   110 approvals and USD 6.4k of approved volume lost, against about USD 180 of fees saved.
-2. **Silent failures of the recovery mechanism.** On 6 Aug a release of Acquirer B's decline-code map
-   reclassified "do not honor" (05) as a hard decline, so those payments stopped being retried on a second
-   acquirer (cascade). Daily approval barely moved. A retry alert flagged it in the first daily run, but it had no owner, so
-   nobody acted for nine days, and about 220 approvals that a retry would normally have recovered were
-   lost.
+1. A routing change can save fees and still lose approvals. On 13 Aug a routing change sent all Colombian domestic debit
+   to Acquirer B to save 40 bps. Final approval fell from 86.5% to 75.6% for 22 hours: 110 approvals and USD 6.4k
+   of approved volume lost, against about USD 180 of fees saved.
+2. The recovery mechanism can fail silently. On 6 Aug a release of Acquirer B's decline-code map reclassified
+   "do not honor" (05) as a hard decline, so those payments stopped being retried on a second acquirer (cascade).
+   Daily approval barely moved. A retry alert flagged it in the first daily run, but it had no owner, so nobody
+   acted for nine days, and about 220 approvals that a retry would normally have recovered were lost.
 
 ## 2. Users and jobs to be done
 
 | User | Job | Today |
 |---|---|---|
 | Payments operations analyst | "When approval drops, tell me where, how much and why, so I can escalate to the right partner or ask for a rollback." | Manual SQL across four sources; time to a first answer to be measured in the pilot |
-| Payments product manager (routing, acquirer strategy) | "Tell me whether a routing change pays off in approved volume, not only in fees." | Fee savings are visible on day one; approval losses show up later, mixed with noise |
+| Payments product manager (routing, acquirer strategy) | "Tell me whether a routing change pays off in approved volume as well as in fees." | Fee savings are visible on day one; approval losses show up later, mixed with noise |
 | Merchant success manager | "Answer a merchant's question about declines with numbers I can trust." | Escalates to the data team |
 
 Out of scope as users in v1: finance reconciliation, dispute and chargeback teams (different data).
 
 ## 3. Goals and non-goals
 
-**Goals**
+Goals:
 
-- **G1 · Detect** abnormal approval drops and silent failures of the cascade within one daily cycle.
-- **G2 · Explain** "why did approval drop?" in one conversation: impact, cause, evidence and recommended action.
-- **G3 · Be trustworthy**: every number comes from a query the user can inspect, and the copilot says so
+- G1 · Detect abnormal approval drops and silent failures of the cascade within one daily cycle.
+- G2 · Explain "why did approval drop?" in one conversation: impact, cause, evidence and recommended action.
+- G3 · Be trustworthy: every number comes from a query the user can inspect, and the copilot says so
   when the data cannot answer.
 
-**Non-goals for v1**
+Non-goals for v1:
 
 - Automatic remediation (no automatic rollback of routing changes).
 - Real-time streaming alerts (daily and hourly tables are enough to prove the value).
@@ -67,24 +65,24 @@ Out of scope as users in v1: finance reconciliation, dispute and chargeback team
  (routing, codes, change log)          quarantine · one row per payment       anomalies, cascade alerts       + 5 SQL functions
 ```
 
-1. **Data foundation.** A Lakeflow pipeline (Spark Declarative Pipelines) on Databricks: bronze keeps raw files as received;
-   silver harmonizes the three acquirer formats, removes webhook re-deliveries, maps every raw code to a
-   canonical status with the map version that was active at the time, and quarantines rows that fail
+1. The data foundation is a Lakeflow pipeline (Spark Declarative Pipelines) on Databricks. Bronze keeps raw files
+   as received; silver harmonizes the three acquirer formats, removes webhook re-deliveries, maps every raw code
+   to a canonical status with the map version that was active at the time, and quarantines rows that fail
    quality rules; gold aggregates the KPIs.
-2. **Monitoring.** An AI/BI dashboard plus two detectors: a volume-aware anomaly check on daily approval,
-   and a cascade alert that watches the retry mechanism itself.
-3. **Copilot.** A Genie agent on the gold tables with business definitions, guardrails and five trusted
-   SQL functions that encode the diagnostic method: size the drop, find who moved, see which decline codes
-   grew, check whether retries still worked, and list production changes nearby.
+2. Monitoring uses an AI/BI dashboard plus two detectors: a volume-aware anomaly check on daily approval, and a
+   cascade alert that watches the retry mechanism itself.
+3. The copilot is a Genie agent on the gold tables with business definitions, guardrails and five trusted SQL
+   functions that encode the diagnostic method: size the drop, find who moved, see which decline codes grew,
+   check whether retries still worked, and list production changes nearby.
 
 Main flows:
 
-- **Morning check:** dashboard shows a flagged day → analyst asks the copilot "why?" → gets cause, impact and
-  evidence → escalates or requests a rollback.
-- **Change review:** PM asks "compare A and B on Colombian debit since the routing change" before and after
-  a change.
-- **Merchant question:** success manager asks about a merchant segment's declines and gets numbers with the
-  query behind them.
+- Morning check: the dashboard shows a flagged day; the analyst asks the copilot "why?", gets the cause, impact
+  and evidence, and escalates or requests a rollback.
+- Change review: a PM asks "compare A and B on Colombian debit since the routing change" before and after a
+  change.
+- Merchant question: a success manager asks about a merchant segment's declines and gets numbers with the query
+  behind them.
 
 ## 5. Metrics
 
@@ -102,13 +100,13 @@ Main flows:
 | Product | Time to diagnosis | from "approval dropped" to a cause with evidence (target: under 15 minutes; to be measured in the pilot) |
 | Product | Adoption | weekly active analysts and questions per week (pilot) |
 
-Full definitions, formulas and pitfalls: [metrics.md](metrics.md).
+Full definitions, formulas and pitfalls are in [metrics.md](metrics.md).
 
 ## 6. Requirements (v1)
 
 | ID | Requirement | Acceptance criteria | Status |
 |---|---|---|---|
-| R1 | Ingest the four source formats and the reference data | Every attempt lands in silver or in quarantine with the rule it failed | Done: 700,038 attempts → 699,262 in silver + 776 quarantined |
+| R1 | Ingest the four source formats and the reference data | Every attempt lands in silver or in quarantine with the rule it failed | Done: of 700,038 attempts, 699,262 landed in silver and 776 in quarantine |
 | R2 | Remove webhook re-deliveries | One row per acquirer event | Done: 1,537 duplicates removed |
 | R3 | Map raw codes to canonical statuses with a versioned map | Each attempt keeps the map version used | Done: v2.2, v2.3, v2.3.1 |
 | R4 | Local business dates per country | MX UTC-6, CO UTC-5, BR UTC-3 | Done |
@@ -133,25 +131,25 @@ Full definitions, formulas and pitfalls: [metrics.md](metrics.md).
 
 ## 8. Rollout
 
-1. **Phase 0, done:** synthetic data, pipeline validated on local Spark, dashboard and Genie agent
+1. Phase 0, done: synthetic data, pipeline validated on local Spark, dashboard and Genie agent
    specified, offline evaluation.
-2. **Phase 0b, done:** deployed on Databricks Free Edition (29 Oct 2026) and ran the same questions as a
+2. Phase 0b, done: deployed on Databricks Free Edition (29 Oct 2026) and ran the same questions as a
    Genie benchmark: 13/20 on the first run.
-3. **Phase 0c, done:** tuned the Genie agent in three rounds, with functions, examples and descriptions as
+3. Phase 0c, done: tuned the Genie agent in three rounds, with functions, examples and descriptions as
    well as instructions ([ADR-12](decisions.md)), each followed by the full benchmark: 14/20, 15/20, then 17/20.
    The last round also ran 14 held-out questions once: 11/14.
-4. **Phase 0d, next:** fix the chat-mode gaps the benchmark and the held-out set found (comparisons without the
+4. Phase 0d, next: fix the chat-mode gaps the benchmark and the held-out set found (comparisons without the
    gap, a text "NULL" for an optional parameter), grow the held-out set and run it on every change. The pilot
    starts when R8 is met on Genie, with the held-out score as the number to watch.
-5. **Phase 1, pilot (4 weeks):** first, 20-minute interviews with three analysts to confirm the jobs and
+5. Phase 1, pilot (4 weeks): first, 20-minute interviews with three analysts to confirm the jobs and
    today's time to diagnosis. Then three analysts on real data; measure time to diagnosis against the
    current process and keep a log of wrong or missing answers.
    - Success: median time to a cause with evidence under 15 minutes; at least 8 of 10 answers judged
      correct by the analysts; all three use it every week.
    - Stop or rethink: fewer than 6 of 10 answers correct, or the analysts redo the SQL by hand anyway.
-6. **Phase 2:** hourly detection and alerts to the team channel; benchmark questions grow with every incident.
-7. **Phase 3:** routing-change guardrail: compare approved volume, not fees, in the first hours after a change,
-   and propose a rollback when the drop is significant.
+6. Phase 2: hourly detection and alerts to the team channel; benchmark questions grow with every incident.
+7. Phase 3: a routing-change guardrail that compares approved volume instead of fees in the first hours after a
+   change, and proposes a rollback when the drop is significant.
 
 ## 9. Open questions
 

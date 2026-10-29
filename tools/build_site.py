@@ -174,11 +174,12 @@ def build():
             f'<td data-label="Mode" class="mode">{q["mode"]}</td><td data-label="G{genie_runs[-1]["run"]}" class="genie">{verdict_chip(held["verdicts"].get(qid))}</td></tr>'
             for qid, q in hq.items())
         g = held["by_group"]
-        heldout_intro = (f'{held["total"]} questions written after the last change to the agent and committed to the '
-                         f'repository before the run, then run once on the deployed agent: {held["passed"]} of '
-                         f'{held["total"]} passed (KPI lookups {g.get("kpi", "–")}, comparisons {g.get("comparison", "–")}, '
-                         f'diagnoses {g.get("diagnosis", "–")}, guardrails {g.get("guardrail", "–")}), graded by the same '
-                         f'judge, with the same kind of scoring rules, as the benchmark\'s agent-mode questions. {held.get("note", "")}').strip()
+        heldout_intro = (f'The {held["total"]} questions were written after the last change to the agent and '
+                         f'committed to the repository before the run. The deployed agent answered each one once '
+                         f'and passed {held["passed"]} (KPI lookups {g.get("kpi", "–")}, comparisons '
+                         f'{g.get("comparison", "–")}, diagnoses {g.get("diagnosis", "–")}, guardrails '
+                         f'{g.get("guardrail", "–")}). They were graded by the judge of the benchmark\'s agent-mode questions, '
+                         f'with the same kind of scoring rules. {held.get("note", "")}').strip()
 
     answer = summary["showcase"]
     sql_html = "".join(f"<pre><code>{html.escape(s)}</code></pre>" for s in answer["queries"])
@@ -198,7 +199,7 @@ def build():
     if genie.get("heldout"):
         h = genie["heldout"]
         score_html += (f'\n      <div class="cell genie" role="listitem"><span class="v">{h["passed"]}/{h["total"]}</span>'
-                       f'<span class="l">held-out questions, never used for tuning, run once on Genie run '
+                       f'<span class="l">held-out questions, never used for tuning, asked once in Genie run '
                        f'{genie_runs[-1]["run"]}</span></div>')
     genie_last = genie_runs[-1]
     earlier = [str(passed[str(n)]) for n in run_ids[:-1]]

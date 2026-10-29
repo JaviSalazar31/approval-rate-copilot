@@ -1,8 +1,7 @@
 # Metrics
 
-How approval is measured in this project, why, and the traps to avoid. The same definitions are written
-into the Genie instructions, the data dictionary and the Unity Catalog column comments, so the dashboard,
-the copilot and a human analyst get the same number for the same question.
+The definitions below are also written into the Genie instructions, the data dictionary and the Unity Catalog
+column comments, so the dashboard, the copilot and a human analyst get the same number for the same question.
 
 ## Metric tree
 
@@ -47,20 +46,19 @@ Guardrails: effective fee (bps of approved USD) · p95 authorization latency · 
 
 ## Definition choices (and why)
 
-- **Approval is counted on payments, not on attempts.** A payment retried on a second acquirer is one payment.
-  Attempt-level rates double-count failures and make cascading look worse than it is.
-- **"Approval rate" without qualifier means final approval.** That is what the merchant experiences.
-  First-attempt approval is the routing KPI. In the industry the same ratio is often called the
-  authorization rate.
-- **Outcomes are attributed to the first acquirer chosen by routing**, including approvals recovered on a
+- Approval is counted per payment: a payment retried on a second acquirer is one payment. Attempt-level rates
+  double-count failures and make cascading look worse than it is.
+- "Approval rate" without a qualifier means final approval, which is what the merchant experiences. First-attempt
+  approval is the routing KPI. In the industry the same ratio is often called the authorization rate.
+- Outcomes are attributed to the first acquirer chosen by routing, including approvals recovered on a
   second acquirer, because routing is the decision the team controls. `approving_acquirer_id` is kept for
   partner scorecards.
-- **Reversals count as authorized.** The issuer approved the authorization; a later void is a separate event.
-- **Domestic traffic by default.** Cross-border cards always go to Acquirer A and approve less for reasons
+- Reversals count as authorized, since the issuer approved the authorization; a later void is a separate event.
+- Domestic traffic is the default. Cross-border cards always go to Acquirer A and approve less for reasons
   unrelated to routing; mixing them in makes acquirer comparisons unfair.
-- **Local business dates.** Each country's date and hour are computed in its own time zone (MX UTC-6,
-  CO UTC-5, BR UTC-3; none observes daylight saving time in 2026). Operations teams think in local days.
-- **Baselines are explicit.** Impact is always "versus the previous N days" (14 days by default for
+- Business dates are local: each country's date and hour are computed in its own time zone (MX UTC-6,
+  CO UTC-5, BR UTC-3; none observes daylight saving time in 2026), because operations teams think in local days.
+- Baselines are explicit. Impact is always "versus the previous N days" (14 days by default for
   diagnosis; 28 days for the anomaly check; the healthy days among the previous 56 days with failures for
   the cascade alert), and the copilot states which baseline it used.
 
@@ -77,7 +75,7 @@ Guardrails: effective fee (bps of approved USD) · p95 authorization latency · 
    elsewhere will not help (the 21 July case in Brazil).
 7. Treating lost approved volume as lost revenue. It is an upper bound on lost sales: a declined shopper
    often tries again with another card or method, and the orchestrator loses only its margin on a lost
-   sale. In production, approval should also be tracked per order (checkout), not only per payment. This
+   sale. In production, approval should be tracked per order (checkout) as well as per payment. This
    dataset has one payment per order, so it cannot show that effect.
 8. Mixing cross-border and domestic retries. `gold_cascade_daily` and `gold_cascade_alerts_daily` include
    cross-border failures, while `fn_cascade_health` covers domestic traffic only, so their cascade rates for

@@ -1,6 +1,6 @@
 """
 Exports the small datasets behind the charts of the project page (site/data.json), computed from the
-local pipeline output so the page shows exactly what the pipeline produced.
+local pipeline output so the page shows what the pipeline produced.
 
   python tools/export_site_data.py
 """
@@ -89,7 +89,7 @@ def main():
     lost = round(len(win) * base_rate) - int(win["final_approved"].sum())
     vol_rate = base["approved_usd"].sum() / base["amount_usd"].sum()
     lost_usd = win["amount_usd"].sum() * vol_rate - win["approved_usd"].sum()
-    # Fees saved = what the window's approved volume would have paid on Acquirer A minus what it actually paid
+    # Fees saved = what the window's approved volume would have paid on Acquirer A minus what it paid
     # (payments recovered on A by a retry already paid A's fee).
     approved_win = win["approved_usd"].sum()
     fees_saved = approved_win * FEE_BPS["A"] / 10000 - win["fee_usd"].sum()

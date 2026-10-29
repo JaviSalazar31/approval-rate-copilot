@@ -1,7 +1,7 @@
 # Decision log
 
-Short records of the choices that shaped the product, in the order they were made. Each one says what was
-decided, what else was on the table and what it costs.
+Short records of the choices that shaped the product, in the order they were made. Each one states the
+decision, the alternatives considered and the cost.
 
 ---
 
@@ -20,12 +20,12 @@ attempt keeps the version that classified it.
 normalizing in each report (every analyst reinvents it).
 
 **Consequences.** Point-in-time correctness and an audit trail: the copilot can show that code 05 from B was
-"soft" under v2.2 and "hard" under v2.3, which is exactly how the August incident is explained. The cost is
+"soft" under v2.2 and "hard" under v2.3, which is how the August incident is explained. The cost is
 owning the map as a product artifact, with releases and tests.
 
 ---
 
-### ADR-02 · Quarantine bad rows instead of dropping them silently
+### ADR-02 · Quarantine bad rows and keep them visible
 
 **Decision.** Silver applies four quality rules (payment id present, valid timestamp, positive amount,
 code found in the map). Failing rows are dropped from silver and kept in `silver_dq_quarantine` with the
@@ -72,7 +72,7 @@ notebook 02 also sets it explicitly.
 
 ---
 
-### ADR-06 · A SQL-grounded copilot, not a chatbot over documents
+### ADR-06 · A SQL-grounded copilot built on Genie
 
 **Decision.** The copilot is a Genie agent over the gold tables. The diagnostic method lives in five Unity
 Catalog SQL functions (`fn_drop_impact`, `fn_approval_drivers`, `fn_decline_shift`, `fn_cascade_health`,
@@ -86,7 +86,7 @@ and explains the result.
 | Retrieval over runbooks and incident notes (RAG) | Fast to build | Cannot compute; numbers would be quoted, not measured |
 | The model writes all the SQL from scratch | No functions to maintain | Each answer reinvents the method; more room for wrong joins and baselines |
 | A custom agent (own orchestration) over the same five functions | Full control of the model, prompts, cost per question and logs | Hosting, access control and a chat UI to build and run; slower to pilot |
-| BI alerts only, no copilot | Cheapest; tools the team already has | Says that something moved, not why; the analyst still spends the hours |
+| BI alerts only, no copilot | Cheapest; tools the team already has | Says that something moved but not why; the analyst still spends the hours |
 
 **Why.** The questions are quantitative ("how much did we lose?"), so answers must be exact and auditable.
 Encoding the method in tested SQL makes the model's job smaller and safer: pick the right tool and window,
@@ -112,13 +112,13 @@ low-volume segments).
 **Result (in-sample).** Over the same 90 days used to set the thresholds and six country × card-type
 segments: one flag, on the planted incident (CO debit, 13 Aug). An earlier version with history-only
 z-scores raised three false alarms. The three-hour issuer outage of 21 July does not trip a daily rule; it
-needs hourly detection. A fair test needs data the thresholds were not tuned on. Known limit: the trailing
-mean also learns a drop that lasts for weeks, so such a drop would stop flagging; the same healthy-days fix
-as the cascade alert (ADR-08) is planned for this check.
+needs hourly detection. A fair test needs data the thresholds were not tuned on. A known limit is that the
+trailing mean also learns a drop that lasts for weeks, so such a drop would stop flagging; the same
+healthy-days fix as the cascade alert (ADR-08) is planned for this check.
 
 ---
 
-### ADR-08 · Watch the safety net, not only the outcome
+### ADR-08 · Alert on the safety net too
 
 **Decision.** Add a cascade alert: for each acquirer and decline reason, compare today's retry rate with its
 recent healthy days (days whose retry rate had already collapsed are left out), alert when it collapses, and
@@ -129,7 +129,7 @@ detector stays quiet. The mapping bug of 6 Aug cost about 220 recoverable approv
 first daily run after the release flags it, six days before the routing change that turned it into a
 visible incident; in the scenario it had no owner, so nobody acted.
 
-**Constraint: retries must follow the card networks' rules.** A cascade is a reattempt, and the networks
+**Constraint.** Retries must follow the card networks' rules. A cascade is a reattempt, and the networks
 limit reattempts. Visa groups decline codes into four categories. After a Category 1 code ("issuer will
 never approve", for example 04, 07, 41, 43 or 57) the transaction may not be reattempted. Categories 2 to 4
 allow a limited number of reattempts of the same card in 30 days, with a fee beyond that: 15 under the rules
@@ -154,10 +154,10 @@ and processor documentation ([Visa decline categories, Qualpay](https://help.qua
 version used a plain rolling 28-day baseline, which learns the outage: in Colombia it fell from 100% to about
 60% by 14 Aug and would have dropped below the 50% the rule needs within days, so an unowned alert would also
 have gone quiet. The baseline now uses healthy days only; one test checks that a 20-day collapse alerts on
-every one of its days, and another pins where the alert stops. Two limits remain. A deliberate reclassification would alert every day for about
-eight weeks, so the alert needs an acknowledgement keyed on the map version; and a collapse longer than that
-empties the healthy part of the 56-day window, so the alert stops. Both are reasons to escalate after three
-days.
+every one of its days, and another pins where the alert stops. Two limits remain. A deliberate
+reclassification would alert every day for about eight weeks, so the alert needs an acknowledgement keyed on
+the map version; and a collapse longer than that empties the healthy part of the 56-day window, so the alert
+stops. Both are reasons to escalate after three days.
 
 ---
 
@@ -168,21 +168,21 @@ a scoring rule, run before every change to instructions, functions or tables. Si
 SQL; the four guardrail questions have an expected behavior. The same questions are specified as Genie
 benchmarks (see `genie_space_setup.md`, section 5).
 
-**Why.** Instructions that look better can make answers worse. Without a fixed set there is no way to know.
+**Why.** Instructions that look better can make answers worse, and without a fixed set there is no way to know.
 
 ---
 
 ### ADR-10 · Synthetic data with realistic mess
 
 **Decision.** Generate 90 days of data with a seeded script: four source formats (the orchestrator log and
-three acquirer feeds), webhook re-deliveries,
-unmapped codes, zero amounts, an issuer outage, a risk-rule change, a routing change and a mapping bug.
+three acquirer feeds), webhook re-deliveries, unmapped codes, zero amounts, an issuer outage, a risk-rule
+change, a routing change and a mapping bug.
 
 **Why.** No real payment data can be published, and clean synthetic data would hide the hard parts. The
 generator is documented, so anyone can see which effects were planted and check that the pipeline and the
 copilot find them.
 
-**Cost.** Parameters are illustrative, not market statistics. A pilot on real data is the next step.
+**Cost.** The parameters are illustrative assumptions, not market statistics. A pilot on real data is the next step.
 
 ---
 
@@ -204,7 +204,7 @@ All 111 SQL statements of run 6, re-run against the new signatures, return ident
 
 ---
 
-### ADR-12 · Carry the method in functions and examples, not only in the instructions
+### ADR-12 · Carry the method in functions and examples as well as in the instructions
 
 **Decision.** After the first Genie benchmark (13 of 20), each fix went into the most structured place that
 could carry it. `fn_changes_near` also returns the changes after a window (`p_hours_after`, 72 hours by

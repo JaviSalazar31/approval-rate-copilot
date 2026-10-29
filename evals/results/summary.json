@@ -240,17 +240,17 @@
   {
    "title": "It ruled out the true cause because of a change description",
    "problem": "Asked only what the incident cost (B3), the copilot got both numbers right, then volunteered a cause: it dismissed the decline-code map release because the change log said the release only added code R65. That release had also turned R05 into a hard decline. The judge failed the answer.",
-   "change": "Two rules added to the instructions. A change's description may not list all its effects, so check its footprint in the data before ruling it out. And name only causes you have checked: if the question asks for numbers, answer the numbers and say which checks you did not run. In run 2 the copilot answered the cost and listed the checks it had not run."
+   "change": "I added two rules to the instructions. First, a change's description may not list all its effects, so the copilot checks a change's footprint in the data before ruling it out. Second, it names only causes it has checked: if the question asks for numbers, it answers the numbers and says which checks it did not run. In run 2 the copilot answered the cost and listed the checks it had not run."
   },
   {
-   "title": "It sized the calendar day instead of the incident",
+   "title": "It sized the whole calendar day",
    "problem": "Asked why approval dropped on 13 August (B1), the copilot found both causes but sized the whole day: −7.1 points and 82 approvals. The incident ran from 14:00 to 12:10 the next day and cost 110 approvals. The judge passed the answer and flagged the understatement; I count it as a failure.",
-   "change": "New first step in the method: find the window with the hourly data and the change log, size that window and say which one was used. In run 2 the copilot sized 13 Aug 14:00 to 14 Aug 12:10."
+   "change": "The method got a new first step: find the window in the hourly data and the change log, size that window and say which one was used. In run 2 the copilot sized 13 Aug 14:00 to 14 Aug 12:10."
   },
   {
    "title": "It claimed something was absent beyond what it had checked",
    "problem": "Run 3 found a new failure mode. Asked whether there was an early warning (C3), the copilot found the retry alert from 6 August and sized the incident correctly, but its change-log query stopped at 15 August 00:00 and it wrote that the log showed no mapping change through 15 August. The hotfix was logged at 08:00 that day, so its first recommendation rested on a false premise. The judge failed the answer.",
-   "change": "New rule, added before run 4: when the copilot says something did not happen (no change, no alert, no notice), it gives the period it checked and does not extend the claim beyond it. In runs 4 and 5 C3 passed, and each such statement came with its period, for example “change log for CO, 1 Jun to 15 Aug 00:00”."
+   "change": "A new rule, added before run 4: when the copilot says something did not happen (no change, no alert, no notice), it gives the period it checked and does not extend the claim beyond it. C3 passed in runs 4 and 5, and each such statement came with its period, for example \"change log for CO, 1 Jun to 15 Aug 00:00\"."
   }
  ],
  "showcase": {
@@ -546,31 +546,31 @@
   "findings": [
    {
     "title": "It sized the calendar day",
-    "problem": "In run 1, asked why Colombian debit dropped on 13 August (B1), Genie found both causes, then sized 13 August as a whole day: −7.3 points and 84 approvals instead of −10.9 and 110 in the incident window.",
+    "problem": "In run 1, asked why Colombian debit dropped on 13 August (B1), Genie found both causes, then sized 13 August as a whole day: −7.3 points and 84 approvals, where the incident window gives −10.9 and 110.",
     "change": "The change function now also returns the changes after a window, so the rollback is in sight, and two example queries size a window between two changes. Since then, 10 of the 12 agent-mode answers that sized the incident (B1 and its reworded variant, runs 2 to 4) used the window from 14:00 to the rollback; two ended it at midnight. Chat mode still sizes calendar days (B3)."
    },
    {
     "title": "It claimed more than it had checked",
     "problem": "In run 1, asked about an early warning (C3), Genie searched the retry alerts from 8 August and wrote that they started then. They started on 6 August.",
-    "change": "An example query that searches the whole period for the first flagged day, and a rule for early warnings. C3 passed all nine samples of runs 2 to 4, and its reworded variant, which had twice left out the routing change that turned the alert into the drop, passed in run 4."
+    "change": "I added an example query that searches the whole period for the first flagged day, and a rule for early warnings. C3 passed all nine samples of runs 2 to 4. Its reworded variant had twice left out the routing change that turned the alert into the drop, and passed in run 4."
    },
    {
     "title": "It misread the retry data",
-    "problem": "In run 2, B1 sized the window right in all three samples and still failed them: one blamed a code the map never retries, by policy, one called the “do not honor” declines issuer-side although they grew on one acquirer only, and one led with the calendar day's figure. In run 3, one read Acquirer B's empty baseline as Acquirer A's.",
-    "change": "The retry function now says whether the map allowed a retry, the decline function shows each code across acquirers (05 went from 4.1% to 13.7% of payments, not from zero), and the instructions define an issuer-side cause. In run 4 every B1 sample read code 05 right, and B1 passed two of three; the other one ended the window at midnight."
+    "problem": "In run 2, B1 sized the window right in all three samples and still failed them: one blamed a code the map never retries, by policy, one called the \"do not honor\" declines issuer-side although they grew on one acquirer only, and one led with the calendar day's figure. In run 3, one read Acquirer B's empty baseline as Acquirer A's.",
+    "change": "The retry function now says whether the map allowed a retry, and the decline function shows each code across acquirers: 05 went from 4.1% to 13.7% of payments. The instructions also define an issuer-side cause. In run 4 every B1 sample read code 05 right, and B1 passed two of three; the other one ended the window at midnight."
    },
    {
     "title": "It stated numbers no query returned",
-    "problem": "In run 2 it stated a “2×” difference (B6) and 30 hours between two changes that are 54 hours apart (V3). In run 3, B4, which had passed twice, misread a period that mixed three map versions and estimated lost recoveries that no query returned.",
-    "change": "Rules: a duration, ratio or difference that no query returned is not stated, and each segment is compared with its own baseline. B6 and V3 passed in runs 3 and 4, and in run 4 B4 split its periods at the map changes and labeled its estimate as one."
+    "problem": "In run 2 it stated a \"2×\" difference (B6) and 30 hours between two changes that are 54 hours apart (V3). In run 3, B4, which had passed twice, misread a period that mixed three map versions and estimated lost recoveries that no query returned.",
+    "change": "I added two rules: the copilot does not state a duration, ratio or difference that no query returned, and it compares each segment with its own baseline. B6 and V3 passed in runs 3 and 4, and in run 4 B4 split its periods at the map changes and labeled its estimate as an estimate."
    },
    {
-    "title": "Chat mode returns a function's table, not an answer",
+    "title": "Chat mode answers with a function's table",
     "problem": "Asked to compare acquirers over July (C1) or rank issuers inside the incident window (C4), chat mode called the drivers function and returned all of its rows, across six dimensions, without filtering them.",
-    "change": "Run 4 gave the function a dimension parameter. Chat mode used it, and the rows are now the ones asked for: C4 puts the right issuer first, but returns all eight issuers where the reference keeps three, which Genie's grader counts as wrong. It also moved chat mode to the function for whole months, which its description sends to the daily tables, and the answer is the table alone: C1 and its reworded variant V6 give both rates but never say by how much, so both count as failures (V6 had stated the gap in run 3), as does the held-out H6. A text “NULL” passed for an optional parameter emptied another result (H7)."
+    "change": "Run 4 gave the function a dimension parameter, and chat mode used it, so the rows are now the ones asked for. C4 puts the right issuer first but returns all eight issuers where the reference keeps three, which Genie's grader counts as wrong. The parameter also drew chat mode to the function for whole months, which its description sends to the daily tables, and there the answer is the table alone: C1 and its reworded variant V6 give both rates but never say by how much, so both count as failures (V6 had stated the gap in run 3), and so does the held-out H6. In H7, a text \"NULL\" passed for an optional parameter emptied the result."
    }
   ],
-  "table_note": "G1 to G4: the deployed agent, four runs on 29 October 2026. A1–A6, B3, C1, C2 and C4 ran in chat mode and were graded by Genie's own benchmark grader, which compares result sets (A5 was graded by hand when the grader sent it to manual review, and C1 in run 4 counts as a failure although the grader passed it: it never says by how much). The other ten ran in agent mode and were graded by the same judge as the offline runs. Runs 2 to 4 also asked B1 and C3 three times each: B1 passed 0, then 1, then 2 of 3; C3 passed 3 of 3 every time.",
+  "table_note": "G1 to G4 are four runs of the deployed agent on 29 October 2026. A1–A6, B3, C1, C2 and C4 ran in chat mode, and Genie's own benchmark grader, which compares result sets, graded them. A5 went to manual review and was graded by hand, and I count C1 in run 4 as a failure although the grader passed it, because the answer never says by how much. The other ten ran in agent mode, graded by the same judge as the offline runs. Runs 2 to 4 also asked B1 and C3 three times each: B1 passed 0, then 1, then 2 of 3, and C3 passed 3 of 3 every time.",
   "heldout": {
    "passed": 11,
    "total": 14,
@@ -598,7 +598,7 @@
     "H13": "PASS",
     "H14": "PASS"
    },
-   "note": "The three failures: a comparison in two parts answered with a table and no text, so “how far below the best” went unanswered (H6); a text “NULL” passed for an optional parameter, which emptied the result (H7); and a correct diagnosis that put the whole segment's lost approvals on one acquirer (H8)."
+   "note": "H6 was a two-part comparison answered with a table and no text, so \"how far below the best\" went unanswered. In H7, Genie passed the text \"NULL\" for an optional parameter, which emptied the result. H8 found the right cause but attributed the whole segment's lost approvals to one acquirer."
   }
  }
 }
