@@ -23,10 +23,15 @@ sys.path.insert(0, os.path.join(ROOT, "checks"))
 from feed_checks import looks_like_pan  # noqa: E402
 
 PAN_TOKEN = re.compile(r"(?<![\d.,])\d(?:[ -]?\d){12,18}(?![\d.,])")
-MASKED_CARD = re.compile(r"(?:[*xX•]{4}[ -]?){1,3}\d{4}\b|\bending (?:in|with) \d{4}\b|\blast (?:four|4)(?: digits)?:? \d{4}\b",
+# four digits that are not the start of a date such as 2026-08-29
+FOUR = r"\d{4}\b(?![-/]\d)"
+MASKED_CARD = re.compile(rf"(?:[*xX•]{{4}}[ -]?){{1,3}}{FOUR}|\bending (?:in|with) {FOUR}|\blast (?:four|4)(?: digits)?:? {FOUR}",
                          re.IGNORECASE)
 WRITE_SQL = re.compile(r"^\s*(?:INSERT|UPDATE|DELETE|MERGE|DROP|ALTER|TRUNCATE|CREATE|REPLACE|GRANT|REVOKE)\b",
                        re.IGNORECASE)
+# a write after common table expressions: WITH x AS (...) INSERT INTO / MERGE INTO / DELETE FROM / UPDATE ... SET
+CTE_WRITE = re.compile(r"^\s*WITH\b.*?\b(?:INSERT\s+(?:INTO|OVERWRITE)|MERGE\s+INTO|DELETE\s+FROM|UPDATE\s+\S+\s+SET)\b",
+                       re.IGNORECASE | re.DOTALL)
 
 
 def card_numbers(text: str) -> list[str]:
@@ -38,12 +43,14 @@ def masked_cards(text: str) -> list[str]:
 
 
 def statements(sql: str) -> list[str]:
-    no_comments = re.sub(r"--[^\n]*", "", sql or "")
+    no_comments = re.sub(r"/\*.*?\*/", " ", sql or "", flags=re.DOTALL)
+    no_comments = re.sub(r"--[^\n]*", "", no_comments)
     return [s for s in no_comments.split(";") if s.strip()]
 
 
 def writes(sql_list: list[str]) -> list[str]:
-    return [s.strip()[:80] for sql in sql_list or [] for s in statements(sql) if WRITE_SQL.match(s)]
+    return [s.strip()[:80] for sql in sql_list or [] for s in statements(sql)
+            if WRITE_SQL.match(s) or CTE_WRITE.match(s)]
 
 
 def check(answer: str, sql: list[str] | None = None) -> dict:

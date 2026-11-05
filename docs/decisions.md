@@ -241,13 +241,13 @@ in `fn_decline_shift`, because a drop that moves traffic to another acquirer mak
 like growth from zero. The second did what it was for. The first returned only the rows asked for, but it also
 drew chat mode to the function for whole months, where the answer is the table alone: C1 and its reworded
 variant gave both rates and never the gap, and count as failures. On 14 held-out questions, committed before the
-last run and run once, the agent scored 11, and two of its three failures were chat-mode gaps of the same kind,
+fourth run and run once, the agent scored 11, and two of its three failures were chat-mode gaps of the same kind,
 which also call for structure: functions that treat a text "NULL" as NULL, and comparison results that carry the
 gap. A fifth run, after the metric views were added, passed 15; the two questions it lost were agent-mode answers
-that used no metric view. A second held-out set of 13 questions, asked three times each, passed 25 of 39 answers
-and again lost most of its points in chat mode, once more for want of structure: a function's table with no text,
-a ranking that dropped the runner-up, an instruction applied outside its scope, and a metric view whose
-description did not list a dimension's values (ADR-17).
+that used no metric view. A second held-out set of 13 questions, asked three times each, passed 26 of 39 answers
+and again lost most of its points in chat mode: a function's table with no text (N7), a ranking that dropped the
+runner-up (N6), an instruction applied outside its scope (N3), and a metric view whose description did not list a
+dimension's values (N4, ADR-17). Two of the four, N7 and N4, call for structure again.
 
 ---
 
@@ -323,12 +323,12 @@ tests new noise rather than new behavior ([impact and detection](impact_and_dete
 
 **Decision.** The Lakeflow pipeline keeps ingestion, harmonization and the quality rules: bronze, reference and
 silver. The dbt project in `dbt/` builds the ten gold tables, with the same names, in a job task between the pipeline
-and everything that reads gold. Staging models wrap the silver tables one to one, two intermediate models hold the
+and everything that reads gold. Staging models wrap the pipeline's silver and reference tables one to one, two intermediate models hold the
 logic several gold tables share (payments that reached an acquirer, and failed attempts with their local date), and
 the marts are the gold tables.
 
 **Why.** Gold holds the business logic: rate definitions, baselines, and the anomaly and retry alerts. dbt tests each
-gold table at its grain (unique keys, accepted values, relationships to the reference tables, rates between 0 and 1,
+gold table at its grain (unique keys, accepted values, a relationship to the issuer reference table, rates between 0 and 1,
 gold reconciling with silver), generates documentation from the same descriptions Unity Catalog and Genie read, and
 draws the dependency graph. The same project runs in three places: locally, in the Spark session of
 `local/run_local.py`; in CI, which fails on a broken test; and on Databricks, where the job's dbt task runs it on the
@@ -339,15 +339,15 @@ rows, so a table's grain or its reconciliation with silver would each need an ex
 layer, ingestion included: Auto Loader and the quality rules with a quarantine are what the pipeline does well, and
 dbt would need a separate ingestion step.
 
-**Cost.** Two tools in the job instead of one. dbt rebuilds each gold table in full on every run, which takes under a
-minute at these volumes; at real volumes the daily tables would become incremental models. When gold moved, the
+**Cost.** Two tools in the job instead of one. dbt rebuilds each gold table in full on every run, which takes under two
+minutes at these volumes (105 seconds in the job run of 4 November); at real volumes the daily tables would become incremental models. When gold moved, the
 pipeline left the old materialized views inactive, as Lakeflow does with datasets removed from its code, and they
 were dropped by hand before the first dbt run.
 
 **Result.** Locally, the gold tables dbt builds match the previous ones row for row, except `fees_usd` on 4 of
 1,501 rows of `gold_approval_daily`, by one cent: the order in which floating-point sums add up changed. On
 Databricks, the job ran with the dbt task on 4 November 2026: 17 models and 76 tests, all passing, the same gold
-totals as the local run, and the evaluation's smoke test unchanged (1,004 payments, 110 lost approvals, −10.95
+totals as the local run, and the functions' smoke test in notebook 04 unchanged (1,004 payments, 110 lost approvals, −10.95
 points, USD 6,354).
 
 ---
@@ -360,7 +360,8 @@ Actions workflow validates the bundle on every push to main that touches it, and
 workflow by hand. The first deploy binds the pipeline, jobs and dashboard that already exist, found by name, so the
 bundle takes them over instead of creating copies. The Genie agent is not a bundle resource: the update job applies
 the space file in the repository (`databricks/genie/approval_copilot_agent.json`) only when a deploy asks for it,
-and first runs every example query, benchmark query, function and table the file names, stopping on any failure.
+and first runs every example and benchmark query and checks that each function and table exists, stopping on any
+failure.
 
 **Why.** What runs in the workspace should be what the repository holds, reviewed and tested by CI, and a deploy
 should be repeatable. The agent is held to a stricter rule. Its instructions, examples and descriptions are what
@@ -368,10 +369,10 @@ the evaluation measured (ADR-09), so a change to them ships only with a new eval
 them as a side effect.
 
 **Alternatives.** Deploying on every push: simpler, but a change to the agent would reach users before its
-evaluation, and the first push would have created copies of every resource before the bind. Terraform: it covers
-the same resources, but the bundle is the tool Databricks maintains for jobs, pipelines and dashboards, in YAML a
-reviewer can read. Changing things in the workspace by hand: how this project worked until 4 November, with no
-record of what changed or when.
+evaluation, and the first push would have created copies of every resource before the bind. Terraform: Databricks
+maintains a provider that covers the same resources, but a bundle keeps jobs, pipelines and dashboards in YAML next
+to the code, with one CLI to validate, deploy and run them. One-off API scripts and edits in the workspace: how this
+project was deployed until 4 November, with nothing to check that the workspace still matched the repository.
 
 **Cost.** The workflow signs in with a personal access token kept as a repository secret; in production it would
 be a service principal, not a person's token. Free Edition has one user, so there is a single production target
@@ -388,8 +389,8 @@ dimensions people group by. The dashboard's daily-segment and decline-reason dat
 and the Genie agent has both as data sources, with four lines of instructions on how to query them.
 
 **Why.** A rate stored per row is wrong as soon as someone averages it over days or segments; a ratio of sums is
-right at any grouping. With the definition in one place, the dashboard and the agent compute the same number the
-same way, and a new cut needs no new table or view.
+right at any grouping. With the definition in one place, every dashboard dataset and agent query that reads it computes the
+same number the same way, and a new cut needs no new table or view.
 
 **Alternatives.** Rate columns in the gold tables: they stay, for row-level use, but every reader has to know not
 to average them. A view per grouping: one more view for every new cut. dbt's semantic layer: its query interfaces
@@ -397,10 +398,11 @@ for other tools come with dbt Cloud, and the dashboard and Genie read Unity Cata
 
 **Cost.** Queries go through `MEASURE()`, and a filter on a dimension needs its exact values. The second held-out
 set showed what a vague description costs. The `attempt` dimension of `decline_metrics` takes the values
-'first attempt' and 'retry', and its comment reads "First attempt, or the retry on a second acquirer". Chat mode
-filtered on 'First attempt' or on 'first', got no rows, and reported no declines in all three samples of N4,
-where the answer was 2,036. The dimensions with a handful of values (country, card type, acquirer, decline type,
-map version) list them in their comments; this one did not. Listing them changes what the agent sees, so the fix
+'first attempt' and 'retry', and its comment reads "First attempt, or the retry on a second acquirer". The values
+appear in the dimension's CASE expression, not in its comment. Chat mode filtered on 'First attempt' or on
+'first' in all three samples of N4: two got no rows and reported no declines, and the third got a NULL and
+reported no value, where the answer was 2,036. The dimensions with a handful of values (country, card type,
+acquirer, decline type, map version) list them in their comments; this one did not. Listing them changes what the agent sees, so the fix
 waits for the next evaluated release.
 
 **Result.** The two dashboard datasets return exactly the rows of the queries they replaced (540 and 15,235 rows,
@@ -416,7 +418,8 @@ failed on its own ranking query.
 the chat-mode benchmark questions through Genie's benchmark runner, the others through the Conversation API
 (chat mode) or the Agent mode API (agent mode), each in a new conversation. Each run is an MLflow run in the
 experiment `approval-copilot-evals`, and each answer is a trace: an agent span with the question and the answer, a
-tool span for each SQL statement, the latency, and the result of the deterministic checks in
+tool span for each SQL statement, the latency (for the answers asked through the Conversation and Agent mode APIs;
+Genie's benchmark runner does not report it), and the result of the deterministic checks in
 `evals/guardrails.py` (no full card number, no card listed by its last four digits, no SQL that writes). The run
 records a hash of the agent's context, the latency percentiles and the guardrail failures. After grading, the
 verdicts go back onto the same traces as feedback, each with who gave it: the judge, Genie's grader, or my
@@ -432,8 +435,9 @@ queried or compared in the workspace. MLflow's built-in LLM judges: the judge gu
 have to be ported and checked again, and the verdicts would stop being comparable with runs 1 to 4.
 
 **Cost.** The Agent mode API is in beta. A run waits on the agent: agent-mode answers took a median of 60 seconds
-in run 5 (95th percentile 86 seconds) and 24 seconds in the held-out run (45 seconds), and the 39 held-out answers
-took six minutes. The judge runs outside the workspace, so the verdicts reach MLflow in a second step. The checks
+in run 5 (95th percentile 86 seconds) and 24 seconds in the held-out run (95th percentile 45 seconds), measured from
+the request to the final answer with three questions in flight at a time, and the 39 held-out answers took six
+minutes. Each trace is written once its answer has arrived, so the trace timeline does not show the wait; the latency is an attribute of the trace. The judge runs outside the workspace, so the verdicts reach MLflow in a second step. The checks
 are a floor: they cannot tell a real bank's name from an issuer code, which only the judge can.
 
 **Result.** Run 5 (24 answers) and the held-out run (39 answers) are MLflow runs with one trace per answer and

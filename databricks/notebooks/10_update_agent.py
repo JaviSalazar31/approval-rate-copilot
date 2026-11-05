@@ -31,7 +31,7 @@ def checks(space):
     failed = []
     ins = space["instructions"]
     runs = [("example: " + "".join(e["question"])[:60], "".join(e["sql"])) for e in ins["example_question_sqls"]]
-    runs += [("benchmark: " + "".join(q["question"])[:60], a["content"][0])
+    runs += [("benchmark: " + "".join(q["question"])[:60], "".join(a["content"]))
              for q in space["benchmarks"]["questions"] for a in q["answer"] if a.get("content")]
     runs += [(f["identifier"], f"DESCRIBE FUNCTION {f['identifier']}") for f in ins["sql_functions"]]
     runs += [(t["identifier"], f"DESCRIBE TABLE {t['identifier']}") for t in space["data_sources"]["tables"]]

@@ -19,3 +19,6 @@ site/artifact.html
 dbt/target/
 dbt/logs/
 dbt/.user.yml
+# local MLflow store of evals/mlflow_tracking.py
+mlflow.db
+mlruns/

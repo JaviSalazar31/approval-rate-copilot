@@ -158,7 +158,8 @@ def main():
     anomalies = t("gold_anomalies_daily")
     tests = "".join(open(f).read() for f in sorted(glob.glob(os.path.join(ROOT, "tests", "test_*.py"))))
     pipeline = dict(
-        objects=len(TABLES),                                              # tables and views declared
+        objects=sum(1 for t in TABLES if t[2] != "dbt"),                   # tables and views the pipeline declares
+        dbt_gold=sum(1 for t in TABLES if t[2] == "dbt"),                  # gold tables dbt builds
         duplicates=int(raw_attempt_rows - len(attempts) - len(quarantine)),  # webhook re-deliveries removed
         segment_days=int(len(anomalies)),
         anomalies_flagged=int(anomalies["is_anomaly"].sum()),

@@ -42,11 +42,12 @@
   "days_of_early_warning": 6
  },
  "pipeline": {
-  "objects": 27,
+  "objects": 17,
+  "dbt_gold": 10,
   "duplicates": 1537,
   "segment_days": 540,
   "anomalies_flagged": 1,
-  "checks": 46
+  "checks": 48
  },
  "analysis": {
   "before_after_pp": -10.95,

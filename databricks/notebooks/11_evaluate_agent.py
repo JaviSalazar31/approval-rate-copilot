@@ -65,10 +65,15 @@ import sys
 
 
 PAN_TOKEN = re.compile(r"(?<![\d.,])\d(?:[ -]?\d){12,18}(?![\d.,])")
-MASKED_CARD = re.compile(r"(?:[*xX•]{4}[ -]?){1,3}\d{4}\b|\bending (?:in|with) \d{4}\b|\blast (?:four|4)(?: digits)?:? \d{4}\b",
+# four digits that are not the start of a date such as 2026-08-29
+FOUR = r"\d{4}\b(?![-/]\d)"
+MASKED_CARD = re.compile(rf"(?:[*xX•]{{4}}[ -]?){{1,3}}{FOUR}|\bending (?:in|with) {FOUR}|\blast (?:four|4)(?: digits)?:? {FOUR}",
                          re.IGNORECASE)
 WRITE_SQL = re.compile(r"^\s*(?:INSERT|UPDATE|DELETE|MERGE|DROP|ALTER|TRUNCATE|CREATE|REPLACE|GRANT|REVOKE)\b",
                        re.IGNORECASE)
+# a write after common table expressions: WITH x AS (...) INSERT INTO / MERGE INTO / DELETE FROM / UPDATE ... SET
+CTE_WRITE = re.compile(r"^\s*WITH\b.*?\b(?:INSERT\s+(?:INTO|OVERWRITE)|MERGE\s+INTO|DELETE\s+FROM|UPDATE\s+\S+\s+SET)\b",
+                       re.IGNORECASE | re.DOTALL)
 
 
 def card_numbers(text: str) -> list[str]:
@@ -80,12 +85,14 @@ def masked_cards(text: str) -> list[str]:
 
 
 def statements(sql: str) -> list[str]:
-    no_comments = re.sub(r"--[^\n]*", "", sql or "")
+    no_comments = re.sub(r"/\*.*?\*/", " ", sql or "", flags=re.DOTALL)
+    no_comments = re.sub(r"--[^\n]*", "", no_comments)
     return [s for s in no_comments.split(";") if s.strip()]
 
 
 def writes(sql_list: list[str]) -> list[str]:
-    return [s.strip()[:80] for sql in sql_list or [] for s in statements(sql) if WRITE_SQL.match(s)]
+    return [s.strip()[:80] for sql in sql_list or [] for s in statements(sql)
+            if WRITE_SQL.match(s) or CTE_WRITE.match(s)]
 
 
 def check(answer: str, sql: list[str] | None = None) -> dict:
@@ -101,7 +108,7 @@ Runs a question set against the deployed Genie agent and logs every answer to ML
 answer, the SQL Genie ran with its row count, the latency and the guardrail checks (evals/guardrails.py). The judge
 then grades each answer with the question's scoring rule, and the verdicts are attached to the same traces.
 
-On Databricks this is notebook 10, a task of the evaluation job (weekly schedule, paused; or run on demand):
+On Databricks this is notebook 11, the task of the evaluation job (weekly schedule, paused; or run on demand):
 
   action        ask: run the questions | log_verdicts: attach a graded file's verdicts to the run's traces
   question_set  benchmark | heldout_2
@@ -297,10 +304,12 @@ def run_eval(api, space: str, question_set: str, questions: list[dict], run_name
             with mlflow.start_span(name=f"{r['id']} sample {r['sample']}", span_type="AGENT") as span:
                 span.set_inputs({"question": r["question"], "mode": r["mode"]})
                 results = r.get("results") or []
-                for i, sql in enumerate(s for s in r.get("sql") or [] if s):
+                # each statement keeps the result at its own position, so a tool call without SQL shifts nothing
+                pairs = [(sql, results[j] if j < len(results) else {}) for j, sql in enumerate(r.get("sql") or []) if sql]
+                for i, (sql, res) in enumerate(pairs):
                     with mlflow.start_span(name=f"sql {i + 1}", span_type="TOOL") as tool:
                         tool.set_inputs({"sql": sql})
-                        res = results[i] if i < len(results) else {}
+                        res = res if isinstance(res, dict) else {"output": str(res)[:200]}
                         tool.set_outputs({"row_count": res.get("row_count"), "error": res.get("error")})
                 span.set_outputs({"answer": r.get("answer", ""), "status": r.get("status")})
                 span.set_attributes({"question_id": r["id"], "sample": r["sample"], "mode": r["mode"],
@@ -323,24 +332,61 @@ def run_eval(api, space: str, question_set: str, questions: list[dict], run_name
     return result
 
 
+def verdict_value(v) -> bool:
+    """A graded record's verdict as a boolean: true or false, or the strings PASS and FAIL; anything else is an error."""
+    if v is True or v == "PASS":
+        return True
+    if v is False or v == "FAIL":
+        return False
+    raise ValueError(f"a verdict must be true, false, PASS or FAIL, not {v!r}")
+
+
+def assessment_value(a):
+    value = getattr(a, "value", None)
+    if value is None and getattr(a, "feedback", None) is not None:
+        value = a.feedback.value
+    return value
+
+
+def current_verdict(mlflow, trace_id: str):
+    """The verdict in force on a trace, or None. An overridden verdict is no longer valid and does not count."""
+    found = [a for a in (mlflow.get_trace(trace_id).info.assessments or [])
+             if a.name == "verdict" and getattr(a, "valid", True) is not False]
+    return found[-1] if found else None
+
+
 def log_verdicts(graded: dict, mlflow, assessment_source) -> dict:
     """Attaches the verdicts to the traces of a run and logs the pass counts on the run. `graded` is the answers
-    file with "verdict", "note" and "grader" filled in per record (the judge, Genie's benchmark grader, or the
-    author's stricter override); `assessment_source` is mlflow.entities.AssessmentSource."""
-    passed = 0
+    file with "verdict" (true or false), "note", "grader" and "grader_type" (LLM_JUDGE for the judge, CODE for Genie's
+    benchmark grader, HUMAN for a manual review or the author's stricter override) filled in per record;
+    `assessment_source` is mlflow.entities.AssessmentSource. Grading a run again leaves unchanged verdicts alone and
+    replaces a changed one with MLflow's override, which keeps the old verdict in the trace's history."""
+    passed = graded_n = changed = 0
     for r in graded["records"]:
         if r.get("trace_id") is None or r.get("verdict") is None:
             continue
-        passed += bool(r["verdict"])
-        mlflow.log_feedback(trace_id=r["trace_id"], name="verdict", value=bool(r["verdict"]),
-                            rationale=r.get("note") or "",
-                            source=assessment_source(source_type=r.get("grader_type", "LLM_JUDGE"),
-                                                     source_id=r.get("grader", "judge")))
-    graded_n = sum(1 for r in graded["records"] if r.get("verdict") is not None)
+        ok = verdict_value(r["verdict"])
+        graded_n += 1
+        passed += ok
+        old = current_verdict(mlflow, r["trace_id"])
+        if old is not None and assessment_value(old) == ok:
+            continue
+        source = assessment_source(source_type=r.get("grader_type", "LLM_JUDGE"), source_id=r.get("grader", "judge"))
+        if old is None:
+            mlflow.log_feedback(trace_id=r["trace_id"], name="verdict", value=ok, rationale=r.get("note") or "",
+                                source=source)
+        else:
+            mlflow.override_feedback(trace_id=r["trace_id"], assessment_id=old.assessment_id, value=ok,
+                                     rationale=r.get("note") or "", source=source)
+        changed += 1
     with mlflow.start_run(run_id=graded["mlflow_run_id"]):
         mlflow.log_metrics({"answers_graded": graded_n, "answers_passed": passed,
                             "pass_rate": round(passed / graded_n, 4) if graded_n else 0.0})
-    return {"graded": graded_n, "passed": passed}
+    run = mlflow.get_run(graded["mlflow_run_id"])
+    return {"graded": graded_n, "passed": passed, "changed": changed,
+            "context_sha256": run.data.params.get("context_sha256"),
+            "run_started_utc": datetime.datetime.fromtimestamp(run.info.start_time / 1000, datetime.timezone.utc)
+            .isoformat(timespec="seconds")}
 
 # COMMAND ----------
 
