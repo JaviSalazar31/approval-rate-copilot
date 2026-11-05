@@ -1,0 +1,28 @@
+# Data contract for Acquirer B's authorization responses (local time plus offset, minor units, R-codes).
+feed: acquirer_b
+description: Authorization responses from Acquirer B, one row per attempt
+delivery: one CSV file per business day, named YYYY-MM-DD.csv
+format: {type: csv, delimiter: ",", header: true, encoding: utf-8}
+max_invalid_share: 0.01
+# First attempts in this file against the payments the orchestrator routed to this acquirer on the
+# same day. A routing change moves both sides together, so it does not trip the check; a truncated or
+# duplicated delivery does.
+reconciliation: {orchestrator_column: first_acquirer, acquirer: B, attempt_column: try_no, first_attempt: '1', min_ratio: 0.98, max_ratio: 1.02}
+columns:
+  - {name: id, type: string, pattern: '^B[0-9]{10}$'}
+  - {name: order_id, type: string, pattern: '^pay_[0-9a-f]{12}$'}
+  - {name: merchant, type: string, pattern: '^(MX|CO|BR)-M[0-9]{2}$'}
+  - {name: local_datetime, type: timestamp, format: '%d/%m/%Y %H:%M:%S'}
+  - {name: tz_offset, type: enum, values: ['-06:00', '-05:00', '-03:00']}
+  - {name: amount_minor, type: integer}
+  - {name: ccy, type: enum, values: [MXN, COP, BRL]}
+  - {name: ctry, type: enum, values: [MX, CO, BR]}
+  - {name: brand, type: enum, values: [VISA, MC, AMEX, ELO]}
+  - {name: funding, type: enum, values: [CREDIT, DEBIT]}
+  - {name: issuer, type: string, pattern: '^(MX|CO|BR|INTL)-ISS-[0-9]{2}$'}
+  - {name: auth_3ds, type: enum, values: ['Y', 'N']}
+  - {name: cuotas, type: integer}
+  - {name: result, type: enum, values: [AUTHORIZED, REFUSED, FAILED, PENDING_TIMEOUT, REVERSED]}
+  - {name: reason_code, type: string, pattern: '^R[0-9A-Z]{2}$', nullable: true}
+  - {name: resp_time_ms, type: integer}
+  - {name: try_no, type: enum, values: ['1', '2']}

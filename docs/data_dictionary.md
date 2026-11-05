@@ -251,6 +251,8 @@ Payment intents from the orchestrator, typed and cleaned. Grain: one row per pay
 | `routing_rule_version` | string | Routing rules version that chose the first acquirer (v12, v13, v14); empty if not routed |
 | `first_acquirer_id` | string | Acquirer chosen by routing for the first attempt (empty if not routed) |
 | `channel` | string | web or app |
+| `card_bin` | string | First six digits of the card number (BIN). Synthetic BINs start with 00, outside the ranges card networks use, so they match no real bank |
+| `card_last4` | string | Last four digits of the card number. On Databricks a column mask shows them only to the payments_support group |
 
 ### `silver_auth_attempts`
 
@@ -431,6 +433,26 @@ Country time zones and currencies. Grain: one row per country.
 | `country` | string | MX, CO or BR |
 | `time_zone` | string | IANA time zone used for local dates |
 | `currency` | string | MXN, COP or BRL |
+
+## Monitoring table written by the job
+
+Job task `volume_alerts` (notebook 07), from `gold_approval_daily`. The copilot does not query it.
+
+### `gold_volume_alerts_daily`
+
+Daily approved payments per country and card type against a forecast with weekday and payday terms, fitted on the previous 56 days (monitoring/volume_forecast.py). Holds every day; is_alert marks the days below the 99.9% lower bound and at least 8% under the forecast. Written by the job after the pipeline. Grain: one row per local date × country × card type (all traffic).
+
+| Column | Type | Meaning |
+|---|---|---|
+| `business_date` | date | Local calendar date of the payment (country time zone) |
+| `country` | string | MX, CO or BR |
+| `card_type` | string | credit or debit |
+| `approved` | bigint | Approved payments that day, first attempt or after a retry, cross-border included |
+| `expected_approved` | double | Approved payments the forecast expected (weekday, payday and trend terms, fitted on the previous 56 days); empty in the first 42 days |
+| `lower_bound` | double | Lower bound of the forecast's 99.9% one-sided prediction interval |
+| `pct_vs_expected` | double | Approved payments versus the forecast, in percent |
+| `z_score` | double | Distance from the forecast in prediction standard errors (log scale) |
+| `is_alert` | boolean | True when the day is below the lower bound and at least 8% under the forecast |
 
 ## Copilot functions (Unity Catalog SQL table functions)
 

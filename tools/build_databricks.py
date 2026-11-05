@@ -4,18 +4,26 @@ Generates the Databricks artifacts from the shared SQL bodies in sql/:
   databricks/pipeline/approval_copilot_pipeline.sql        Lakeflow pipeline (Spark Declarative Pipelines, SQL)
   databricks/notebooks/02_build_tables_without_pipeline.sql  same logic as plain CTAS (fallback)
   databricks/notebooks/04_copilot_functions.sql             Unity Catalog SQL table functions for the copilot
+  databricks/notebooks/01_generate_data.py                  the data generator, copied into a notebook
+  databricks/notebooks/06_check_feeds.py                    feed checks against the data contracts
+  databricks/notebooks/08_governance.py                     Unity Catalog tags, mask check and lineage
+  databricks/jobs/approval_copilot_job.json                 the job that runs everything in order (Jobs API)
 
   python tools/build_databricks.py
 """
 from __future__ import annotations
 
+import json
 import os
+import pprint
 import re
 import sys
 
+import yaml
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, os.path.join(ROOT, "local"))
-from pipeline_spec import SOURCES, TABLES, table_comment  # noqa: E402
+from pipeline_spec import COLUMN_TYPES, JOB_TABLES, MASKS, SOURCES, TABLES, table_comment  # noqa: E402
 
 CATALOG = "workspace"
 SCHEMA = "approval_copilot"
@@ -63,7 +71,12 @@ def build_pipeline():
             if action == "drop":
                 clause += " ON VIOLATION DROP ROW"
             cons.append(clause)
-        schema = "(\n" + ",\n".join(cons) + "\n)\n" if cons else ""
+        cols = []
+        if name in MASKS:  # a masked column needs the full column list in the definition
+            for col, typ in COLUMN_TYPES[name]:
+                mask = f" MASK {CATALOG}.{SCHEMA}.{MASKS[name][col]}" if col in MASKS[name] else ""
+                cols.append(f"  {col} {typ}{mask}")
+        schema = "(\n" + ",\n".join(cols + cons) + "\n)\n" if cols or cons else ""
         out.append(f"\n-- {'-' * 84}\nCREATE OR REFRESH {obj} {name}\n{schema}"
                    f"COMMENT '{sql_str(table_comment(name, comment))}'\nAS\n{body};\n")
     return "".join(out)
@@ -93,7 +106,10 @@ def build_ctas():
         drops = [c for n, c, a in expectations if a == "drop"]
         if drops:
             body = f"SELECT * FROM (\n{body}\n) WHERE " + " AND ".join(f"({c})" for c in drops)
-        out.append(f"{CELL}CREATE OR REPLACE TABLE {name}\nCOMMENT '{sql_str(table_comment(name, comment))}'\nAS\n{body};\n")
+        masks = "".join(f"ALTER TABLE {name} ALTER COLUMN {col} SET MASK {fn};\n"
+                        for col, fn in MASKS.get(name, {}).items())
+        out.append(f"{CELL}CREATE OR REPLACE TABLE {name}\nCOMMENT '{sql_str(table_comment(name, comment))}'\n"
+                   f"AS\n{body};\n{masks}")
     return "".join(out)
 
 
@@ -101,6 +117,8 @@ def build_generator_notebook():
     src = open(os.path.join(ROOT, "data_generator", "generate_data.py")).read()
     src = src.replace("from __future__ import annotations\n", "")
     src = src.split('\nif __name__ == "__main__":')[0].rstrip() + "\n"
+    if "import glob" not in src:
+        src = src.replace("import os\n", "import glob\nimport os\n", 1)
     return (
         "# Databricks notebook source\n"
         "# MAGIC %md\n"
@@ -120,10 +138,21 @@ def build_generator_notebook():
         + src +
         "\n# COMMAND ----------\n\n"
         f'LANDING = "{VOLUME_ROOT}"\n\n'
+        "# In the job, regenerate_data=false keeps files that are already there (the generator is deterministic,\n"
+        "# so rewriting them changes nothing). Run by hand, the widget is absent and the data is generated.\n"
+        "try:\n"
+        '    dbutils.widgets.text("regenerate_data", "true")  # noqa: F821\n'
+        '    regenerate = dbutils.widgets.get("regenerate_data").strip().lower() == "true"  # noqa: F821\n'
+        "except NameError:\n"
+        "    regenerate = True\n"
+        'existing = len(glob.glob(f"{LANDING}/raw/orchestrator/*.csv"))\n'
         "print(\"numpy\", np.__version__, \"| pandas\", pd.__version__)\n"
-        "totals = generate(LANDING, seed=42)\n"
-        "print(f\"{totals['payments']:,} payment intents | {totals['attempts']:,} authorization attempts\")\n"
-        "# Reference run (seed 42): 661,301 payment intents | 700,038 authorization attempts.\n"
+        "if regenerate or existing < N_DAYS:\n"
+        "    totals = generate(LANDING, seed=42)\n"
+        "    print(f\"{totals['payments']:,} payment intents | {totals['attempts']:,} authorization attempts\")\n"
+        "    # Reference run (seed 42): 661,301 payment intents | 700,038 authorization attempts.\n"
+        "else:\n"
+        '    print(f"{existing} days of files already landed; generation skipped (regenerate_data=false)")\n'
         "\n# COMMAND ----------\n\n"
         'for folder in ["raw/orchestrator", "raw/acquirer_a", "raw/acquirer_b", "raw/acquirer_c", "reference"]:\n'
         '    files = dbutils.fs.ls(f"{LANDING}/{folder}")  # noqa: F821  (dbutils exists in Databricks)\n'
@@ -219,7 +248,7 @@ def param_sql(name):
 def build_functions():
     out = [notebook_header("04 · Copilot functions", [
         "Creates the five Unity Catalog SQL table functions the copilot uses for diagnosis.",
-        "In the Genie agent, add them under Configure → Examples → SQL functions (trusted assets).",
+        "In the Genie agent, add them under Configure > Examples > SQL functions (trusted assets).",
         "",
         "Generated by `tools/build_databricks.py` from the SQL bodies in `/sql/copilot`. Do not edit by hand."]),
         CELL,
@@ -242,12 +271,199 @@ def build_functions():
     return "".join(out)
 
 
+def build_feed_checks_notebook():
+    src = open(os.path.join(ROOT, "checks", "feed_checks.py")).read()
+    src = src.replace("from __future__ import annotations\n", "")
+    src = src.split("\ndef main()")[0].rstrip() + "\n"
+    src = src.replace('ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))',
+                      "ROOT = os.getcwd()  # unused here: the contracts are embedded below")
+    contracts = {}
+    for path in sorted(os.listdir(os.path.join(ROOT, "contracts"))):
+        if path.endswith(".yml"):
+            with open(os.path.join(ROOT, "contracts", path), encoding="utf-8") as f:
+                c = yaml.safe_load(f)
+            contracts[c["feed"]] = c
+    return (
+        "# Databricks notebook source\n"
+        "# MAGIC %md\n"
+        "# MAGIC # 06 · Check the raw feeds against their data contracts\n"
+        "# MAGIC First check of the job, before the pipeline. It fails the run when a file is missing or empty,\n"
+        "# MAGIC when columns change, when a column's values stop matching their format, when the orchestrator's\n"
+        "# MAGIC volume is far off, when an acquirer file does not reconcile with what was routed to it, or when\n"
+        "# MAGIC any value looks like a full card number. Single bad rows are left to the pipeline's quarantine.\n"
+        "# MAGIC\n"
+        "# MAGIC Copy of `checks/feed_checks.py` with the contracts from `contracts/*.yml` embedded, made by\n"
+        "# MAGIC `tools/build_databricks.py`. Do not edit by hand.\n"
+        "\n# COMMAND ----------\n\n"
+        + src +
+        "\n# COMMAND ----------\n\n"
+        "CONTRACTS = " + pprint.pformat(contracts, width=110, sort_dicts=False) + "\n"
+        "\n# COMMAND ----------\n\n"
+        f'LANDING = "{VOLUME_ROOT}"\n'
+        "# After a regeneration every file is new, so every date is checked; otherwise the run date (or the newest).\n"
+        "try:\n"
+        '    dbutils.widgets.text("run_date", "")  # noqa: F821\n'
+        '    dbutils.widgets.text("regenerate_data", "false")  # noqa: F821\n'
+        '    run_date = dbutils.widgets.get("run_date").strip() or None  # noqa: F821\n'
+        '    all_dates = dbutils.widgets.get("regenerate_data").strip().lower() == "true"  # noqa: F821\n'
+        "except NameError:\n"
+        "    run_date, all_dates = None, False\n"
+        "reports = run(LANDING, run_date, contracts=CONTRACTS, all_dates=all_dates)\n"
+        "print(summarize(reports))\n"
+        'failed = [r for r in reports if r["status"] == "fail"]\n'
+        "if failed:\n"
+        '    details = "; ".join(f"{r[\'feed\']} {v[\'check\']}: {v[\'detail\']}" for r in failed for v in r["violations"])\n'
+        '    raise RuntimeError(f"{len(failed)} of {len(reports)} feed checks failed, so the pipeline does not run. {details}")\n'
+        'print(f"All {len(reports)} feed checks passed, {reports[0][\'date\']} to {reports[-1][\'date\']}")\n'
+    )
+
+
+def layer(name):
+    return {"bronze": "bronze", "silver": "silver", "gold": "gold", "ref": "reference"}[name.split("_")[0]]
+
+
+COLUMN_TAGS = {
+    (table, column): ({"pci": "truncated_pan", "column_mask": MASKS[table][column]} if column in MASKS.get(table, {})
+                      else {"pci": "truncated_pan"})
+    for table in ("bronze_orchestrator", "silver_payment_intents") for column in ("card_bin", "card_last4")
+}
+
+
+def build_governance_notebook():
+    table_tags = {name: {"layer": layer(name)} for name, *_ in TABLES if name != "silver_auth_attempts_staged"}
+    table_tags.update({name: {"layer": layer(name)} for name, _ in JOB_TABLES})
+    mask_tables, mask_col = [t for t in MASKS if "card_last4" in MASKS[t]], "card_last4"
+    return (
+        "# Databricks notebook source\n"
+        "# MAGIC %md\n"
+        "# MAGIC # 08 · Governance: tags, column mask and lineage\n"
+        "# MAGIC Tags the schema and each table with its layer (the staging view of attempts is skipped), tags the\n"
+        "# MAGIC card columns, checks that the mask on `silver_payment_intents.card_last4` hides the digits from\n"
+        "# MAGIC anyone outside `payments_support`, and lists the table lineage that Unity Catalog recorded.\n"
+        "# MAGIC Idempotent; last task of the job.\n"
+        "# MAGIC\n"
+        "# MAGIC Generated by `tools/build_databricks.py`. Do not edit by hand.\n"
+        "\n# COMMAND ----------\n\n"
+        f'CATALOG, SCHEMA = "{CATALOG}", "{SCHEMA}"\n'
+        "SCHEMA_TAGS = {'domain': 'payments', 'data_origin': 'synthetic'}\n"
+        "TABLE_TAGS = " + pprint.pformat(table_tags, width=110, sort_dicts=False) + "\n"
+        "COLUMN_TAGS = " + pprint.pformat(COLUMN_TAGS, width=110, sort_dicts=False) + "\n"
+        "\n# COMMAND ----------\n\n"
+        "def tags_sql(tags):\n"
+        "    return \", \".join(f\"'{k}' = '{v}'\" for k, v in tags.items())\n"
+        "\n\n"
+        "def object_kind(full_name):\n"
+        "    rows = spark.sql(f\"DESCRIBE TABLE EXTENDED {full_name}\").collect()  # noqa: F821\n"
+        "    kind = {r[0].strip(): (r[1] or '').strip() for r in rows if r[0]}.get('Type', '').upper()\n"
+        "    if 'MATERIALIZED' in kind:\n"
+        "        return 'MATERIALIZED VIEW'\n"
+        "    return 'STREAMING TABLE' if 'STREAMING' in kind else 'TABLE'\n"
+        "\n\n"
+        "failed = []\n"
+        "spark.sql(f\"ALTER SCHEMA {CATALOG}.{SCHEMA} SET TAGS ({tags_sql(SCHEMA_TAGS)})\")  # noqa: F821\n"
+        "for table, tags in TABLE_TAGS.items():\n"
+        "    full = f\"{CATALOG}.{SCHEMA}.{table}\"\n"
+        "    try:\n"
+        "        spark.sql(f\"ALTER {object_kind(full)} {full} SET TAGS ({tags_sql(tags)})\")  # noqa: F821\n"
+        "    except Exception as e:\n"
+        "        failed.append((table, str(e).strip().splitlines()[0]))\n"
+        "for (table, column), tags in COLUMN_TAGS.items():\n"
+        "    full = f\"{CATALOG}.{SCHEMA}.{table}\"\n"
+        "    try:\n"
+        "        spark.sql(f\"ALTER {object_kind(full)} {full} ALTER COLUMN {column} SET TAGS ({tags_sql(tags)})\")  # noqa: F821\n"
+        "    except Exception as e:\n"
+        "        failed.append((f\"{table}.{column}\", str(e).strip().splitlines()[0]))\n"
+        "print(f\"tags set on {len(TABLE_TAGS) - len([f for f in failed if '.' not in f[0]])} tables\")\n"
+        "\n# COMMAND ----------\n\n"
+        "# The mask: outside payments_support, every value reads ****.\n"
+        f"for table in {mask_tables!r}:\n"
+        f"    row = spark.sql(\"SELECT is_account_group_member('payments_support') AS member, \"  # noqa: F821\n"
+        f"                    \"count_if({mask_col} <> '****') AS visible, count(*) AS total \"\n"
+        f"                    f\"FROM {CATALOG}.{SCHEMA}.{{table}}\").first()\n"
+        "    print(f\"{table}: payments_support member: {row.member}; visible last-four values: {row.visible:,} of {row.total:,}\")\n"
+        "    if not row.member and row.visible:\n"
+        f"        failed.append((f\"{{table}}.{mask_col}\", \"mask is not hiding the last four digits\"))\n"
+        "\n# COMMAND ----------\n\n"
+        "# Table lineage recorded by Unity Catalog (system tables, when the workspace exposes them).\n"
+        "try:\n"
+        "    lineage = spark.sql(  # noqa: F821\n"
+        "        f\"\"\"SELECT DISTINCT source_table_name AS source, target_table_name AS target\n"
+        "        FROM system.access.table_lineage\n"
+        "        WHERE target_table_catalog = '{CATALOG}' AND target_table_schema = '{SCHEMA}'\n"
+        "          AND source_table_schema = '{SCHEMA}'\n"
+        "        ORDER BY target, source\"\"\").collect()\n"
+        "    print(f\"{len(lineage)} lineage edges recorded\")\n"
+        "    for r in lineage:\n"
+        "        print(f\"  {r.source} -> {r.target}\")\n"
+        "except Exception as e:\n"
+        "    print(\"Lineage system table not available here:\", str(e).strip().splitlines()[0])\n"
+        "\n# COMMAND ----------\n\n"
+        "if failed:\n"
+        "    for f in failed:\n"
+        "        print(\"failed:\", f)\n"
+        "    raise RuntimeError(f\"{len(failed)} governance steps failed\")\n"
+    )
+
+
+# The job: one run does setup, data landing, feed checks, the pipeline, the forecast alert, the copilot
+# functions, column descriptions and governance, in that order. ${...} placeholders are filled at deploy
+# time (envsubst); {{job.parameters...}} are Databricks dynamic values and stay as they are.
+JOB_NAME = "approval_copilot_daily"
+TRANSIENT_RETRIES = {"max_retries": 2, "min_retry_interval_millis": 60000, "retry_on_timeout": True}
+JOB_TASKS = [
+    ("setup", "00_setup", [], {}, True),
+    ("land_data", "01_generate_data", ["setup"], {"regenerate_data": "{{job.parameters.regenerate_data}}"}, True),
+    ("check_feeds", "06_check_feeds", ["land_data"], {"run_date": "{{job.parameters.run_date}}",
+                                                       "regenerate_data": "{{job.parameters.regenerate_data}}"}, False),
+    ("refresh_pipeline", None, ["check_feeds"], {}, True),
+    ("volume_alerts", "07_volume_alerts", ["refresh_pipeline"], {}, True),
+    ("copilot_functions", "04_copilot_functions", ["refresh_pipeline"], {}, True),
+    ("column_comments", "05_column_comments", ["refresh_pipeline"], {}, True),
+    ("governance", "08_governance", ["volume_alerts", "copilot_functions", "column_comments"], {}, True),
+]
+
+
+def build_job_json():
+    tasks = []
+    for key, notebook, deps, params, retry in JOB_TASKS:
+        t = {"task_key": key}
+        if deps:
+            t["depends_on"] = [{"task_key": d} for d in deps]
+        if notebook:
+            t["notebook_task"] = {"notebook_path": "${NOTEBOOK_DIR}/" + notebook, "source": "WORKSPACE"}
+            if params:
+                t["notebook_task"]["base_parameters"] = params
+        else:
+            t["pipeline_task"] = {"pipeline_id": "${PIPELINE_ID}", "full_refresh": False}
+        t.update(TRANSIENT_RETRIES if retry else {"max_retries": 0})
+        t["timeout_seconds"] = 3600
+        tasks.append(t)
+    job = {
+        "name": JOB_NAME,
+        "description": "Approval Rate Copilot: land the synthetic feeds, check them against their contracts, refresh "
+                       "the pipeline, run the forecast alert, recreate the copilot functions and column "
+                       "descriptions, and apply governance tags. Generated by tools/build_databricks.py.",
+        "parameters": [{"name": "run_date", "default": ""}, {"name": "regenerate_data", "default": "false"}],
+        "email_notifications": {"on_failure": ["${OWNER_EMAIL}"], "no_alert_for_skipped_runs": True},
+        "max_concurrent_runs": 1,
+        "timeout_seconds": 7200,
+        # Defined but paused: on Free Edition the job runs when started, to stay within the compute quota.
+        "schedule": {"quartz_cron_expression": "0 0 7 * * ?", "timezone_id": "America/Bogota", "pause_status": "PAUSED"},
+        "tags": {"project": "approval-rate-copilot", "data": "synthetic"},
+        "tasks": tasks,
+    }
+    return json.dumps(job, indent=2) + "\n"
+
+
 def main():
     targets = {
         "databricks/pipeline/approval_copilot_pipeline.sql": build_pipeline(),
         "databricks/notebooks/01_generate_data.py": build_generator_notebook(),
         "databricks/notebooks/02_build_tables_without_pipeline.sql": build_ctas(),
         "databricks/notebooks/04_copilot_functions.sql": build_functions(),
+        "databricks/notebooks/06_check_feeds.py": build_feed_checks_notebook(),
+        "databricks/notebooks/08_governance.py": build_governance_notebook(),
+        "databricks/jobs/approval_copilot_job.json": build_job_json(),
     }
     for rel, text in targets.items():
         path = os.path.join(ROOT, rel)

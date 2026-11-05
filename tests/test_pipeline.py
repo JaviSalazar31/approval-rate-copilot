@@ -7,6 +7,7 @@ Run after `python local/run_local.py`:
 """
 import glob
 import os
+import sys
 
 import pandas as pd
 
@@ -73,6 +74,40 @@ def test_mapping_versions_are_point_in_time():
     assert list(by_version["v2.2"]) == [True]
     assert list(by_version["v2.3"]) == [False]
     assert list(by_version["v2.3.1"]) == [True]
+
+
+def test_masked_table_matches_its_declared_columns():
+    # The Lakeflow definition of a masked table lists every column and its type (local/pipeline_spec.py)
+    import pyarrow.parquet as pq
+    sys.path.insert(0, os.path.join(ROOT, "local"))
+    sys.path.insert(0, os.path.join(ROOT, "tools"))
+    from build_docs import sql_type
+    from pipeline_spec import COLUMN_TYPES
+    for table, declared in COLUMN_TYPES.items():
+        files = sorted(glob.glob(os.path.join(OUT, table, "*.parquet")))
+        local = [(f.name, sql_type(str(f.type)).upper().replace(" ", "")) for f in pq.read_schema(files[0])]
+        assert local == [(c, t.replace(" ", "")) for c, t in declared], table
+
+
+def test_no_full_card_numbers_in_the_analytics_layer():
+    sys.path.insert(0, os.path.join(ROOT, "checks"))
+    from feed_checks import looks_like_pan
+    intents = table("silver_payment_intents")
+    assert intents["card_bin"].str.fullmatch(r"00[0-9]{4}").all()
+    assert intents["card_last4"].str.fullmatch(r"[0-9]{4}").all()
+    for name in ("silver_payment_intents", "silver_payments"):
+        t = table(name)
+        text = [c for c in t.columns if t[c].dtype == object or pd.api.types.is_string_dtype(t[c])]
+        assert "card_bin" in text or name != "silver_payment_intents"
+        for col in text:
+            assert not t[col].dropna().astype(str).map(looks_like_pan).any(), f"{name}.{col}"
+
+
+def test_forecast_alert_flags_two_noise_days_and_not_the_incident():
+    # Both flags are noise (no planted event); the backtest reports them as false alerts.
+    al = table("gold_volume_alerts_daily")
+    flagged = {(str(r.business_date), r.country, r.card_type) for r in al[al["is_alert"]].itertuples()}
+    assert flagged == {("2026-08-22", "MX", "debit"), ("2026-08-26", "BR", "credit")}
 
 
 if __name__ == "__main__":

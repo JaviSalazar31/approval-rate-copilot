@@ -23,15 +23,21 @@ change was rolled back after 22 hours; the map was fixed the next day.
 | First-attempt approval | From 84.6% to 70.7% | `fn_drop_impact` |
 | Lost approvals | 110 (about 1 payment in 9) | `fn_drop_impact` |
 | Lost approved volume | USD 6,354 | `fn_drop_impact` |
-| Fees saved by the change in the same window | ≈ USD 180 | fees the window's approved volume would have paid on Acquirer A (40 bps more than B) minus the fees it paid |
+| Fees saved by the change in the same window | about USD 180 | fees the window's approved volume would have paid on Acquirer A (40 bps more than B) minus the fees it paid |
 
 Lost approved volume is an upper bound on lost sales: some shoppers retry with another card, and the
 orchestrator loses only its margin on a lost sale. Even so, the trade was about USD 35 of lost approved sales
 for every dollar of fees saved.
 
+The figures above compare the window with the segment's own previous 14 days. Measured against Colombian
+domestic credit, which the routing change did not touch, the difference-in-differences estimate is −12.2
+points (95% CI −15.2 to −9.4) and 122 lost approvals (95 to 152). The 14-day figure sits inside that interval,
+so the table above stands; the method and its checks are in
+[impact and detection](impact_and_detection.md).
+
 The map bug had a wider impact (6–15 Aug, all of Acquirer B's domestic traffic): 578 "do not honor" declines
 were not retried. In the 28 days before the bug, 36% of these were recovered by a retry on another acquirer in
-Colombia and 40% in Mexico, so about 220 approvals (≈ USD 16k of approved volume) were not recovered. About 50
+Colombia and 40% in Mexico, so about 220 approvals (about USD 16k of approved volume) were not recovered. About 50
 of them fall inside the window above and are already part of its 110 lost approvals.
 
 ## Timeline

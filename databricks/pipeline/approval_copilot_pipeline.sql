@@ -158,6 +158,25 @@ SELECT * FROM VALUES
 -- ------------------------------------------------------------------------------------
 CREATE OR REFRESH MATERIALIZED VIEW silver_payment_intents
 (
+  payment_id STRING,
+  merchant_id STRING,
+  created_ts_utc TIMESTAMP,
+  country STRING,
+  currency STRING,
+  amount DECIMAL(18,2),
+  card_brand STRING,
+  card_type STRING,
+  issuer_id STRING,
+  is_cross_border BOOLEAN,
+  installments INT,
+  three_ds_requested BOOLEAN,
+  three_ds_flow STRING,
+  orchestrator_status STRING,
+  routing_rule_version STRING,
+  first_acquirer_id STRING,
+  channel STRING,
+  card_bin STRING,
+  card_last4 STRING MASK workspace.approval_copilot.mask_card_last4,
   CONSTRAINT has_merchant EXPECT (merchant_id IS NOT NULL)
 )
 COMMENT 'Payment intents from the orchestrator, typed and cleaned. Grain: one row per payment intent.'
@@ -182,7 +201,11 @@ SELECT
   orchestrator_status,
   nullif(routing_rule_version, '') AS routing_rule_version,
   nullif(first_acquirer, '') AS first_acquirer_id,
-  channel
+  channel,
+  -- Truncated card number only (BIN and last four), never the full number. On Databricks the last
+  -- four digits carry a column mask (see the pipeline definition and notebook 00).
+  card_bin,
+  card_last4
 FROM bronze_orchestrator;
 
 -- ------------------------------------------------------------------------------------

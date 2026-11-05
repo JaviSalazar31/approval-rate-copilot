@@ -244,3 +244,71 @@ variant gave both rates and never the gap, and count as failures. On 14 held-out
 last run and run once, the agent scored 11, and two of its three failures were chat-mode gaps of the same kind,
 which also call for structure: functions that treat a text "NULL" as NULL, and comparison results that carry the
 gap.
+
+---
+
+### ADR-13 · Stop the run on a broken feed, quarantine bad rows
+
+**Decision.** Each raw feed has a data contract (`contracts/*.yml`): its columns, their formats and allowed
+values, how much of a column may break before the feed counts as changed (1%), and a key, volume or
+reconciliation rule. A job task checks the day's files against them before the pipeline reads anything, and
+stops the run on a missing or empty file, a changed column set, a column whose values stop matching their
+format, a repeated payment ID, an orchestrator volume outside 0.5 to 1.5 times the median of the previous 7
+files, an acquirer file whose first attempts do not reconcile within 2% with the payments the orchestrator
+routed to it, or any value that looks like a full card number. Single bad rows inside a valid file still go
+to the quarantine (ADR-02).
+
+**Why.** The quarantine is built for a few bad rows. A feed that changes shape at once, for example an
+acquirer that switches its timestamp format, would send most of a day to quarantine and leave a hole in the
+gold tables that reads like a drop in approval. Stopping before the pipeline keeps the previous tables intact
+and sends the failure email instead. The card-number rule enforces R10 before any table reads the file.
+
+**Alternatives.** Pipeline expectations that fail the update: they check one row at a time, so a share of bad
+values, a volume ratio or a reconciliation between two feeds would each need its own aggregate table inside
+the pipeline, and the rules would run only on Databricks. The contract check runs before ingestion, and the
+same code runs locally and in CI. A row-count check per acquirer against its own history: a routing change
+moves volume between acquirers on purpose (on 13 August, B's file was 1.65 times the median of its previous
+seven files), so each acquirer reconciles against what the orchestrator routed to it.
+
+**Cost.** A format change announced by an acquirer now needs a contract change in the same release as the
+parser change. A file that fails stays in the landing volume, and the next run checks only its own date, so
+the on-call replaces or removes the bad file before rerunning (runbook, troubleshooting). The check reads every
+value of the day's files, which is cheap at these volumes; at real volumes it would sample. The contracts are
+strict on structure and loose on rows: up to 1% of bad values per column passes.
+
+**Result.** All 360 feed-days of the reference data pass, locally, in CI and in the job run of 4 November
+2026. Tests cover a renamed column, a new timestamp format, truncated orchestrator and acquirer files, a file
+delivered twice, a missing file (including an orchestrator file missing on a day the acquirers already sent
+theirs), five bad amounts (which pass) and one full card number (which stops the run).
+
+---
+
+### ADR-14 · Forecast approved payments, with weekday and payday terms
+
+**Decision.** A third daily alert watches approved payments per country and card type against a forecast
+fitted on the previous 56 days, with a trend, weekday terms and a payday term. A day alerts when it falls
+below the 99.9% lower prediction bound and at least 8% under the forecast. A job task writes the result to
+`gold_volume_alerts_daily` after the pipeline.
+
+**Why.** The two existing alerts watch ratios of payments that reached an acquirer, so a loss before the
+acquirer leaves them flat: the risk rules of 18 June cut conversion in Brazil while authorization approval
+did not move. Approved payments see every kind of loss, but they move with the calendar: in this data a
+Sunday runs about 30% below a Friday, and paydays 12 to 18% above a normal day.
+
+**Alternatives.** A trailing 28-day mean of counts, which needs a band wide enough to absorb those swings, and
+the mean of the previous four same weekdays, which handles weekends but not paydays. With thresholds set so
+that each raises as many false alerts as the forecast on the reference data, they caught 23% and 54% of the
+days cut by 20% in the backtest. A forecasting library (Prophet, exponential smoothing): more machinery for
+the same two seasonal terms, and one more dependency in the job. Hourly forecasts come with the hourly
+approval alerts on the roadmap.
+
+**Cost.** About one false alert every six weeks across the six segments (4 in 1,016 segment-days without a
+planted incident, over the four datasets), and a lower bound about 15% under the forecast: smaller drops pass unseen at daily
+grain, which includes every planted incident in this data. The 18 June risk rules cost Brazil 2 to 3% of its
+approved payments on their two worst days and fell in the 42-day warm-up, so this alert would have missed
+them too. The payday calendar is an input someone has to keep current.
+
+**Result.** On three more datasets from the same generator, the alert caught 81% of the days cut by 20% and
+all of those cut by 30%, against 54% and 94% for the same-weekday mean and 23% and 66% for the trailing mean.
+The generator draws daily volume from the same weekday, payday and trend terms the forecast fits, so this
+tests new noise rather than new behavior ([impact and detection](impact_and_detection.md)).

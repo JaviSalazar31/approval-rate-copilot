@@ -393,7 +393,7 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
   <div class="facts" role="list">
     <div class="fact" role="listitem"><div class="v">1 in {{incident.one_in|int}}</div><div class="l">Colombian debit payments was an extra decline in the 22 hours after a routing change ({{incident.lost_approvals|int}} of {{incident.window_payments|int}} above the usual rate)</div></div>
     <div class="fact" role="listitem"><div class="v">{{incident.days_of_early_warning|int}} days</div><div class="l">of early warning: the retry alert flagged the hidden cause in its first daily run, on 7 Aug, but nobody owned it</div></div>
-    <div class="fact" role="listitem"><div class="v">≈ USD {{incident.b05_lost_recoveries_usd|k0}}</div><div class="l">of approved volume lost over nine days while retries were switched off, mostly before the visible drop</div></div>
+    <div class="fact" role="listitem"><div class="v">USD {{incident.b05_lost_recoveries_usd|k0}}</div><div class="l">estimated approved volume lost over nine days while retries were switched off, mostly before the visible drop</div></div>
     <div class="fact" role="listitem"><div class="v">{{eval.genie_passed}}/{{eval.total}}</div><div class="l">benchmark questions passed by the deployed Genie agent on its {{eval.genie_last_ordinal}} run ({{eval.genie_first}} on the first), and {{eval.heldout_passed}} of {{eval.heldout_total}} new questions it was never tuned on</div></div>
   </div>
   <p class="glossary"><b>pp</b> percentage points · <b>bps</b> basis points (0.01%) · <b>acquirer</b> the bank or processor that takes card payments for the merchant · <b>issuer</b> the cardholder's bank · <b>cascade</b> retrying a declined payment on a second acquirer</p>
@@ -470,7 +470,7 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
     <div class="two-col" style="margin-top: 3.2rem;">
       <div class="stack">
         <h3>The warning came six days early</h3>
-        <p class="measure">Retries of B's "do not honor" declines fell from 100% to {{incident.b05_first_day_cascade_rate|pct0}} on 6 August, the day the new map went live, and to 0% from the next day. Daily approval barely moved, so a dashboard that watches only outcomes stayed green. A cascade alert that watches the retry mechanism itself flagged it in the next morning's run and in every daily run until the fix, but in the scenario nobody owned it, so nobody acted. Over those nine days, Mexico and Colombia lost about {{incident.b05_lost_recoveries|round10}} approvals (≈ USD {{incident.b05_lost_recoveries_usd|k0}} of approved volume) that a retry would normally have recovered, most of them before the visible incident.</p>
+        <p class="measure">Retries of B's "do not honor" declines fell from 100% to {{incident.b05_first_day_cascade_rate|pct0}} on 6 August, the day the new map went live, and to 0% from the next day. Daily approval barely moved, so a dashboard that watches only outcomes stayed green. A cascade alert that watches the retry mechanism itself flagged it in the next morning's run and in every daily run until the fix, but in the scenario nobody owned it, so nobody acted. Over those nine days, Mexico and Colombia lost about {{incident.b05_lost_recoveries|round10}} approvals (about USD {{incident.b05_lost_recoveries_usd|k0}} of approved volume) that a retry would normally have recovered, most of them before the visible incident.</p>
       </div>
       <div class="figure" id="fig-cascade" style="margin-top: 0;">
         <div class="figure-head">
@@ -488,6 +488,18 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
     <div class="figure" id="fig-money" style="margin-top: 3.2rem;">
       <div class="figure-head"><div><div class="figure-title">What the cheaper route saved, and what it cost</div><div class="figure-sub">USD, 13 Aug 14:00 to 14 Aug 12:10, Colombian domestic debit</div></div></div>
       <div class="chart" data-chart="money" role="img" aria-label="Fees saved USD {{incident.fees_saved_usd|int}} versus approved volume lost USD {{incident.lost_approved_usd|int}}."></div>
+    </div>
+
+    <div class="two-col" style="margin-top: 3.2rem;">
+      <div class="stack">
+        <h3>Checked against a control group</h3>
+        <p class="measure">The copilot compares the window with the same segment's previous 14 days, which holds only if nothing else moved. To check, I measured the change against Colombian credit, which routing v14 did not touch. The difference-in-differences estimate is {{analysis.did_pp|pp1}} points (95% CI {{analysis.did_lo|pp1}} to {{analysis.did_hi|pp1}}), or {{analysis.did_lost_approvals|int}} approvals lost ({{analysis.did_lost_lo|int}} to {{analysis.did_lost_hi|int}}), and the copilot's {{analysis.before_after_pp|pp1}} sits inside that interval. On {{analysis.placebo_dates|int}} dates with no change to Colombian traffic, the same estimate stays between {{analysis.placebo_min_pp|spp1}} and {{analysis.placebo_max_pp|spp1}} points.</p>
+        <p class="measure">The copilot's split into mix and rate effects puts the drop on how the payments were processed. Mix effects are at most {{analysis.mix_max_pp}} points in every dimension: the same issuers, brands and merchants were paying, and each of them approved less.</p>
+      </div>
+      <div class="figure" id="fig-impact" style="margin-top: 0;">
+        <div class="figure-head"><div><div class="figure-title">Cost of the routing change, two ways</div><div class="figure-sub">Change in final approval, points, with 95% intervals from a bootstrap over hours; the band spans the {{analysis.placebo_dates|int}} placebo dates</div></div></div>
+        <div class="chart" data-chart="impact" role="img" aria-label="Before and after against the previous 14 days: {{analysis.before_after_pp|pp1}} points, interval {{analysis.before_after_lo|pp1}} to {{analysis.before_after_hi|pp1}}. Difference-in-differences against Colombian credit: {{analysis.did_pp|pp1}} points, interval {{analysis.did_lo|pp1}} to {{analysis.did_hi|pp1}}. Placebo dates range from {{analysis.placebo_min_pp|pp1}} to {{analysis.placebo_max_pp|pp1}}."></div>
+      </div>
     </div>
   </section>
 
@@ -588,19 +600,38 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
     <div class="section-head">
       <div class="label">The system</div>
       <h2 id="h-system">From raw feeds to clean tables</h2>
-      <p>A Lakeflow pipeline, Unity Catalog SQL functions, an AI/BI dashboard and a Genie agent were deployed on Databricks Free Edition on 29 October 2026. The same SQL also runs on local Spark, where every number on this page was first computed; on Databricks the generated files match byte for byte, and the pipeline quarantines the same {{headline.quarantined|int}} rows.</p>
+      <p>A Lakeflow pipeline, Unity Catalog SQL functions, an AI/BI dashboard and a Genie agent were deployed on Databricks Free Edition on 29 October 2026. The same SQL also runs on local Spark, where every number on this page was first computed; on Databricks the generated files match byte for byte, and the pipeline quarantines the same {{headline.quarantined|int}} rows. Since 4 November 2026 one job runs the whole sequence, from landing the files to the governance checks.</p>
     </div>
     <div class="flow">
       <div class="stage"><span class="k">Sources</span><span class="t">4 raw feeds + reference data</span><ul><li>Orchestrator log</li><li>Acquirers A, B, C: three formats</li><li>Routing rules, code map, change log</li></ul></div>
-      <div class="stage"><span class="k">Bronze</span><span class="t">Files as received</span><ul><li>Streaming ingestion</li><li>Source file and load time kept</li></ul></div>
+      <div class="stage"><span class="k">Bronze</span><span class="t">Files as received, after contract checks</span><ul><li>A broken feed stops the run</li><li>Streaming ingestion</li><li>Source file and load time kept</li></ul></div>
       <div class="stage"><span class="k">Silver</span><span class="t">One clean row per attempt and per payment</span><ul><li>{{pipeline.duplicates|int}} webhook duplicates removed</li><li>Codes mapped with the version in force</li><li>{{headline.quarantined|int}} rows quarantined, with the rule they failed</li></ul></div>
-      <div class="stage"><span class="k">Gold</span><span class="t">10 tables shaped for questions</span><ul><li>Daily and hourly approval</li><li>Declines, retries, issuers, funnel</li><li>Anomalies and retry alerts</li></ul></div>
+      <div class="stage"><span class="k">Gold</span><span class="t">11 tables shaped for questions</span><ul><li>Daily and hourly approval</li><li>Declines, retries, issuers, funnel</li><li>Anomaly, retry and forecast alerts</li></ul></div>
       <div class="stage"><span class="k">Use</span><span class="t">Dashboard and copilot</span><ul><li>AI/BI dashboard "Approval Health"</li><li>Genie agent + 5 SQL functions</li><li>{{eval.total}}-question benchmark</li></ul></div>
     </div>
-    <div class="chips" aria-label="Tools">
-      <span class="chip">Databricks Free Edition</span><span class="chip">Lakeflow pipelines</span><span class="chip">Unity Catalog SQL functions</span><span class="chip">AI/BI dashboards</span><span class="chip">Genie agents</span><span class="chip">Spark SQL</span><span class="chip">Python</span><span class="chip">Data-quality expectations</span><span class="chip">LLM evaluation</span>
+    <div class="two-col" style="margin-top: 2.6rem;">
+      <div class="stack">
+        <h3>Checks before the pipeline, an alert after it</h3>
+        <p class="measure">Each raw feed has a data contract. Before the pipeline runs, a check stops the run on a missing or empty file, a changed column, values that break their format in more than 1% of a column, a repeated payment ID or a volume far from the previous week's, an acquirer file that does not reconcile with the payments routed to it, or any value that looks like a full card number. Single bad rows still go to quarantine. One Databricks job runs every step in order, and CI on GitHub Actions runs the tests and the whole pipeline on every push to main.</p>
+        <p class="measure">The approval and retry alerts watch payments that reached an acquirer, so a loss before that point does not move them. A third alert forecasts approved payments with weekday and payday terms. With every method set to the same false-alert rate on the reference data, it caught {{analysis.forecast_20|pct0}} of the days cut by 20% in three more synthetic datasets, against {{analysis.same_weekday_20|pct0}} for a same-weekday mean and {{analysis.trailing_mean_20|pct0}} for a trailing 28-day mean. Those datasets share the generator's calendar, so they test new noise, not holidays or promotions. None of the planted incidents is that large, so the rate alerts remain the ones that catch them.</p>
+      </div>
+      <div class="figure" id="fig-detection" style="margin-top: 0;">
+        <div class="figure-head">
+          <div><div class="figure-title">Days caught after an injected drop</div><div class="figure-sub">Approved payments cut on clean days, {{analysis.oos_segment_days|int}} segment-days from three datasets the thresholds were not set on</div></div>
+          <div class="legend" aria-hidden="true">
+            <span><i class="key-line" style="background: var(--series-a)"></i>Forecast, weekday and payday terms</span>
+            <span><i class="key-line" style="background: repeating-linear-gradient(90deg, var(--ink-2) 0 5px, transparent 5px 9px)"></i>Same-weekday mean</span>
+            <span><i class="key-line" style="background: repeating-linear-gradient(90deg, var(--muted) 0 2px, transparent 2px 5px)"></i>Trailing 28-day mean</span>
+          </div>
+        </div>
+        <div class="chart" data-chart="detection" role="img" aria-label="Share of days flagged after cutting approved payments by 10, 15, 20 and 30 percent. Forecast: {{analysis.forecast_10|pct0}}, {{analysis.forecast_15|pct0}}, {{analysis.forecast_20|pct0}} and {{analysis.forecast_30|pct0}}. Same-weekday mean: {{analysis.same_weekday_10|pct0}}, {{analysis.same_weekday_15|pct0}}, {{analysis.same_weekday_20|pct0}} and {{analysis.same_weekday_30|pct0}}. Trailing mean: {{analysis.trailing_mean_10|pct0}}, {{analysis.trailing_mean_15|pct0}}, {{analysis.trailing_mean_20|pct0}} and {{analysis.trailing_mean_30|pct0}}."></div>
+        <details class="data"><summary>Show the numbers</summary><div class="table-wrap" data-table="detection"></div></details>
+      </div>
     </div>
-    <p class="stats-line">{{headline.attempts|int}} authorization attempts normalized · {{pipeline.objects|int}} tables and views in the pipeline · {{pipeline.checks|int}} automated checks on the output, all passing</p>
+    <div class="chips" aria-label="Tools">
+      <span class="chip">Databricks Free Edition</span><span class="chip">Lakeflow pipelines</span><span class="chip">Lakeflow Jobs</span><span class="chip">Unity Catalog SQL functions</span><span class="chip">Unity Catalog tags and column masks</span><span class="chip">AI/BI dashboards</span><span class="chip">Genie agents</span><span class="chip">Spark SQL</span><span class="chip">Python</span><span class="chip">Data contracts</span><span class="chip">Data-quality expectations</span><span class="chip">Forecasting and backtesting</span><span class="chip">Difference-in-differences</span><span class="chip">GitHub Actions CI</span><span class="chip">LLM evaluation</span>
+    </div>
+    <p class="stats-line">{{headline.attempts|int}} authorization attempts normalized · {{pipeline.objects|int}} tables and views in the pipeline · {{pipeline.checks|int}} automated tests, run by CI on every push to main</p>
   </section>
 
   <section id="next" aria-labelledby="h-next">
@@ -903,6 +934,112 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
     note.style.marginTop = "0.4rem";
   }
 
+
+  // ---------------------------------------------------------------- impact: two estimates with intervals
+  function signed(v, d) { return (v < 0 ? "−" : "") + Math.abs(v).toFixed(d === undefined ? 1 : d); }
+  function drawImpact(el) {
+    el.textContent = "";
+    var a = CASE.analysis;
+    var rows = [
+      { label: "Before and after", sub: "the copilot, vs the previous 14 days", v: a.before_after_pp, lo: a.before_after_lo, hi: a.before_after_hi },
+      { label: "Difference-in-differences", sub: "vs Colombian credit", v: a.did_pp, lo: a.did_lo, hi: a.did_hi }
+    ];
+    var W = Math.max(300, el.clientWidth), narrow = W < 520;
+    var labelW = narrow ? 0 : 190, rowH = narrow ? 84 : 58, top = 30, H = top + rows.length * rowH + 28;
+    var m = { l: labelW + (narrow ? 8 : 18), r: 18 };
+    var lo = Math.floor(Math.min(a.did_lo, a.before_after_lo) - 1.5), hi = Math.ceil(Math.max(a.placebo_max_pp, 0) + 1.5);
+    var X = function (v) { return m.l + (v - lo) / (hi - lo) * (W - m.l - m.r); };
+    var svg = svgEl("svg", { viewBox: "0 0 " + W + " " + H, width: W, height: H }, el);
+    var tip = makeTip(el);
+    svgEl("rect", { x: X(a.placebo_min_pp), y: top - 8, width: X(a.placebo_max_pp) - X(a.placebo_min_pp), height: H - top - 20, fill: css("--panel-2"), rx: 3 }, svg);
+    var pl = svgEl("text", { x: X(a.placebo_max_pp), y: top - 14, "text-anchor": "end", "font-size": 11, fill: css("--ink-2") }, svg);
+    pl.textContent = a.placebo_dates + " placebo dates";
+    pl.setAttribute("x", X(a.placebo_max_pp));
+    [-15, -10, -5, 0, 5].filter(function (v) { return v >= lo && v <= hi; }).forEach(function (v) {
+      svgEl("line", { x1: X(v), x2: X(v), y1: top - 8, y2: H - 24, stroke: css(v === 0 ? "--axis" : "--grid") }, svg);
+      var t = svgEl("text", { x: X(v), y: H - 8, "text-anchor": "middle", "font-size": 11, fill: css("--muted") }, svg);
+      t.textContent = v === 0 ? "0" : (v > 0 ? "+" : "") + signed(v, 0) + " pp";
+    });
+    rows.forEach(function (r, i) {
+      var cy = top + i * rowH + (narrow ? 58 : rowH / 2 + 4);
+      var lt = svgEl("text", { x: narrow ? m.l : labelW, y: narrow ? cy - 34 : cy - 3, "text-anchor": narrow ? "start" : "end", "font-size": 12.5, "font-weight": 600, fill: css("--ink") }, svg);
+      lt.textContent = r.label;
+      var st = svgEl("text", { x: narrow ? m.l : labelW, y: narrow ? cy - 19 : cy + 12, "text-anchor": narrow ? "start" : "end", "font-size": 11.5, fill: css("--ink-2") }, svg);
+      st.textContent = r.sub;
+      svgEl("line", { x1: X(r.lo), x2: X(r.hi), y1: cy, y2: cy, stroke: css("--bad"), "stroke-width": 2, "stroke-linecap": "round" }, svg);
+      [r.lo, r.hi].forEach(function (e) { svgEl("line", { x1: X(e), x2: X(e), y1: cy - 5, y2: cy + 5, stroke: css("--bad"), "stroke-width": 2, "stroke-linecap": "round" }, svg); });
+      svgEl("circle", { cx: X(r.v), cy: cy, r: 5.5, fill: css("--bad"), stroke: css("--paper"), "stroke-width": 2 }, svg);
+      var vt = svgEl("text", narrow ? { x: X(r.hi) + 8, y: cy + 4, "text-anchor": "start", "font-size": 12, "font-weight": 600, fill: css("--ink") }
+                                    : { x: X(r.v), y: cy - 11, "text-anchor": "middle", "font-size": 12, "font-weight": 600, fill: css("--ink") }, svg);
+      vt.textContent = signed(r.v) + " pp";
+      var hit = svgEl("rect", { x: 0, y: cy - rowH / 2, width: W, height: rowH, fill: "transparent" }, svg);
+      function show(ev) {
+        tip.textContent = "";
+        htmlEl("div", "t-head", tip, r.label + ", " + r.sub);
+        tipRow(tip, "Estimate", signed(r.v, 2) + " pp");
+        tipRow(tip, "95% interval", signed(r.lo, 1) + " to " + signed(r.hi, 1));
+        tip.hidden = false;
+        placeTip(tip, el, X(r.v), cy);
+      }
+      hit.addEventListener("pointerenter", show);
+      hit.addEventListener("pointerdown", show);
+      hit.addEventListener("pointerleave", function () { tip.hidden = true; });
+    });
+  }
+
+  // ---------------------------------------------------------------- detection: injected drops
+  function drawDetection(el) {
+    el.textContent = "";
+    var pts = CASE.analysis.detection;
+    var W = Math.max(300, el.clientWidth), narrow = W < 520, H = narrow ? 230 : 250;
+    var m = { l: 42, r: narrow ? 18 : 104, t: 16, b: 34 };
+    var X = function (d) { return m.l + (d - 0.10) / 0.20 * (W - m.l - m.r); };
+    var Y = function (v) { return m.t + (1 - v) * (H - m.t - m.b); };
+    var svg = svgEl("svg", { viewBox: "0 0 " + W + " " + H, width: W, height: H }, el);
+    var tip = makeTip(el);
+    [0, 0.25, 0.5, 0.75, 1].forEach(function (v) {
+      svgEl("line", { x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v), stroke: css(v === 0 ? "--axis" : "--grid") }, svg);
+      var t = svgEl("text", { x: m.l - 8, y: Y(v) + 4, "text-anchor": "end", "font-size": 11, fill: css("--muted") }, svg);
+      t.textContent = Math.round(v * 100) + "%";
+    });
+    pts.forEach(function (p) {
+      var t = svgEl("text", { x: X(p.drop), y: H - 10, "text-anchor": "middle", "font-size": 11, fill: css("--muted") }, svg);
+      t.textContent = "−" + Math.round(p.drop * 100) + "%";
+    });
+    var series = [
+      { key: "forecast", name: "Forecast", color: css("--series-a") },
+      { key: "same_weekday", name: "Same weekday", color: css("--ink-2"), dash: "5 4" },
+      { key: "trailing_mean", name: "Trailing mean", color: css("--muted"), dash: "1.5 3.5" }
+    ];
+    series.forEach(function (sr) {
+      var d = pts.map(function (p, i) { return (i ? "L" : "M") + X(p.drop).toFixed(1) + " " + Y(p[sr.key]).toFixed(1); }).join(" ");
+      svgEl("path", { d: d, fill: "none", stroke: sr.color, "stroke-width": 2, "stroke-dasharray": sr.dash, "stroke-linejoin": "round", "stroke-linecap": "round", "class": "series" }, svg);
+      pts.forEach(function (p) { svgEl("circle", { cx: X(p.drop), cy: Y(p[sr.key]), r: 4, fill: sr.color, stroke: css("--paper"), "stroke-width": 2 }, svg); });
+      if (!narrow) {
+        var last = pts[pts.length - 1];
+        var lt = svgEl("text", { x: X(last.drop) + 10, y: Y(last[sr.key]) + 4 + (sr.key === "same_weekday" ? 6 : 0), "font-size": 12, fill: css("--ink-2") }, svg);
+        lt.textContent = sr.name;
+      }
+    });
+    var cross = svgEl("line", { y1: m.t, y2: H - m.b, stroke: css("--axis"), "stroke-dasharray": "3 3", visibility: "hidden" }, svg);
+    pts.forEach(function (p, i) {
+      var left = i ? (X(pts[i - 1].drop) + X(p.drop)) / 2 : m.l;
+      var right = i < pts.length - 1 ? (X(p.drop) + X(pts[i + 1].drop)) / 2 : W - m.r;
+      var hit = svgEl("rect", { x: left, y: m.t, width: right - left, height: H - m.t - m.b, fill: "transparent" }, svg);
+      function show() {
+        tip.textContent = "";
+        htmlEl("div", "t-head", tip, "Approved payments cut by " + Math.round(p.drop * 100) + "%");
+        series.forEach(function (sr) { tipRow(tip, sr.name, pct(p[sr.key]), sr.color, "line"); });
+        tip.hidden = false;
+        cross.setAttribute("x1", X(p.drop)); cross.setAttribute("x2", X(p.drop)); cross.setAttribute("visibility", "visible");
+        placeTip(tip, el, X(p.drop), Y(p.forecast));
+      }
+      hit.addEventListener("pointerenter", show);
+      hit.addEventListener("pointerdown", show);
+      hit.addEventListener("pointerleave", function () { tip.hidden = true; cross.setAttribute("visibility", "hidden"); });
+    });
+  }
+
   // ---------------------------------------------------------------- data tables
   function table(container, head, rows) {
     var t = htmlEl("table", "", container), thead = htmlEl("thead", "", t), tr = htmlEl("tr", "", thead);
@@ -917,9 +1054,12 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
     var c = document.querySelector('[data-table="cascade"]');
     if (c && !c.firstChild) table(c, [{ label: "Date" }, { label: "\"05\" declines", num: 1 }, { label: "Retried", num: 1 }, { label: "Retry rate", num: 1 }, { label: "Map" }, { label: "Alert" }],
       CASE.cascade_b05.map(function (d) { return [d.date, String(d.failures), String(d.cascaded), pct(d.cascade_rate, 0), d.map_versions, d.alert ? "yes" : ""]; }));
+    var dt = document.querySelector('[data-table="detection"]');
+    if (dt && !dt.firstChild) table(dt, [{ label: "Cut in approved payments" }, { label: "Forecast", num: 1 }, { label: "Same weekday", num: 1 }, { label: "Trailing mean", num: 1 }],
+      CASE.analysis.detection.map(function (d) { return [Math.round(d.drop * 100) + "%", pct(d.forecast), pct(d.same_weekday), pct(d.trailing_mean)]; }));
   }
 
-  var charts = { hourly: drawHourly, cascade: drawCascade, bridge: drawBridge, money: drawMoney };
+  var charts = { hourly: drawHourly, cascade: drawCascade, bridge: drawBridge, money: drawMoney, impact: drawImpact, detection: drawDetection };
   function renderAll() {
     document.querySelectorAll("[data-chart]").forEach(function (el) {
       try { charts[el.getAttribute("data-chart")](el); } catch (e) { el.textContent = "Chart could not be drawn: " + e.message; }

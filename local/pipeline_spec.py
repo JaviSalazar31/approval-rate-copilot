@@ -88,6 +88,31 @@ TABLES = [
     ("gold_dq_summary", "gold/gold_dq_summary.sql", "mv", "Rows rejected by data-quality rules, by source and rule.", []),
 ]
 
+# Column masks applied on Databricks (Unity Catalog). A Lakeflow table with a mask needs its full column
+# list in the definition, so the column types are listed here; tests/test_pipeline.py checks them against
+# the local output. The local Spark run has no masks. The mask sits on silver_payment_intents, the first table
+# anyone outside the pipeline could be granted; bronze and the landing volume are pipeline internals that no
+# one else gets a grant on.
+MASKS = {"silver_payment_intents": {"card_last4": "mask_card_last4"}}
+COLUMN_TYPES = {
+    "silver_payment_intents": [
+        ("payment_id", "STRING"), ("merchant_id", "STRING"), ("created_ts_utc", "TIMESTAMP"),
+        ("country", "STRING"), ("currency", "STRING"), ("amount", "DECIMAL(18,2)"), ("card_brand", "STRING"),
+        ("card_type", "STRING"), ("issuer_id", "STRING"), ("is_cross_border", "BOOLEAN"),
+        ("installments", "INT"), ("three_ds_requested", "BOOLEAN"), ("three_ds_flow", "STRING"),
+        ("orchestrator_status", "STRING"), ("routing_rule_version", "STRING"), ("first_acquirer_id", "STRING"),
+        ("channel", "STRING"), ("card_bin", "STRING"), ("card_last4", "STRING"),
+    ],
+}
+
+# Tables written by Databricks job tasks after the pipeline (the job runs the same Python locally).
+JOB_TABLES = [
+    ("gold_volume_alerts_daily",
+     "Daily approved payments per country and card type against a forecast with weekday and payday terms, fitted "
+     "on the previous 56 days (monitoring/volume_forecast.py). Holds every day; is_alert marks the days below "
+     "the 99.9% lower bound and at least 8% under the forecast. Written by the job after the pipeline."),
+]
+
 # One row per ...: appended to the table comments ("Grain: ...") so Unity Catalog, the data dictionary
 # and the copilot context describe each table the same way.
 GRAIN = {
@@ -101,6 +126,7 @@ GRAIN = {
     "gold_issuer_daily": "one row per local date × country × issuer × card type × first acquirer",
     "gold_funnel_daily": "one row per local date × country × card type",
     "gold_anomalies_daily": "one row per local date × country × card type (domestic traffic)",
+    "gold_volume_alerts_daily": "one row per local date × country × card type (all traffic)",
     "gold_change_log": "one row per production change",
     "silver_payments": "one row per payment intent",
     "silver_payment_intents": "one row per payment intent",

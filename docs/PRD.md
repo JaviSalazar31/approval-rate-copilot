@@ -69,8 +69,9 @@ Non-goals for v1:
    as received; silver harmonizes the three acquirer formats, removes webhook re-deliveries, maps every raw code
    to a canonical status with the map version that was active at the time, and quarantines rows that fail
    quality rules; gold aggregates the KPIs.
-2. Monitoring uses an AI/BI dashboard plus two detectors: a volume-aware anomaly check on daily approval, and a
-   cascade alert that watches the retry mechanism itself.
+2. Monitoring uses an AI/BI dashboard plus three detectors: a volume-aware anomaly check on daily approval, a
+   cascade alert that watches the retry mechanism itself, and a forecast alert on approved payments. Before the
+   pipeline runs, each raw feed is checked against its data contract.
 3. The copilot is a Genie agent on the gold tables with business definitions, guardrails and five trusted SQL
    functions that encode the diagnostic method: size the drop, find who moved, see which decline codes grew,
    check whether retries still worked, and list production changes nearby.
@@ -115,7 +116,9 @@ Full definitions, formulas and pitfalls are in [metrics.md](metrics.md).
 | R7 | Cascade alert | Fires on 6 Aug for Acquirer B, code 05, in Mexico and Colombia, and keeps firing every day until the map is fixed | Done, in-sample: alerts every day 6–14 Aug; a test checks that a 20-day collapse keeps alerting, and another pins where the alert stops |
 | R8 | Copilot answers only with numbers from queries; separates acquirer-side from issuer-side causes; refuses what the data cannot answer | Eval set: ≥ 90% overall, 4/4 guardrail questions | Met offline: 20/20 (run 6), 4/4 guardrails. Not yet on Genie: 17/20 (85%) on the fourth run, after 13, 14 and 15, with 4/4 guardrails in every run; on 14 held-out questions, run once, 11/14 (79%) and 3/3 guardrails ([evals/README.md](../evals/README.md)) |
 | R9 | Read-only copilot | Refuses to modify or delete data | Covered by guardrail question D4 |
-| R10 | No cardholder data in the analytics layer | No card numbers (PAN), expiry dates, CVV or cardholder names in bronze, silver or gold; issuers and merchants are codes; users reach the gold tables and `silver_payments` only through read-only Unity Catalog grants | Done in the data model. Genie evaluates data access with each user's own Unity Catalog permissions, so analysts get SELECT on the 10 copilot tables and EXECUTE on the five functions, nothing else (a production step: Free Edition has one user; see the runbook, step 7) |
+| R10 | No cardholder data in the analytics layer | No full card numbers (PAN), expiry dates, CVV or cardholder names in bronze, silver or gold. The only card fields are a truncated number (BIN and last four) in the orchestrator feed, `bronze_orchestrator` and `silver_payment_intents`. The landing volume and bronze are pipeline internals that no one else gets a grant on; from silver on, the last four are masked for everyone outside a support group. Issuers and merchants are codes; users reach the gold tables and `silver_payments` only through read-only Unity Catalog grants | Done and enforced twice: the feed checks stop a run on any text or number value that looks like a full card number (R11), and the Unity Catalog column mask on `silver_payment_intents.card_last4` shows the digits only to `payments_support` (verified by notebook 08 on 4 November 2026). Genie evaluates data access with each user's own Unity Catalog permissions, so analysts get SELECT on the 10 copilot tables and EXECUTE on the five functions, nothing else (a production step: Free Edition has one user; see the runbook, step 7) |
+| R11 | Stop the run when a feed breaks | A missing or empty file, a changed column set, values that break their format in more than 1% of a column, a repeated payment ID, an orchestrator volume outside 0.5 to 1.5 times the median of the previous 7 files, or an acquirer file that does not reconcile within 2% with the payments routed to it stops the job before the pipeline; single bad rows still go to quarantine (R1) | Done: one contract per feed in `contracts/`, checked by `checks/feed_checks.py` locally, in CI and as the job task before the pipeline. All 360 feed-days of the reference data pass, and tests cover each failure |
+| R12 | Alert on approved payments as well as on rates | A daily forecast of approved payments with weekday and payday terms flags days well below it, tested on datasets its thresholds were not set on | Done: on three more datasets from the same generator, 2 false alerts in 762 segment-days, and 81% of days cut by 20% caught, against 54% for a same-weekday mean at the same false-alert rate ([impact_and_detection.md](impact_and_detection.md)) |
 
 ## 7. Risks and mitigations
 
@@ -126,7 +129,7 @@ Full definitions, formulas and pitfalls are in [metrics.md](metrics.md).
 | Alert fatigue | Volume-aware thresholds (pp drop + z-score vs history + binomial z-score); backtest before enabling |
 | A fix in the decline-code map breaks something else (the latent cause of this incident) | Map versioning, cascade alerts after every map release, and a regression test on retryable codes as a release gate |
 | Retries break card-network rules (reattempt limits and fees) | One cascade per payment, only for codes the map marks retryable, never after a "do not try again" advice (Mastercard MAC 03 or 21; needs the advice code in the acquirer feeds), and the release gate checks the map against the retry policy (ADR-08) |
-| Card data enters the analytics workspace and pulls it into PCI DSS scope | R10: the pipeline carries no cardholder data; any new source is reviewed for card fields before ingestion |
+| Card data enters the analytics workspace and pulls it into PCI DSS scope | R10: only a truncated card number, with a column mask on the last four from silver on; the feed checks stop a run on anything that looks like a full card number, and any new source is reviewed for card fields before ingestion |
 | Synthetic data hides real-world mess | Pilot on real data before any rollout decision; parameters of the generator are documented |
 
 ## 8. Rollout

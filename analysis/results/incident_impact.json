@@ -1,0 +1,569 @@
+{
+ "question": "Effect of routing v14 on final approval of Colombian domestic debit",
+ "control_group": "Colombian domestic credit (not touched by routing v14)",
+ "copilot_before_after": {
+  "baseline_days": 14,
+  "final_rate_change_pp": -10.95,
+  "final_rate_change_ci95_pp": [
+   -14.18,
+   -8.11
+  ],
+  "lost_approvals": 110,
+  "lost_approved_usd": 6354
+ },
+ "did": {
+  "window_local": [
+   "2026-08-13 14:00:00",
+   "2026-08-14 12:10:00"
+  ],
+  "pre_period_local": [
+   "2026-08-06 14:00:00",
+   "2026-08-13 14:00:00"
+  ],
+  "treated": {
+   "pre": {
+    "payments": 7590,
+    "approved": 6573,
+    "final_rate": 0.866
+   },
+   "post": {
+    "payments": 1004,
+    "approved": 759,
+    "final_rate": 0.756
+   }
+  },
+  "control": {
+   "pre": {
+    "payments": 8380,
+    "approved": 7224,
+    "final_rate": 0.8621
+   },
+   "post": {
+    "payments": 1143,
+    "approved": 999,
+    "final_rate": 0.874
+   }
+  },
+  "did_pp": -12.2,
+  "did_ci95_pp": [
+   -15.15,
+   -9.43
+  ],
+  "lost_approvals": 122,
+  "lost_approvals_ci95": [
+   95,
+   152
+  ],
+  "lost_approved_usd": 6251,
+  "lost_approved_usd_ci95": [
+   3270,
+   9349
+  ],
+  "window_payments": 1004,
+  "control_volume_rate_change_pp": -0.5,
+  "did_volume_rate_pp": -10.13,
+  "control_change_pp": 1.19
+ },
+ "pre_period_sensitivity": [
+  {
+   "pre_days": 3,
+   "did_pp": -12.86
+  },
+  {
+   "pre_days": 5,
+   "did_pp": -12.77
+  },
+  {
+   "pre_days": 10,
+   "did_pp": -11.97
+  },
+  {
+   "pre_days": 14,
+   "did_pp": -11.75
+  }
+ ],
+ "pre_trend": [
+  {
+   "date": "2026-08-06",
+   "debit_minus_credit_pp": 1.59
+  },
+  {
+   "date": "2026-08-07",
+   "debit_minus_credit_pp": -2.18
+  },
+  {
+   "date": "2026-08-08",
+   "debit_minus_credit_pp": -0.56
+  },
+  {
+   "date": "2026-08-09",
+   "debit_minus_credit_pp": -0.01
+  },
+  {
+   "date": "2026-08-10",
+   "debit_minus_credit_pp": 3.75
+  },
+  {
+   "date": "2026-08-11",
+   "debit_minus_credit_pp": 1.3
+  },
+  {
+   "date": "2026-08-12",
+   "debit_minus_credit_pp": 0.32
+  },
+  {
+   "date": "2026-08-13",
+   "debit_minus_credit_pp": -1.26
+  }
+ ],
+ "placebo": [
+  {
+   "start_local": "2026-06-10 14:00:00",
+   "did_pp": -0.3,
+   "did_ci95_pp": [
+    -3.31,
+    2.99
+   ]
+  },
+  {
+   "start_local": "2026-06-11 14:00:00",
+   "did_pp": 0.62,
+   "did_ci95_pp": [
+    -2.78,
+    3.62
+   ]
+  },
+  {
+   "start_local": "2026-06-12 14:00:00",
+   "did_pp": -0.48,
+   "did_ci95_pp": [
+    -3.35,
+    2.3
+   ]
+  },
+  {
+   "start_local": "2026-06-13 14:00:00",
+   "did_pp": -0.04,
+   "did_ci95_pp": [
+    -3.3,
+    2.92
+   ]
+  },
+  {
+   "start_local": "2026-06-14 14:00:00",
+   "did_pp": 1.57,
+   "did_ci95_pp": [
+    -2.24,
+    5.35
+   ]
+  },
+  {
+   "start_local": "2026-06-15 14:00:00",
+   "did_pp": -2.87,
+   "did_ci95_pp": [
+    -6.18,
+    0.2
+   ]
+  },
+  {
+   "start_local": "2026-06-16 14:00:00",
+   "did_pp": 3.23,
+   "did_ci95_pp": [
+    0.5,
+    6.31
+   ]
+  },
+  {
+   "start_local": "2026-06-17 14:00:00",
+   "did_pp": 0.47,
+   "did_ci95_pp": [
+    -2.67,
+    3.64
+   ]
+  },
+  {
+   "start_local": "2026-06-18 14:00:00",
+   "did_pp": -1.76,
+   "did_ci95_pp": [
+    -5.69,
+    2.2
+   ]
+  },
+  {
+   "start_local": "2026-06-19 14:00:00",
+   "did_pp": -2.19,
+   "did_ci95_pp": [
+    -5.15,
+    0.26
+   ]
+  },
+  {
+   "start_local": "2026-06-20 14:00:00",
+   "did_pp": 1.61,
+   "did_ci95_pp": [
+    -0.67,
+    3.86
+   ]
+  },
+  {
+   "start_local": "2026-06-21 14:00:00",
+   "did_pp": 0.81,
+   "did_ci95_pp": [
+    -2.13,
+    3.83
+   ]
+  },
+  {
+   "start_local": "2026-06-22 14:00:00",
+   "did_pp": 3.57,
+   "did_ci95_pp": [
+    0.61,
+    6.52
+   ]
+  },
+  {
+   "start_local": "2026-06-23 14:00:00",
+   "did_pp": 1.79,
+   "did_ci95_pp": [
+    -1.66,
+    5.36
+   ]
+  },
+  {
+   "start_local": "2026-06-24 14:00:00",
+   "did_pp": -1.29,
+   "did_ci95_pp": [
+    -3.96,
+    1.27
+   ]
+  },
+  {
+   "start_local": "2026-06-25 14:00:00",
+   "did_pp": 0.21,
+   "did_ci95_pp": [
+    -2.11,
+    2.72
+   ]
+  },
+  {
+   "start_local": "2026-06-26 14:00:00",
+   "did_pp": 0.7,
+   "did_ci95_pp": [
+    -1.94,
+    3.25
+   ]
+  },
+  {
+   "start_local": "2026-06-27 14:00:00",
+   "did_pp": 1.14,
+   "did_ci95_pp": [
+    -2.71,
+    4.83
+   ]
+  },
+  {
+   "start_local": "2026-06-28 14:00:00",
+   "did_pp": 1.73,
+   "did_ci95_pp": [
+    -1.52,
+    5.04
+   ]
+  },
+  {
+   "start_local": "2026-06-29 14:00:00",
+   "did_pp": -1.6,
+   "did_ci95_pp": [
+    -4.57,
+    1.32
+   ]
+  },
+  {
+   "start_local": "2026-06-30 14:00:00",
+   "did_pp": -2.39,
+   "did_ci95_pp": [
+    -4.75,
+    -0.07
+   ]
+  },
+  {
+   "start_local": "2026-07-01 14:00:00",
+   "did_pp": 1.06,
+   "did_ci95_pp": [
+    -1.23,
+    3.57
+   ]
+  },
+  {
+   "start_local": "2026-07-02 14:00:00",
+   "did_pp": -0.15,
+   "did_ci95_pp": [
+    -2.88,
+    2.67
+   ]
+  },
+  {
+   "start_local": "2026-07-03 14:00:00",
+   "did_pp": 0.71,
+   "did_ci95_pp": [
+    -1.96,
+    3.82
+   ]
+  },
+  {
+   "start_local": "2026-07-04 14:00:00",
+   "did_pp": 1.19,
+   "did_ci95_pp": [
+    -2.34,
+    4.41
+   ]
+  },
+  {
+   "start_local": "2026-07-05 14:00:00",
+   "did_pp": -0.11,
+   "did_ci95_pp": [
+    -4.69,
+    4.61
+   ]
+  },
+  {
+   "start_local": "2026-07-06 14:00:00",
+   "did_pp": -3.74,
+   "did_ci95_pp": [
+    -7.49,
+    -0.34
+   ]
+  },
+  {
+   "start_local": "2026-07-07 14:00:00",
+   "did_pp": -1.12,
+   "did_ci95_pp": [
+    -5.43,
+    3.68
+   ]
+  },
+  {
+   "start_local": "2026-07-08 14:00:00",
+   "did_pp": 1.42,
+   "did_ci95_pp": [
+    -3.24,
+    6.43
+   ]
+  },
+  {
+   "start_local": "2026-07-09 14:00:00",
+   "did_pp": -1.22,
+   "did_ci95_pp": [
+    -3.41,
+    1.23
+   ]
+  },
+  {
+   "start_local": "2026-07-10 14:00:00",
+   "did_pp": -0.3,
+   "did_ci95_pp": [
+    -3.92,
+    3.61
+   ]
+  },
+  {
+   "start_local": "2026-07-11 14:00:00",
+   "did_pp": -1.22,
+   "did_ci95_pp": [
+    -5.03,
+    2.47
+   ]
+  },
+  {
+   "start_local": "2026-07-12 14:00:00",
+   "did_pp": -2.93,
+   "did_ci95_pp": [
+    -6.56,
+    0.24
+   ]
+  },
+  {
+   "start_local": "2026-07-13 14:00:00",
+   "did_pp": 1.41,
+   "did_ci95_pp": [
+    -1.25,
+    4.46
+   ]
+  },
+  {
+   "start_local": "2026-07-14 14:00:00",
+   "did_pp": 0.95,
+   "did_ci95_pp": [
+    -1.73,
+    3.7
+   ]
+  },
+  {
+   "start_local": "2026-07-15 14:00:00",
+   "did_pp": 0.9,
+   "did_ci95_pp": [
+    -1.76,
+    3.81
+   ]
+  },
+  {
+   "start_local": "2026-07-16 14:00:00",
+   "did_pp": -0.34,
+   "did_ci95_pp": [
+    -3.04,
+    2.36
+   ]
+  },
+  {
+   "start_local": "2026-07-17 14:00:00",
+   "did_pp": 3.34,
+   "did_ci95_pp": [
+    0.52,
+    6.0
+   ]
+  },
+  {
+   "start_local": "2026-07-18 14:00:00",
+   "did_pp": 0.02,
+   "did_ci95_pp": [
+    -2.49,
+    2.78
+   ]
+  },
+  {
+   "start_local": "2026-07-19 14:00:00",
+   "did_pp": -0.11,
+   "did_ci95_pp": [
+    -2.76,
+    2.32
+   ]
+  },
+  {
+   "start_local": "2026-07-20 14:00:00",
+   "did_pp": -0.86,
+   "did_ci95_pp": [
+    -4.79,
+    2.3
+   ]
+  },
+  {
+   "start_local": "2026-07-21 14:00:00",
+   "did_pp": 0.21,
+   "did_ci95_pp": [
+    -3.42,
+    3.77
+   ]
+  },
+  {
+   "start_local": "2026-07-22 14:00:00",
+   "did_pp": -1.04,
+   "did_ci95_pp": [
+    -4.14,
+    2.03
+   ]
+  },
+  {
+   "start_local": "2026-07-23 14:00:00",
+   "did_pp": 1.18,
+   "did_ci95_pp": [
+    -1.64,
+    4.27
+   ]
+  },
+  {
+   "start_local": "2026-07-24 14:00:00",
+   "did_pp": -2.57,
+   "did_ci95_pp": [
+    -4.73,
+    -0.15
+   ]
+  },
+  {
+   "start_local": "2026-07-25 14:00:00",
+   "did_pp": 0.35,
+   "did_ci95_pp": [
+    -2.84,
+    3.49
+   ]
+  },
+  {
+   "start_local": "2026-07-26 14:00:00",
+   "did_pp": -0.51,
+   "did_ci95_pp": [
+    -2.68,
+    1.85
+   ]
+  },
+  {
+   "start_local": "2026-08-04 14:00:00",
+   "did_pp": -0.15,
+   "did_ci95_pp": [
+    -3.3,
+    2.56
+   ]
+  },
+  {
+   "start_local": "2026-08-22 14:00:00",
+   "did_pp": -3.81,
+   "did_ci95_pp": [
+    -7.05,
+    -0.26
+   ]
+  },
+  {
+   "start_local": "2026-08-23 14:00:00",
+   "did_pp": -0.2,
+   "did_ci95_pp": [
+    -2.65,
+    2.12
+   ]
+  },
+  {
+   "start_local": "2026-08-24 14:00:00",
+   "did_pp": 1.05,
+   "did_ci95_pp": [
+    -1.25,
+    3.5
+   ]
+  },
+  {
+   "start_local": "2026-08-25 14:00:00",
+   "did_pp": -1.35,
+   "did_ci95_pp": [
+    -4.47,
+    2.02
+   ]
+  },
+  {
+   "start_local": "2026-08-26 14:00:00",
+   "did_pp": -0.92,
+   "did_ci95_pp": [
+    -3.52,
+    1.81
+   ]
+  },
+  {
+   "start_local": "2026-08-27 14:00:00",
+   "did_pp": -0.34,
+   "did_ci95_pp": [
+    -2.91,
+    2.32
+   ]
+  },
+  {
+   "start_local": "2026-08-28 14:00:00",
+   "did_pp": 1.08,
+   "did_ci95_pp": [
+    -1.79,
+    4.08
+   ]
+  }
+ ],
+ "placebo_summary": {
+  "dates": 55,
+  "min_pp": -3.81,
+  "max_pp": 3.57,
+  "sd_pp": 1.61,
+  "intervals_excluding_zero": 7,
+  "incident_in_placebo_sds": -7.56
+ }
+}

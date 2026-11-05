@@ -46,7 +46,79 @@
   "duplicates": 1537,
   "segment_days": 540,
   "anomalies_flagged": 1,
-  "checks": 7
+  "checks": 32
+ },
+ "analysis": {
+  "before_after_pp": -10.95,
+  "before_after_ci": [
+   -14.18,
+   -8.11
+  ],
+  "did_pp": -12.2,
+  "did_ci": [
+   -15.15,
+   -9.43
+  ],
+  "did_lost_approvals": 122,
+  "did_lost_approvals_ci": [
+   95,
+   152
+  ],
+  "control_change_pp": 1.19,
+  "placebo_min_pp": -3.81,
+  "placebo_max_pp": 3.57,
+  "placebo_dates": 55,
+  "mix_max_pp": 0.05,
+  "oos_segment_days": 762,
+  "oos_false_alerts": 2,
+  "oos_false_alerts_trailing": 4,
+  "oos_false_alerts_weekday": 0,
+  "oos_band_pct": 14.7,
+  "placebo_sd_pp": 1.61,
+  "detection": [
+   {
+    "drop": 0.1,
+    "forecast": 0.15748,
+    "trailing_mean": 0.06693,
+    "same_weekday": 0.04856
+   },
+   {
+    "drop": 0.15,
+    "forecast": 0.49081,
+    "trailing_mean": 0.13911,
+    "same_weekday": 0.21522
+   },
+   {
+    "drop": 0.2,
+    "forecast": 0.81496,
+    "trailing_mean": 0.23228,
+    "same_weekday": 0.53937
+   },
+   {
+    "drop": 0.3,
+    "forecast": 1.0,
+    "trailing_mean": 0.66404,
+    "same_weekday": 0.94094
+   }
+  ],
+  "before_after_lo": -14.18,
+  "before_after_hi": -8.11,
+  "did_lo": -15.15,
+  "did_hi": -9.43,
+  "did_lost_lo": 95,
+  "did_lost_hi": 152,
+  "forecast_10": 0.15748,
+  "trailing_mean_10": 0.06693,
+  "same_weekday_10": 0.04856,
+  "forecast_15": 0.49081,
+  "trailing_mean_15": 0.13911,
+  "same_weekday_15": 0.21522,
+  "forecast_20": 0.81496,
+  "trailing_mean_20": 0.23228,
+  "same_weekday_20": 0.53937,
+  "forecast_30": 1.0,
+  "trailing_mean_30": 0.66404,
+  "same_weekday_30": 0.94094
  },
  "hourly_co_debit": [
   {
