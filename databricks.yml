@@ -231,5 +231,6 @@ resources:
     approval_health:
       display_name: Approval Health
       file_path: ./databricks/dashboard/approval_health.lvdash.json
+      parent_path: /Workspace/Users/${workspace.current_user.userName}/approval-rate-copilot
       warehouse_id: ${var.warehouse_id}
       embed_credentials: true

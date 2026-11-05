@@ -651,8 +651,10 @@ def build_bundle():
         "jobs": {"approval_copilot_daily": bundle_job(build_job_json()),
                  "approval_copilot_eval": bundle_job(build_eval_job_json()),
                  "approval_copilot_update_agent": bundle_job(build_update_agent_job_json())},
+        # the dashboard keeps the folder it was created in: a new parent path would recreate it, with a new URL
         "dashboards": {"approval_health": {
             "display_name": "Approval Health", "file_path": "./databricks/dashboard/approval_health.lvdash.json",
+            "parent_path": "/Workspace/Users/${workspace.current_user.userName}/approval-rate-copilot",
             "warehouse_id": "${var.warehouse_id}", "embed_credentials": True}},
     }
     bundle = {
