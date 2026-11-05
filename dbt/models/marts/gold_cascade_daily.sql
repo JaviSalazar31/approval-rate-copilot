@@ -13,6 +13,6 @@ SELECT
   count(*) AS first_attempt_failures,
   sum(CAST(is_cascaded AS INT)) AS cascaded,
   sum(CAST(recovered_by_cascade AS INT)) AS recovered
-FROM silver_payments
-WHERE sent_to_acquirer AND NOT first_attempt_approved
+FROM {{ ref('int_payments_sent') }}
+WHERE NOT first_attempt_approved
 GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9

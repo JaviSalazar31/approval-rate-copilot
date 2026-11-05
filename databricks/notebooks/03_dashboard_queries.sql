@@ -32,13 +32,14 @@ GROUP BY 1, country, card_type;
 
 -- COMMAND ----------
 
--- ds_daily_by_segment: final approval per day, country and card type (line chart)
+-- ds_daily_by_segment: final approval per day, country and card type (line chart), from the metric view
+-- approval_metrics (notebook 09), where the rate is defined once as a ratio of sums.
 SELECT business_date, country, card_type, concat(country, ' ', card_type) AS segment,
-       sum(payments_sent) AS payments_sent,
-       round(sum(final_approved) / sum(payments_sent), 4) AS final_approval_rate
-FROM workspace.approval_copilot.gold_approval_daily
+       MEASURE(payments_sent) AS payments_sent,
+       round(MEASURE(final_approval_rate), 4) AS final_approval_rate
+FROM workspace.approval_copilot.approval_metrics
 WHERE NOT is_cross_border
-GROUP BY business_date, country, card_type;
+GROUP BY ALL;
 
 -- COMMAND ----------
 
@@ -53,11 +54,12 @@ GROUP BY hour_local_ts, country, card_type, acquirer_id;
 
 -- COMMAND ----------
 
--- ds_decline_reasons: first-attempt failure reasons by acquirer (bar chart)
-SELECT business_date, country, card_type, acquirer_id, reason_code, reason, decline_type, retryable,
-       sum(attempts) AS failed_attempts
-FROM workspace.approval_copilot.gold_decline_reasons_daily
-WHERE attempt_seq = 1
+-- ds_decline_reasons: first-attempt failure reasons by acquirer (bar chart), from the metric view
+-- decline_metrics (notebook 09).
+SELECT business_date, country, card_type, acquirer AS acquirer_id, reason_code, reason, decline_type, retryable,
+       MEASURE(failed_attempts) AS failed_attempts
+FROM workspace.approval_copilot.decline_metrics
+WHERE attempt = 'first attempt'
 GROUP BY ALL;
 
 -- COMMAND ----------

@@ -18,8 +18,9 @@ your workspace, look for the closest equivalent.
 ## 1. Data to add
 
 Create the agent with **Genie Agents > New**, then add these tables under **Configure > Data**
-(catalog `workspace`, schema `approval_copilot`). Table descriptions come from the table definitions (the
-pipeline, or notebook 02) and column descriptions from notebook 05; both are stored in Unity Catalog.
+(catalog `workspace`, schema `approval_copilot`). Table and column descriptions come from notebook 05 (and,
+before it runs, from dbt or notebook 02), the metric views and their descriptions from notebook 09; all of them
+are stored in Unity Catalog.
 
 | Table | Grain | Use it for |
 |---|---|---|
@@ -33,6 +34,8 @@ pipeline, or notebook 02) and column descriptions from notebook 05; both are sto
 | `gold_anomalies_daily` | day × country × card type | Days flagged as abnormal drops |
 | `gold_change_log` | one row per production change | Routing, risk, mapping and release changes |
 | `silver_payments` | one row per payment | Ad-hoc questions the gold tables cannot answer |
+| `approval_metrics` | metric view over `gold_approval_daily` | Approval rates, approved volume and fees for any period and segment, with `MEASURE()` |
+| `decline_metrics` | metric view over `gold_decline_reasons_daily` | Failed attempts by reason, acquirer and attempt, with `MEASURE()` |
 
 Trusted functions (**Configure > Examples > SQL functions**): `fn_drop_impact`, `fn_approval_drivers`,
 `fn_decline_shift`, `fn_cascade_health`, `fn_changes_near`, created by notebook 04.
@@ -64,6 +67,10 @@ Definitions
 - Rates and percentiles of a period are recomputed from its rows: sum the counts, and take p95
   latency with percentile_approx on silver_payments.first_latency_ms. Never average daily rates or
   daily p95 values.
+- The metric views approval_metrics and decline_metrics define each rate once, as a ratio of sums.
+  Query a measure with MEASURE() and group by the dimensions you need, for example
+  SELECT country, MEASURE(final_approval_rate) AS final_approval_rate FROM approval_metrics
+  WHERE NOT is_cross_border GROUP BY country.
 - Whole days or months: compare acquirers, issuers or other segments with the daily tables, one row
   per item, as in the examples. A window shorter than a day: use gold_approval_hourly or the
   functions. To rank one dimension with fn_approval_drivers, pass p_dimension (for example

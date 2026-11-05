@@ -1,0 +1,19 @@
+version: 2
+
+sources:
+  - name: pipeline
+    description: Silver and reference tables built by the Lakeflow pipeline (databricks/pipeline).
+    schema: approval_copilot
+    tables:
+      - name: silver_payments
+        description: One row per payment with first attempt, cascade attempt and final outcome.
+      - name: silver_auth_attempts
+        description: Authorization attempts that pass the data-quality rules.
+      - name: silver_dq_quarantine
+        description: Attempts rejected by the data-quality rules, with the rule they failed.
+      - name: ref_change_log
+        description: Production changes (releases, routing, risk and mapping updates).
+      - name: ref_country_tz
+        description: Country time zones and currencies.
+      - name: ref_issuers
+        description: Card issuer reference data (fictional issuers).

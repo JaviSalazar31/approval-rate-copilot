@@ -11,6 +11,5 @@ SELECT
   sum(CAST(first_attempt_approved AS INT)) AS first_attempt_approved,
   sum(CAST(final_approved AS INT)) AS final_approved,
   round(sum(CAST(final_approved AS INT)) / count(*), 4) AS final_approval_rate
-FROM silver_payments
-WHERE sent_to_acquirer
+FROM {{ ref('int_payments_sent') }}
 GROUP BY date_trunc('HOUR', created_ts_local), business_date, country, card_type, first_acquirer_id, is_cross_border

@@ -272,7 +272,7 @@
  },
  "links_note": "",
  "genie": {
-  "date": "29 October 2026",
+  "date": "29 October to 5 November 2026",
   "runs": [
    {
     "run": 1,
@@ -536,13 +536,78 @@
      "C3": "3/3"
     },
     "variants_passed": "5/6"
+   },
+   {
+    "run": 5,
+    "passed": 15,
+    "total": 20,
+    "chat": {
+     "passed": 7,
+     "total": 10,
+     "genie_good": 7,
+     "genie_bad": 2,
+     "needs_review": 1
+    },
+    "agent": {
+     "passed": 8,
+     "total": 10,
+     "guardrails": "4/4"
+    },
+    "verdicts": {
+     "A1": "PASS",
+     "A2": "PASS",
+     "A3": "PASS",
+     "A4": "PASS",
+     "A5": "PASS",
+     "A6": "PASS",
+     "B1": "FAIL",
+     "B2": "PASS",
+     "B3": "FAIL",
+     "B4": "FAIL",
+     "B5": "PASS",
+     "B6": "PASS",
+     "C1": "FAIL",
+     "C2": "PASS",
+     "C3": "PASS",
+     "C4": "FAIL",
+     "D1": "PASS",
+     "D2": "PASS",
+     "D3": "PASS",
+     "D4": "PASS"
+    },
+    "modes": {
+     "A1": "chat",
+     "A2": "chat",
+     "A3": "chat",
+     "A4": "chat",
+     "A5": "chat",
+     "A6": "chat",
+     "B1": "agent",
+     "B2": "agent",
+     "B3": "chat",
+     "B4": "agent",
+     "B5": "agent",
+     "B6": "agent",
+     "C1": "chat",
+     "C2": "chat",
+     "C3": "agent",
+     "C4": "chat",
+     "D1": "agent",
+     "D2": "agent",
+     "D3": "agent",
+     "D4": "agent"
+    },
+    "label": "Genie run 5, metric views and MLflow tracking: chat 7/10, agent 8/10",
+    "repeated_samples": {
+     "B1": "2/3",
+     "C3": "2/3"
+    }
    }
   ],
   "repeated_samples": {
    "B1": "2/3",
-   "C3": "3/3"
+   "C3": "2/3"
   },
-  "variants_passed": "5/6",
   "findings": [
    {
     "title": "It sized the calendar day",
@@ -567,10 +632,15 @@
    {
     "title": "Chat mode answers with a function's table",
     "problem": "Asked to compare acquirers over July (C1) or rank issuers inside the incident window (C4), chat mode called the drivers function and returned all of its rows, across six dimensions, without filtering them.",
-    "change": "Run 4 gave the function a dimension parameter, and chat mode used it, so the rows are now the ones asked for. C4 puts the right issuer first but returns all eight issuers where the reference keeps three, which Genie's grader counts as wrong. The parameter also drew chat mode to the function for whole months, which its description sends to the daily tables, and there the answer is the table alone: C1 and its reworded variant V6 give both rates but never say by how much, so both count as failures (V6 had stated the gap in run 3), and so does the held-out H6. In H7, a text \"NULL\" passed for an optional parameter emptied the result."
+    "change": "Run 4 gave the function a dimension parameter, and chat mode used it, so the rows are now the ones asked for. C4 puts the right issuer first but returns all eight issuers where the reference keeps three, which Genie's grader counts as wrong. The parameter also drew chat mode to the function for whole months, which its description sends to the daily tables, and there the answer is the table alone: C1 and its reworded variant V6 give both rates but never say by how much, so both count as failures (V6 had stated the gap in run 3), and so does the held-out H6. In H7, a text \"NULL\" passed for an optional parameter emptied the result. The second held-out set found it again: asked for the lowest Mexican issuer and how far below the next it was (N7), chat mode returned the function's table with no text in all three samples."
+   },
+   {
+    "title": "A metric view's values were not in its description",
+    "problem": "In the second held-out set, asked for first-attempt declines with one reason (N4), chat mode read the decline metric view and filtered its attempt dimension on 'First attempt' or 'first'. The values are 'first attempt' and 'retry', and the description did not list them, so all three samples got no rows and told the user there were no declines, where there were 2,036.",
+    "change": "The fix is to list the values in the description, as the other short dimensions do. It changes what the agent sees, so it ships with the next evaluated release, not as a patch to the evaluated agent."
    }
   ],
-  "table_note": "G1 to G4 are four runs of the deployed agent on 29 October 2026. A1–A6, B3, C1, C2 and C4 ran in chat mode, and Genie's own benchmark grader, which compares result sets, graded them. A5 went to manual review and was graded by hand, and I count C1 in run 4 as a failure although the grader passed it, because the answer never says by how much. The other ten ran in agent mode, graded by the same judge as the offline runs. Runs 2 to 4 also asked B1 and C3 three times each: B1 passed 0, then 1, then 2 of 3, and C3 passed 3 of 3 every time.",
+  "table_note": "G1 to G4 are four runs of the deployed agent on 29 October 2026, and G5 a fifth on 5 November, after the metric views were added. A1–A6, B3, C1, C2 and C4 ran in chat mode, and Genie's own benchmark grader, which compares result sets, graded them. A5 went to manual review and was graded by hand, and I count C1 in runs 4 and 5 as a failure although the grader passed it, because the answer never says by how much. The other ten ran in agent mode, graded by the same judge as the offline runs; I count B4 in run 5 as a failure although the judge passed it, because it gave a whole country's lost approvals as the cost of one cause. Runs 2 to 5 also asked B1 and C3 three times each: B1 passed 0, 1, 2 and 2 of 3, and C3 3 of 3 in runs 2 to 4 and 2 of 3 in run 5.",
   "heldout": {
    "passed": 11,
    "total": 14,
@@ -598,7 +668,112 @@
     "H13": "PASS",
     "H14": "PASS"
    },
-   "note": "H6 was a two-part comparison answered with a table and no text, so \"how far below the best\" went unanswered. In H7, Genie passed the text \"NULL\" for an optional parameter, which emptied the result. H8 found the right cause but attributed the whole segment's lost approvals to one acquirer."
+   "note": "H6 was a two-part comparison answered with a table and no text, so \"how far below the best\" went unanswered. In H7, Genie passed the text \"NULL\" for an optional parameter, which emptied the result. H8 found the right cause but attributed the whole segment's lost approvals to one acquirer.",
+   "run": 4
+  },
+  "variants_passed_run4": "5/6",
+  "heldout2": {
+   "run": 5,
+   "samples": 3,
+   "frozen_in_commit": "d3065a3",
+   "answers_passed": 25,
+   "answers_total": 39,
+   "questions_all_samples": 6,
+   "questions_total": 13,
+   "by_group": {
+    "kpi": {
+     "answers": "7/12",
+     "all_three": "2/4"
+    },
+    "comparison": {
+     "answers": "4/9",
+     "all_three": "1/3"
+    },
+    "diagnosis": {
+     "answers": "7/9",
+     "all_three": "1/3"
+    },
+    "guardrail": {
+     "answers": "7/9",
+     "all_three": "2/3"
+    }
+   },
+   "chat": {
+    "answers": "11/21",
+    "all_three": "3/7"
+   },
+   "agent": {
+    "answers": "14/18",
+    "all_three": "3/6"
+   },
+   "samples_by_question": {
+    "N1": [
+     "PASS",
+     "PASS",
+     "PASS"
+    ],
+    "N2": [
+     "PASS",
+     "PASS",
+     "PASS"
+    ],
+    "N3": [
+     "FAIL",
+     "PASS",
+     "FAIL"
+    ],
+    "N4": [
+     "FAIL",
+     "FAIL",
+     "FAIL"
+    ],
+    "N5": [
+     "PASS",
+     "PASS",
+     "PASS"
+    ],
+    "N6": [
+     "FAIL",
+     "FAIL",
+     "PASS"
+    ],
+    "N7": [
+     "FAIL",
+     "FAIL",
+     "FAIL"
+    ],
+    "N8": [
+     "PASS",
+     "FAIL",
+     "PASS"
+    ],
+    "N9": [
+     "PASS",
+     "PASS",
+     "PASS"
+    ],
+    "N10": [
+     "PASS",
+     "FAIL",
+     "PASS"
+    ],
+    "N11": [
+     "PASS",
+     "PASS",
+     "PASS"
+    ],
+    "N12": [
+     "PASS",
+     "PASS",
+     "PASS"
+    ],
+    "N13": [
+     "FAIL",
+     "FAIL",
+     "PASS"
+    ]
+   },
+   "note": "Chat mode lost most of the points: an instruction meant for approval comparisons applied to a count (N3), a metric view filtered on values it does not have (N4), a ranking that dropped the runner-up (N6), and a function's table with no text (N7). Agent mode passed 14 of 18 answers, and each of its three unsteady questions passed at least once."
   }
  }
 }

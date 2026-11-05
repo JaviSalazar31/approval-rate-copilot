@@ -46,7 +46,7 @@
   "duplicates": 1537,
   "segment_days": 540,
   "anomalies_flagged": 1,
-  "checks": 32
+  "checks": 46
  },
  "analysis": {
   "before_after_pp": -10.95,

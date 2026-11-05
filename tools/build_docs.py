@@ -25,6 +25,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 sys.path.insert(0, os.path.join(ROOT, "local"))
 from build_databricks import CATALOG, FUNCTIONS, SCHEMA  # noqa: E402
+import dbt_models  # noqa: E402
 from pipeline_spec import GRAIN, JOB_TABLES, SOURCES, TABLES, table_comment  # noqa: E402
 
 SPARK_OUT = os.path.join(ROOT, "local", "out", "spark")
@@ -272,6 +273,10 @@ def build_dictionary():
         "## Tables the copilot can query\n",
     ]
     parts += [table_md(t) for t in GENIE_TABLES]
+    parts.append("## Metric views (the dashboard and the copilot read them with MEASURE())\n")
+    parts.append("Unity Catalog metric views over two gold tables, created by notebook 09 from "
+                 "`databricks/metric_views/` (docs/decisions.md, ADR-17).\n")
+    parts.append(metric_views_md())
     parts.append("## Supporting tables (pipeline internals)\n")
     parts.append("Bronze tables (`bronze_orchestrator`, `bronze_acquirer_a`, `bronze_acquirer_b`, `bronze_acquirer_c`) "
                  "keep every source column as received, as strings, plus `_source_file` and `_ingested_at`. "
@@ -294,6 +299,22 @@ def example_sql():
     return m.group(1).strip()
 
 
+def metric_views_md():
+    """The metric views as the agent sees them: source, dimensions and measures, with their comments."""
+    import yaml
+    folder = os.path.join(ROOT, "databricks", "metric_views")
+    out = []
+    for f in sorted(x for x in os.listdir(folder) if x.endswith(".yml")):
+        v = yaml.safe_load(open(os.path.join(folder, f), encoding="utf-8"))
+        out += [f"### `{f[:-4]}`\n", f"{v['comment']} Source: `{v['source'].split('.')[-1]}`.\n",
+                "| Dimension | Expression | Description |", "|---|---|---|"]
+        out += [f"| `{d['name']}` | `{d['expr']}` | {d['comment']} |" for d in v["dimensions"]]
+        out += ["", "| Measure | Expression | Description |", "|---|---|---|"]
+        out += [f"| `{m['name']}` | `{m['expr']}` | {m['comment']} |" for m in v["measures"]]
+        out.append("")
+    return "\n".join(out)
+
+
 def build_model_context():
     parts = [
         "# Copilot context (identical to what the Genie agent receives)\n",
@@ -305,6 +326,8 @@ def build_model_context():
         f"Catalog `{CATALOG}`, schema `{SCHEMA}`. Rates are fractions (0.8654 = 86.54%).\n",
     ]
     parts += [table_md(t) for t in GENIE_TABLES]
+    parts.append("## Metric views (query a measure with MEASURE())\n")
+    parts.append(metric_views_md())
     parts.append("## Functions (Unity Catalog SQL table functions)\n")
     parts.append(functions_md())
     return "\n".join(parts)
@@ -433,7 +456,10 @@ def lineage():
     """Upstream tables of each dataset, read from its SQL body (and the job's Python for job tables)."""
     names = [t[0] for t in TABLES]
     edges = []
-    for name, rel, *_ in TABLES:
+    for name, rel, kind, *_ in TABLES:
+        if kind == "dbt":  # a gold model: the pipeline tables and gold models it reads, through staging and intermediate
+            edges += [(other, name) for other in sorted(dbt_models.upstream(name))]
+            continue
         body = re.sub(r"--[^\n]*", "", open(os.path.join(ROOT, "sql", rel)).read())
         for src in sorted(set(re.findall(r"\{src:([a-z_]+)\}", body))):
             edges.append((f"feed_{src}" if SOURCES[src][0] == "raw" else f"csv_{src}", name))

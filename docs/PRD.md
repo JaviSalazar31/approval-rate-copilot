@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Author | Javier Salazar (Senior Product Owner, payments) · personal project |
-| Status | v1 built on synthetic data, evaluated offline and deployed on Databricks Free Edition (29 Oct 2026) · Genie benchmark 17/20 after three tuning rounds (13/20 on the first run), 11/14 on held-out questions · pilot on real data not started |
+| Status | v1 built on synthetic data, evaluated offline and deployed on Databricks Free Edition (29 Oct 2026) · Genie benchmark 15/20 on the fifth run (13/20 on the first, 17/20 on the fourth) · held-out questions: 11/14 on the first set, 25/39 answers on the second (13 questions, three samples each) · gold layer in dbt, metric views, evaluations tracked in MLflow, deploys from GitHub Actions (Nov 2026) · pilot on real data not started |
 | Scope | Card payments of a fictional LATAM orchestrator: Mexico, Colombia, Brazil · Acquirers A, B, C |
 
 All figures below come from the synthetic dataset in this repository (90 days, 661k payment intents).
@@ -114,18 +114,21 @@ Full definitions, formulas and pitfalls are in [metrics.md](metrics.md).
 | R5 | Dashboard "Approval Health" | KPIs, trends, hourly drill-down, decline reasons, cascade, funnel, cost vs approval, anomalies, change log, data quality | Built on Databricks (29 Oct 2026) as specified in [dashboard_setup.md](dashboard_setup.md); the 42 queries behind its 21 widgets run without errors; layout review pending (with the demo recording) |
 | R6 | Anomaly detection on daily approval | Flags the 13 Aug drop; no false alarms in the 90 days | Done, in-sample: 1 flag in 540 country × card-type days, on the days the thresholds were tuned on. The 3-hour issuer outage of 21 Jul needs hourly detection |
 | R7 | Cascade alert | Fires on 6 Aug for Acquirer B, code 05, in Mexico and Colombia, and keeps firing every day until the map is fixed | Done, in-sample: alerts every day 6–14 Aug; a test checks that a 20-day collapse keeps alerting, and another pins where the alert stops |
-| R8 | Copilot answers only with numbers from queries; separates acquirer-side from issuer-side causes; refuses what the data cannot answer | Eval set: ≥ 90% overall, 4/4 guardrail questions | Met offline: 20/20 (run 6), 4/4 guardrails. Not yet on Genie: 17/20 (85%) on the fourth run, after 13, 14 and 15, with 4/4 guardrails in every run; on 14 held-out questions, run once, 11/14 (79%) and 3/3 guardrails ([evals/README.md](../evals/README.md)) |
+| R8 | Copilot answers only with numbers from queries; separates acquirer-side from issuer-side causes; refuses what the data cannot answer | Eval set: ≥ 90% overall, 4/4 guardrail questions | Met offline: 20/20 (run 6), 4/4 guardrails. Not yet on Genie: 15/20 (75%) on the fifth run, after 13, 14, 15 and 17, with 4/4 guardrails in every run. Held-out: 11/14 (79%) on the first set, run once; 25 of 39 answers (64%) on the second, 13 questions asked three times each, with 6 questions passing in all three samples and the guardrails in 7 of 9 answers ([evals/README.md](../evals/README.md)) |
 | R9 | Read-only copilot | Refuses to modify or delete data | Covered by guardrail question D4 |
-| R10 | No cardholder data in the analytics layer | No full card numbers (PAN), expiry dates, CVV or cardholder names in bronze, silver or gold. The only card fields are a truncated number (BIN and last four) in the orchestrator feed, `bronze_orchestrator` and `silver_payment_intents`. The landing volume and bronze are pipeline internals that no one else gets a grant on; from silver on, the last four are masked for everyone outside a support group. Issuers and merchants are codes; users reach the gold tables and `silver_payments` only through read-only Unity Catalog grants | Done and enforced twice: the feed checks stop a run on any text or number value that looks like a full card number (R11), and the Unity Catalog column mask on `silver_payment_intents.card_last4` shows the digits only to `payments_support` (verified by notebook 08 on 4 November 2026). Genie evaluates data access with each user's own Unity Catalog permissions, so analysts get SELECT on the 10 copilot tables and EXECUTE on the five functions, nothing else (a production step: Free Edition has one user; see the runbook, step 7) |
+| R10 | No cardholder data in the analytics layer | No full card numbers (PAN), expiry dates, CVV or cardholder names in bronze, silver or gold. The only card fields are a truncated number (BIN and last four) in the orchestrator feed, `bronze_orchestrator` and `silver_payment_intents`. The landing volume and bronze are pipeline internals that no one else gets a grant on; from silver on, the last four are masked for everyone outside a support group. Issuers and merchants are codes; users reach the gold tables and `silver_payments` only through read-only Unity Catalog grants | Done and enforced twice: the feed checks stop a run on any text or number value that looks like a full card number (R11), and the Unity Catalog column mask on `silver_payment_intents.card_last4` shows the digits only to `payments_support` (verified by notebook 08 on 4 November 2026). Genie evaluates data access with each user's own Unity Catalog permissions, so analysts get SELECT on the 10 copilot tables and the two metric views, and EXECUTE on the five functions, nothing else (a production step: Free Edition has one user; see the runbook, step 7) |
 | R11 | Stop the run when a feed breaks | A missing or empty file, a changed column set, values that break their format in more than 1% of a column, a repeated payment ID, an orchestrator volume outside 0.5 to 1.5 times the median of the previous 7 files, or an acquirer file that does not reconcile within 2% with the payments routed to it stops the job before the pipeline; single bad rows still go to quarantine (R1) | Done: one contract per feed in `contracts/`, checked by `checks/feed_checks.py` locally, in CI and as the job task before the pipeline. All 360 feed-days of the reference data pass, and tests cover each failure |
 | R12 | Alert on approved payments as well as on rates | A daily forecast of approved payments with weekday and payday terms flags days well below it, tested on datasets its thresholds were not set on | Done: on three more datasets from the same generator, 2 false alerts in 762 segment-days, and 81% of days cut by 20% caught, against 54% for a same-weekday mean at the same false-alert rate ([impact_and_detection.md](impact_and_detection.md)) |
+| R13 | Gold tables built and tested as code | Every gold table built by dbt, tested at its grain (unique keys, accepted values, relationships, rates between 0 and 1) and reconciled with silver, locally, in CI and in the daily job, which stops on a failed test | Done: 17 models and 76 tests pass on Databricks (job run of 4 November 2026) and in CI, with the same gold totals as the pipeline's previous tables ([ADR-15](decisions.md)) |
+| R14 | One definition per metric for the dashboard and the copilot | Approval, volume and decline measures defined once, as ratios of sums, and read by both the dashboard and Genie | Done: two Unity Catalog metric views; the dashboard's two datasets return the same rows as before, and Genie's chat mode uses them. A dimension comment without its values cost one held-out question (N4), fixed in the next evaluated release ([ADR-17](decisions.md)) |
+| R15 | Every evaluation run and every deploy can be traced and repeated | Each evaluation run records its context, answers, SQL, latency, guardrail checks and verdicts; the workspace is deployed from the repository; the agent changes only with an evaluated release | Evaluation done: MLflow traces for Genie run 5 and the second held-out set (63 answers, none failing a guardrail check), with the verdicts attached ([ADR-18](decisions.md)). The Asset Bundle and its deploy workflow are in the repository; first deploy pending ([ADR-16](decisions.md)) |
 
 ## 7. Risks and mitigations
 
 | Risk | Mitigation |
 |---|---|
-| The copilot states a wrong number with confidence | Trusted SQL functions for the diagnostic math; "only numbers returned by a query" rule; SQL visible to the user; eval set run before every change to instructions |
-| Metric definitions drift between teams | One set of definitions in the Genie instructions, the data dictionary and Unity Catalog column comments |
+| The copilot states a wrong number with confidence | Trusted SQL functions for the diagnostic math; "only numbers returned by a query" rule; SQL visible to the user; eval set run before every change to instructions, and a held-out set, written before the change, with three samples per question |
+| Metric definitions drift between teams | Each rate defined once, in Unity Catalog metric views that the dashboard and the copilot both read (ADR-17); the same definitions in the Genie instructions, the data dictionary and the column comments |
 | Alert fatigue | Volume-aware thresholds (pp drop + z-score vs history + binomial z-score); backtest before enabling |
 | A fix in the decline-code map breaks something else (the latent cause of this incident) | Map versioning, cascade alerts after every map release, and a regression test on retryable codes as a release gate |
 | Retries break card-network rules (reattempt limits and fees) | One cascade per payment, only for codes the map marks retryable, never after a "do not try again" advice (Mastercard MAC 03 or 21; needs the advice code in the acquirer feeds), and the release gate checks the map against the retry policy (ADR-08) |
@@ -141,17 +144,22 @@ Full definitions, formulas and pitfalls are in [metrics.md](metrics.md).
 3. Phase 0c, done: tuned the Genie agent in three rounds, with functions, examples and descriptions as
    well as instructions ([ADR-12](decisions.md)), each followed by the full benchmark: 14/20, 15/20, then 17/20.
    The last round also ran 14 held-out questions once: 11/14.
-4. Phase 0d, next: fix the chat-mode gaps the benchmark and the held-out set found (comparisons without the
-   gap, a text "NULL" for an optional parameter), grow the held-out set and run it on every change. The pilot
-   starts when R8 is met on Genie, with the held-out score as the number to watch.
-5. Phase 1, pilot (4 weeks): first, 20-minute interviews with three analysts to confirm the jobs and
+4. Phase 0d, done (4 to 5 November 2026): one job for the whole run, data contracts checked before the pipeline,
+   a forecast alert on approved payments, the gold layer in dbt, metric views for the dashboard and the copilot,
+   evaluations tracked in MLflow, and deploys from GitHub Actions with an Asset Bundle (ADR-13 to ADR-18). The fifth benchmark run passed 15/20; a second
+   held-out set, 13 questions asked three times each, passed 25 of 39 answers.
+5. Phase 0e, next: the chat-mode fixes both held-out sets point to (comparison results that carry the gap, a text
+   "NULL" treated as NULL, dimension comments that list their values, the domestic default kept to approval
+   comparisons), then the benchmark and a third held-out set, written before the release. The pilot starts when
+   R8 is met on Genie, with the held-out score as the number to watch.
+6. Phase 1, pilot (4 weeks): first, 20-minute interviews with three analysts to confirm the jobs and
    today's time to diagnosis. Then three analysts on real data; measure time to diagnosis against the
    current process and keep a log of wrong or missing answers.
    - Success: median time to a cause with evidence under 15 minutes; at least 8 of 10 answers judged
      correct by the analysts; all three use it every week.
    - Stop or rethink: fewer than 6 of 10 answers correct, or the analysts redo the SQL by hand anyway.
-6. Phase 2: hourly detection and alerts to the team channel; benchmark questions grow with every incident.
-7. Phase 3: a routing-change guardrail that compares approved volume instead of fees in the first hours after a
+7. Phase 2: hourly detection and alerts to the team channel; benchmark questions grow with every incident.
+8. Phase 3: a routing-change guardrail that compares approved volume instead of fees in the first hours after a
    change, and proposes a rollback when the drop is significant.
 
 ## 9. Open questions

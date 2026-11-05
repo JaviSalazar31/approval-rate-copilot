@@ -79,11 +79,11 @@
       "displayName": "ds_daily_by_segment",
       "queryLines": [
         "SELECT business_date, country, card_type, concat(country, ' ', card_type) AS segment,\n",
-        "       sum(payments_sent) AS payments_sent,\n",
-        "       round(sum(final_approved) / sum(payments_sent), 4) AS final_approval_rate\n",
-        "FROM workspace.approval_copilot.gold_approval_daily\n",
+        "       MEASURE(payments_sent) AS payments_sent,\n",
+        "       round(MEASURE(final_approval_rate), 4) AS final_approval_rate\n",
+        "FROM workspace.approval_copilot.approval_metrics\n",
         "WHERE NOT is_cross_border\n",
-        "GROUP BY business_date, country, card_type\n"
+        "GROUP BY ALL\n"
       ]
     },
     {
@@ -109,10 +109,10 @@
       "name": "ds_decline_reasons",
       "displayName": "ds_decline_reasons",
       "queryLines": [
-        "SELECT business_date, country, card_type, acquirer_id, reason_code, reason, decline_type, retryable,\n",
-        "       sum(attempts) AS failed_attempts\n",
-        "FROM workspace.approval_copilot.gold_decline_reasons_daily\n",
-        "WHERE attempt_seq = 1\n",
+        "SELECT business_date, country, card_type, acquirer AS acquirer_id, reason_code, reason, decline_type, retryable,\n",
+        "       MEASURE(failed_attempts) AS failed_attempts\n",
+        "FROM workspace.approval_copilot.decline_metrics\n",
+        "WHERE attempt = 'first attempt'\n",
         "GROUP BY ALL\n"
       ]
     },

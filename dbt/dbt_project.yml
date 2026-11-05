@@ -1,0 +1,29 @@
+# dbt project for the gold layer. The Lakeflow pipeline builds bronze and silver (ingestion, harmonization,
+# quality rules); dbt builds the gold tables the copilot and the dashboard read, with tests and docs.
+name: approval_copilot
+version: "1.0.0"
+config-version: 2
+profile: approval_copilot
+
+model-paths: ["models"]
+test-paths: ["tests"]
+target-path: "target"
+clean-targets: ["target", "logs"]
+
+models:
+  approval_copilot:
+    staging:
+      +materialized: view
+    intermediate:
+      +materialized: view
+    marts:
+      +materialized: table
+      # Table and column descriptions go to Unity Catalog, where Genie reads them
+      +persist_docs:
+        relation: "{{ target.type == 'databricks' }}"
+        columns: "{{ target.type == 'databricks' }}"
+      +file_format: "{{ 'delta' if target.type == 'databricks' else 'parquet' }}"
+
+tests:
+  approval_copilot:
+    +severity: error

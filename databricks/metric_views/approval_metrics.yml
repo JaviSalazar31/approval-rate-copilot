@@ -1,0 +1,50 @@
+# Unity Catalog metric view over gold_approval_daily. Created by notebook 09 as
+#   CREATE OR REPLACE VIEW workspace.approval_copilot.approval_metrics WITH METRICS LANGUAGE YAML AS $$ ... $$
+# Rates are defined once, as ratios of sums, so no dashboard widget or Genie answer can average daily rates.
+version: 1.1
+comment: Card approval and approved volume per day, country, card type and first acquirer. Every rate is a ratio of sums over the rows in scope.
+source: workspace.approval_copilot.gold_approval_daily
+dimensions:
+  - name: business_date
+    expr: business_date
+    comment: Local calendar date of the payment (country time zone)
+  - name: month
+    expr: date_trunc('MONTH', business_date)
+    comment: First day of the local calendar month
+  - name: country
+    expr: country
+    comment: MX, CO or BR
+  - name: card_type
+    expr: card_type
+    comment: credit or debit
+  - name: first_acquirer
+    expr: acquirer_id
+    comment: First acquirer chosen by routing (A, B or C); results are attributed to it
+  - name: is_cross_border
+    expr: is_cross_border
+    comment: True when the card was issued abroad. Domestic traffic is the default for comparisons
+measures:
+  - name: payments_sent
+    expr: SUM(payments_sent)
+    comment: Payments that reached an acquirer
+  - name: final_approved
+    expr: SUM(final_approved)
+    comment: Payments approved on the first attempt or after a retry on a second acquirer
+  - name: final_approval_rate
+    expr: SUM(final_approved) / SUM(payments_sent)
+    comment: Final approval rate, recomputed from counts
+  - name: first_attempt_approval_rate
+    expr: SUM(first_attempt_approved) / SUM(payments_sent)
+    comment: Approval rate of the first attempt, the routing KPI
+  - name: approved_usd
+    expr: SUM(approved_usd)
+    comment: Approved volume in USD
+  - name: attempted_usd
+    expr: SUM(attempted_usd)
+    comment: Volume sent to acquirers in USD
+  - name: approved_volume_rate
+    expr: SUM(approved_usd) / SUM(attempted_usd)
+    comment: Share of the volume sent that was approved
+  - name: fees_usd
+    expr: SUM(fees_usd)
+    comment: Acquirer fees on the approved volume, USD

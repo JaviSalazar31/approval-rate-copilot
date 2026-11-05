@@ -21,11 +21,11 @@ GitHub Pages.
 |---|---|
 | **Problem** | Payments teams find approval drops late and are slow to explain them, because the data sits in an orchestrator log and three acquirer feeds with different formats, time zones and decline codes. |
 | **Product** | A Databricks Genie agent that answers in plain language and shows the SQL behind every number. Five SQL functions hold the diagnostic method. A dashboard and three alerts complete it: one for approval drops, one for retries that stop working and one for approved payments that fall well below forecast. |
-| **Evidence** | A 20-question benchmark (16 questions with ground-truth SQL and 4 guardrails) and 14 held-out questions, with every answer and verdict published. Offline, with a Claude model in the copilot's place and a separate model as judge (LLM-as-a-judge), the design scored 18/20 on the first of six runs and 20/20 on each of the last three. The deployed Genie agent scored 13/20 on its first run, then 14, 15 and 17/20 as the method moved from text instructions into functions and example queries. On the held-out questions, committed before the run and asked once, it scored 11/14. The [evaluation write-up](evals/README.md) lists each failure with its cause and, where there is one, the fix. |
+| **Evidence** | A 20-question benchmark (16 questions with ground-truth SQL and 4 guardrails) and two held-out sets of 27 questions in all, with every answer and verdict published. Offline, with a Claude model in the copilot's place and a separate model as judge (LLM-as-a-judge), the design scored 18/20 on the first of six runs and 20/20 on each of the last three. The deployed Genie agent scored 13/20 on its first run, then 14, 15 and 17/20 as the method moved from text instructions into functions and example queries, and 15/20 on a fifth run after the platform changes of November. On held-out questions, committed to the repository before each run, it scored 11/14 asked once, then 25 of 39 answers on 13 new questions asked three times each. Since the fifth run, every answer is an MLflow trace with its SQL, latency and guardrail checks. The [evaluation write-up](evals/README.md) lists each failure with its cause and, where there is one, the fix. |
 | **Analysis** | A difference-in-differences estimate against Colombian credit puts the cost of the routing change at 12.2 points of approval (95% CI 9.4 to 15.2), in line with the copilot's 10.9; on 55 dates with no change, the same estimate stays within 4 points of zero. Mix effects stay under 0.1 points: the same issuers and merchants were paying, and each of them approved less. A forecast alert on approved payments, with weekday and payday terms, adds cover for large losses before the acquirer: at the same false-alert rate, it caught 81% of days cut by 20% in three more synthetic datasets, against 54% for a same-weekday mean. See [impact and detection](docs/impact_and_detection.md). |
 | **My role** | Product owner of the case. I set the brief (problem, scope, deliverables and acceptance criteria), and I own the product decisions in the [decision log](docs/decisions.md) and the evaluation rules. |
 | **How it was built** | With an AI coding assistant. Claude (Anthropic) wrote the code and the first drafts of the documents from my brief, and ran the checks against the review bar I set. Automated tests cover the pipeline output, and the evaluation publishes every verdict. Each number on the project page traces back to SQL in this repository. |
-| **Status** | The pipeline, functions, dashboard and Genie agent were deployed on Databricks Free Edition on 29 October 2026 through the Databricks APIs. The agent then went through three tuning rounds, each followed by the full benchmark on Genie, and one run on questions it was never tuned on. On 4 November 2026 one Databricks job ran the whole sequence: it regenerated the data, checked every feed against its data contract, rebuilt the pipeline with a column mask on the card's last four digits, wrote the forecast alert, recreated the functions and column descriptions, and tagged the tables in Unity Catalog. The 367 data files it wrote match the local reference run byte for byte, and the pipeline dropped the same 776 rows and raised the same two forecast alerts. CI on GitHub Actions runs the tests and the whole pipeline on every push to main. The next work is the chat-mode gaps that the benchmark and the held-out set found, and a larger held-out set. The [runbook](docs/runbook_databricks.md) explains how to deploy it yourself. |
+| **Status** | The pipeline, functions, dashboard and Genie agent were deployed on Databricks Free Edition on 29 October 2026 through the Databricks APIs. The agent then went through three tuning rounds, each followed by the full benchmark on Genie, and one run on questions it was never tuned on. On 4 November 2026 one Databricks job ran the whole sequence: it regenerated the data, checked every feed against its data contract, rebuilt the pipeline with a column mask on the card's last four digits, wrote the forecast alert, recreated the functions and column descriptions, and tagged the tables in Unity Catalog. The 367 data files it wrote match the local reference run byte for byte, and the pipeline dropped the same 776 rows and raised the same two forecast alerts. On 4 and 5 November the gold layer moved to dbt, run as a task of the same job (17 models and 76 tests, with the same totals), two Unity Catalog metric views took over the rate definitions for the dashboard and the agent, and an evaluation job began logging every answer to MLflow. An Asset Bundle and a GitHub Actions workflow deploy the workspace from this repository. CI runs the tests, the whole pipeline and dbt on every push to main. The next work is the chat-mode fixes that the two held-out sets point to, checked with a third held-out set. The [runbook](docs/runbook_databricks.md) explains how to deploy it yourself. |
 
 ---
 
@@ -36,27 +36,31 @@ data_generator/        Synthetic data: 90 days, 661k payment intents, 4 source f
 data/sample/           One day of every raw feed plus the reference tables, to look at without generating
 contracts/             One data contract per raw feed: columns, formats, volume and reconciliation rules
 checks/                Feed checks against the contracts, run before the pipeline
-sql/                   One SQL body per table and function (single source of truth)
-  bronze/ silver/ gold/  Medallion layers
+sql/                   One SQL body per pipeline table and per function (single source of truth)
+  bronze/ silver/      Ingestion and harmonization, with the quality rules
   ref/                 Reference tables (routing rules, versioned decline-code map, change log, FX)
   copilot/             The five diagnostic functions used by the copilot
+dbt/                   The gold layer: staging, intermediate and mart models, with 76 tests
 monitoring/            Forecast alert on approved payments (weekday and payday terms)
 analysis/              Incident impact (difference-in-differences), mix/rate split, detector backtest
+databricks.yml         Asset Bundle: the pipeline, the jobs and the dashboard, deployed from GitHub Actions
 databricks/
   pipeline/            Lakeflow pipeline (Spark Declarative Pipelines), generated from sql/
-  jobs/                The job that runs every step in order (Jobs API definition)
-  notebooks/           00 setup · 01 generate data · 02 build without pipeline · 03 dashboard datasets
-                       04 copilot functions · 05 column descriptions · 06 feed checks
-                       07 forecast alert · 08 governance (tags, mask, lineage)
+  jobs/                The daily job, the evaluation job and the agent update (Jobs API definitions)
+  metric_views/        Unity Catalog metric views: approval, approved volume, declines
+  notebooks/           00 setup · 01 generate data · 02 build without pipeline or dbt · 03 dashboard datasets
+                       04 copilot functions · 05 column descriptions · 06 feed checks · 07 forecast alert
+                       08 governance (tags, mask, lineage) · 09 metric views · 10 update the agent
+                       11 evaluate the agent (MLflow)
   dashboard/           "Approval Health" as a dashboard file, for the Lakeview API
   genie/               The Genie agent as a serialized space, for the Genie API
 local/                 Runs the same SQL on local Spark to validate everything before deploying
-evals/                 Question set, model context, harness, results of each run
+evals/                 Question sets, model context, harness, guardrail checks, MLflow runner, results
 docs/                  PRD, metrics, decisions, postmortem, runbook, dashboard and Genie setup, data dictionary
 site/                  Project page (built from the pipeline output and the eval results)
 tests/                 Pipeline invariants, alert logic, feed contracts, forecast alert, incident analysis
 tools/                 Generators for the Databricks artifacts, docs and the project page
-.github/workflows/     CI (tests and the whole pipeline on local Spark) and the project page
+.github/workflows/     CI (tests, the whole pipeline and dbt on local Spark), the Databricks deploy, the project page
 ```
 
 ## Architecture
@@ -75,7 +79,8 @@ flowchart LR
     BR[Bronze<br/>files as received]
     SI[Silver<br/>harmonized, de-duplicated,<br/>mapped, quality rules]
     Q[(Quarantine<br/>rows + failed rule)]
-    GO[Gold<br/>daily/hourly approval, declines,<br/>retries, issuers, funnel,<br/>anomalies, retry alerts]
+    GO[Gold, built and tested by dbt<br/>daily/hourly approval, declines,<br/>retries, issuers, funnel,<br/>anomalies, retry alerts]
+    MV[Metric views<br/>approval, approved volume,<br/>declines]
     FN[5 SQL functions<br/>impact · drivers · declines<br/>retries · changes]
     VA[Forecast alert<br/>approved payments]
   end
@@ -83,9 +88,12 @@ flowchart LR
   R --> SI
   SI --> Q
   GO --> VA
-  GO --> D[AI/BI dashboard]
+  GO --> MV
+  MV --> D[AI/BI dashboard]
   GO --> G[Genie agent<br/>the copilot]
+  MV --> G
   FN --> G
+  G --> E[Evaluation job<br/>MLflow traces, latency,<br/>guardrail checks]
 ```
 
 ## Run it
@@ -97,7 +105,7 @@ You need Python 3.11+ and Java 17 (Java 21 also worked).
 ```bash
 pip install -r requirements.txt pytest
 python local/run_local.py      # generates the data on the first run, then runs the whole pipeline on local Spark
-python -m pytest tests         # pipeline invariants, alerts, feed contracts and the incident analysis
+python -m pytest tests         # pipeline invariants, alerts, feed contracts, guardrails and the incident analysis
 ```
 
 The first run takes about three minutes and 4 GB of memory. The same steps one at a time:
@@ -105,7 +113,7 @@ The first run takes about three minutes and 4 GB of memory. The same steps one a
 ```bash
 python data_generator/generate_data.py --out data/full --seed 42   # under a minute
 python checks/feed_checks.py --data data/full --all-dates          # every day of every feed against its contract
-python local/run_local.py                                          # pipeline, then the forecast alert
+python local/run_local.py                                          # pipeline, dbt (gold and its tests), forecast alert
 python analysis/incident_impact.py                                 # difference-in-differences for the incident
 ```
 
@@ -152,7 +160,7 @@ To publish the page with GitHub Pages:
 |---|---|
 | [PRD](docs/PRD.md) | Problem, users, goals and non-goals, solution, requirements with acceptance criteria, risks, rollout with success and stop criteria |
 | [Metrics](docs/metrics.md) | Metric tree, definitions and choices, pitfalls, detection rules and their backtest |
-| [Decision log](docs/decisions.md) | Fourteen decisions with alternatives and trade-offs, including retry rules of the card networks |
+| [Decision log](docs/decisions.md) | Eighteen decisions with alternatives and trade-offs, including retry rules of the card networks |
 | [Impact and detection](docs/impact_and_detection.md) | Difference-in-differences for the incident, mix/rate split, forecast alert and its backtest |
 | [Postmortem INC-0814](docs/postmortem_INC-0814.md) | Timeline, impact, root cause, detection gaps, action items |
 | [Genie agent setup](docs/genie_space_setup.md) | Instructions, trusted functions, example SQL, benchmarks |
@@ -180,12 +188,14 @@ and three time-zone conventions.
 
 - The data is synthetic, and its parameters are illustrative assumptions, not market statistics. A pilot on real
   data is the next step.
-- The benchmark questions drove the fixes, and the deployed Genie agent reached 17 of 20 on the fourth run, short
-  of the PRD's 90% bar. On 14 held-out questions it scored 11. In chat mode it answers with a function's table
-  and no text, so a question that asks by how much gets both numbers but never the gap (C1, and H6 in the
-  held-out set). A text "NULL" passed for an optional parameter emptied one result (H7), and one diagnosis
-  attributed a whole segment's lost approvals to a single acquirer (H8). The main diagnosis (B1) passed two of three
-  samples in the last run.
+- The benchmark questions drove the fixes, and the deployed Genie agent reached 17 of 20 on the fourth run and 15
+  on the fifth, short of the PRD's 90% bar. On held-out questions it scored 11 of 14, then 25 of 39 answers on 13
+  questions asked three times each, with 6 questions passing in all three samples. Most of the losses are in chat
+  mode. It answers with a function's table and no text, so a question that asks by how much gets both numbers
+  but never the gap (C1, H6, N7); it filtered a metric view on a value the dimension does not have and reported
+  no declines (N4); and it applied a rule meant for approval comparisons to a count (N3). A text "NULL" passed for
+  an optional parameter emptied one result (H7), and two diagnoses gave a whole segment's lost approvals as the
+  cost of one cause (H8, and B4 in run 5). The main diagnosis (B1) passed two of three samples in runs 4 and 5.
 - The offline evaluation puts a Claude model in Genie's place, with the same context. It tests the design
   (instructions, tables, functions) and says nothing about Genie's own model, and it overstated Genie: 20 of 20
   offline against 13 on the first Genie run.
