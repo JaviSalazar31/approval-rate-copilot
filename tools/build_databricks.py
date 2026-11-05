@@ -659,9 +659,10 @@ def build_bundle():
         "bundle": {"name": "approval-rate-copilot"},
         "variables": {"warehouse_id": {"description": "SQL warehouse for dbt, the dashboard and the Genie agent",
                                        "lookup": {"warehouse": "Serverless Starter Warehouse"}}},
-        "workspace": {"root_path": "/Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}"},
         "sync": {"exclude": ["site/**", "evals/results/**", "analysis/results/**", "data/sample/**"]},
-        "targets": {"prod": {"mode": "production", "default": True}},
+        # production mode requires the target itself to name the root path, so that only one copy is deployed
+        "targets": {"prod": {"mode": "production", "default": True, "workspace": {
+            "root_path": "/Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}"}}},
         "resources": resources,
     }
     header = ("# Databricks Asset Bundle: the pipeline, the three jobs and the dashboard, deployed by GitHub Actions\n"
