@@ -9,8 +9,6 @@ variables:
     description: SQL warehouse for dbt, the dashboard and the Genie agent
     lookup:
       warehouse: Serverless Starter Warehouse
-workspace:
-  root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
 sync:
   exclude:
   - site/**
@@ -21,6 +19,8 @@ targets:
   prod:
     mode: production
     default: true
+    workspace:
+      root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
 resources:
   pipelines:
     approval_copilot:
