@@ -34,6 +34,8 @@ def fmt(value, f):
         return f"{value * 100:.0f}%"
     if f == "pp1":
         return f"{value:.1f}".replace("-", "−")
+    if f == "spp1":  # signed: +3.6, −3.8
+        return f"{value:+.1f}".replace("-", "−")
     if f == "abs1":
         return f"{abs(value):.1f}"
     if f == "round0":
@@ -109,12 +111,14 @@ def verdict_chip(v, mark=""):
 
 DOCS = [("PRD", "Problem, users, goals, requirements, rollout", "docs/PRD.md"),
         ("Metrics", "Metric tree, definitions and pitfalls", "docs/metrics.md"),
-        ("Decision log", "Twelve decisions with their trade-offs", "docs/decisions.md"),
+        ("Decision log", "Fourteen decisions with their trade-offs", "docs/decisions.md"),
         ("Postmortem INC-0814", "Timeline, root cause, action items", "docs/postmortem_INC-0814.md"),
+        ("Impact and detection", "Control-group estimate, forecast alert backtest", "docs/impact_and_detection.md"),
         ("Evaluation", "Question set, rubric, all runs", "evals/README.md"),
+        ("Data model", "Entities, keys and table lineage", "docs/data_model.md"),
         ("Data dictionary", "Every table and column", "docs/data_dictionary.md"),
         ("Runbook", "Deploy on Databricks Free Edition", "docs/runbook_databricks.md"),
-        ("Code", "Generator, pipeline SQL, functions, tests", "")]
+        ("Code", "Generator, pipeline, contracts, functions, tests", "")]
 
 
 def docs_html():
@@ -183,7 +187,8 @@ def build():
 
     answer = summary["showcase"]
     sql_html = "".join(f"<pre><code>{html.escape(s)}</code></pre>" for s in answer["queries"])
-    case = dict(hourly_co_debit=data["hourly_co_debit"], cascade_b05=data["cascade_b05"], incident=data["incident"])
+    case = dict(hourly_co_debit=data["hourly_co_debit"], cascade_b05=data["cascade_b05"], incident=data["incident"],
+                analysis=data["analysis"])
 
     run_ids = summary["runs"]
     passed = summary["passed"]
@@ -207,7 +212,7 @@ def build():
 
     ctx = dict(
         headline=data["headline"], incident=data["incident"],
-        pipeline=data["pipeline"],
+        pipeline=data["pipeline"], analysis=data["analysis"],
         eval=dict(total=summary["total"], last_run=run_ids[-1], last_passed=passed[str(run_ids[-1])],
                   earlier_passed=earlier_passed, runs=len(run_ids),
                   v1_judge_passed=summary["v1_judge_passed"],

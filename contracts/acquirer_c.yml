@@ -1,0 +1,27 @@
+# Data contract for Acquirer C's authorization responses (epoch milliseconds, comma decimals, Portuguese).
+feed: acquirer_c
+description: Authorization responses from Acquirer C, one row per attempt
+delivery: one CSV file per business day, named YYYY-MM-DD.csv
+format: {type: csv, delimiter: ",", header: true, encoding: utf-8}
+max_invalid_share: 0.01
+# First attempts in this file against the payments the orchestrator routed to this acquirer on the
+# same day. A routing change moves both sides together, so it does not trip the check; a truncated or
+# duplicated delivery does.
+reconciliation: {orchestrator_column: first_acquirer, acquirer: C, attempt_column: tentativa, first_attempt: '1', min_ratio: 0.98, max_ratio: 1.02}
+columns:
+  - {name: transacao_id, type: string, pattern: '^c-[0-9a-f]{16}$'}
+  - {name: pedido_id, type: string, pattern: '^pay_[0-9a-f]{12}$'}
+  - {name: loja_id, type: string, pattern: '^(MX|CO|BR)-M[0-9]{2}$'}
+  - {name: timestamp_ms, type: epoch_ms}
+  - {name: valor, type: decimal, separator: ','}
+  - {name: moeda, type: enum, values: [MXN, COP, BRL]}
+  - {name: pais, type: enum, values: [MX, CO, BR]}
+  - {name: bandeira, type: enum, values: [Visa, Mastercard, Amex, Elo]}
+  - {name: tipo_cartao, type: enum, values: [CREDITO, DEBITO]}
+  - {name: emissor, type: string, pattern: '^(MX|CO|BR|INTL)-ISS-[0-9]{2}$'}
+  - {name: autenticado_3ds, type: enum, values: ['0', '1']}
+  - {name: parcelas, type: integer}
+  - {name: situacao, type: enum, values: [Aprovada, Negada, Erro, Expirada, Cancelada]}
+  - {name: codigo_retorno, type: string, pattern: '^[0-9A-Z]{2}$', nullable: true}
+  - {name: tempo_resposta_ms, type: integer}
+  - {name: tentativa, type: enum, values: ['1', '2']}

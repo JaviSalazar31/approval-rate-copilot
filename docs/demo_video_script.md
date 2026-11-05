@@ -19,6 +19,22 @@ same wording as in the evaluation.
 | 2:12–2:35 | Eval results table | "I tested it on twenty questions, each with a scoring rule. The deployed Genie agent passed thirteen on the first run, and seventeen after I moved the method from text instructions into functions and example queries. Then I ran fourteen new questions it had never seen, committed to the repo before the run. It passed eleven. All the answers and failures are published in the repo." |
 | 2:35–2:55 | Project page or README top | "I built it with an AI coding assistant: I wrote the brief and reviewed the work against it. Next, I'd add hourly alerts and a guardrail that checks routing changes against approved volume instead of fee savings. The PRD, the postmortem and the code are linked below." |
 
+## 60 to 90 second cut
+
+A shorter version for the LinkedIn feed, cut from the same recordings, so it needs no extra takes. It keeps the
+problem, the diagnosis, the early warning and the evaluation, and drops the pipeline and the guardrails.
+
+| Time | Screen | Voice-over (sentences from the full script) |
+|---|---|---|
+| 0:00–0:14 | Dashboard, page 1, the dip in the "CO debit" line | The whole 0:00 line: "When card approval rates drop, every hour costs approved sales, and finding out why means going through four data sources. As a personal project, I built a copilot that does it from a single question." |
+| 0:14–0:42 | Genie, the main question: the answer scrolling, then "Show code" | From the 0:50 line, the three sentences that start with "It finds that a routing change...", "B approved less..." and "In twenty-two hours..." |
+| 0:42–0:55 | Genie, the early-warning question | From the 1:40 line: "Retries for B's 'do not honor' declines collapsed on August sixth, and the retry alert flagged it in the next morning's run, six days before the drop showed up in daily approval." |
+| 0:55–1:18 | Eval results table | The 2:12 line without its last sentence: from "I tested it on twenty questions..." to "It passed eleven." |
+| 1:18–1:22 | Project page or README top | The last sentence of the 2:35 line: "The PRD, the postmortem and the code are linked below." |
+
+The length depends on the pace of the recording, about 80 to 90 seconds at a normal speaking pace. If it runs
+over 90 seconds, the first cut is the 0:42 segment.
+
 ## Recording tips
 
 - Run each Genie question once before recording so the warehouse is warm, then start a new conversation for the

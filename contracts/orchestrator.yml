@@ -1,0 +1,32 @@
+# Data contract for the orchestrator's payment-intent log.
+# Checked by checks/feed_checks.py before every pipeline run. A violation stops the run; single bad
+# rows inside a valid file are left to the pipeline's quality rules and quarantine.
+feed: orchestrator
+description: Payment intents created at checkout, one row per intent
+delivery: one CSV file per business day, named YYYY-MM-DD.csv
+format: {type: csv, delimiter: ",", header: true, encoding: utf-8}
+max_invalid_share: 0.01      # above this share of bad values in one column, the feed has changed
+# Rows against the median of the previous 7 files. Weekday and payday swings stay within about 0.78x to
+# 1.29x; a truncated file falls far below. A file delivered twice repeats every payment_id.
+volume: {lookback_files: 7, min_ratio: 0.5, max_ratio: 1.5}
+unique: [payment_id]
+columns:
+  - {name: payment_id, type: string, pattern: '^pay_[0-9a-f]{12}$'}
+  - {name: merchant_id, type: string, pattern: '^(MX|CO|BR)-M[0-9]{2}$'}
+  - {name: created_at_utc, type: timestamp, format: '%Y-%m-%d %H:%M:%S'}
+  - {name: country, type: enum, values: [MX, CO, BR]}
+  - {name: currency, type: enum, values: [MXN, COP, BRL]}
+  - {name: amount, type: decimal, separator: '.'}
+  - {name: card_brand, type: enum, values: [visa, mastercard, amex, elo]}
+  - {name: card_type, type: enum, values: [credit, debit]}
+  - {name: issuer_id, type: string, pattern: '^(MX|CO|BR|INTL)-ISS-[0-9]{2}$'}
+  - {name: is_cross_border, type: enum, values: ['True', 'False']}
+  - {name: installments, type: integer}
+  - {name: three_ds_requested, type: enum, values: ['True', 'False']}
+  - {name: three_ds_flow, type: enum, values: [frictionless, challenge], nullable: true}
+  - {name: orchestrator_status, type: enum, values: [ROUTED, BLOCKED_RISK, REVIEW_TIMEOUT, CUSTOMER_ABANDONED_3DS]}
+  - {name: routing_rule_version, type: string, pattern: '^v[0-9]+$', nullable: true}
+  - {name: first_acquirer, type: enum, values: [A, B, C], nullable: true}
+  - {name: channel, type: enum, values: [web, app]}
+  - {name: card_bin, type: string, pattern: '^[0-9]{6}$'}
+  - {name: card_last4, type: string, pattern: '^[0-9]{4}$'}

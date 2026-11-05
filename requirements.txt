@@ -5,3 +5,5 @@ pandas>=2.2
 # Local validation of the pipeline (Java 17; Java 21 also worked)
 pyspark==3.5.3
 pyarrow>=14
+# Data contracts (contracts/*.yml) and the Databricks build
+pyyaml>=6

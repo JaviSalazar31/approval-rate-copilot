@@ -4,6 +4,8 @@ Generates the documentation that depends on the table schemas:
   docs/data_dictionary.md                         every table and column, from the local pipeline run
   evals/model_context.md                          what the model under test sees (same as the Genie agent)
   databricks/notebooks/05_column_comments.py      writes the same descriptions into Unity Catalog
+  databricks/notebooks/07_volume_alerts.py        the forecast alert as a job task, with its column descriptions
+  docs/data_model.md                              entity diagram and table lineage (lineage read from the SQL)
 
 Schemas are read from the Spark output of `python local/run_local.py`, so the
 dictionary always matches what the pipeline produces.
@@ -23,7 +25,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, os.path.join(ROOT, "tools"))
 sys.path.insert(0, os.path.join(ROOT, "local"))
 from build_databricks import CATALOG, FUNCTIONS, SCHEMA  # noqa: E402
-from pipeline_spec import TABLES, table_comment  # noqa: E402
+from pipeline_spec import GRAIN, JOB_TABLES, SOURCES, TABLES, table_comment  # noqa: E402
 
 SPARK_OUT = os.path.join(ROOT, "local", "out", "spark")
 
@@ -175,6 +177,14 @@ COL = {
     "traffic_share": "Share of the segment's domestic traffic sent to the acquirer",
     "usd_rate": "Units of local currency per USD (synthetic, fixed)",
     "time_zone": "IANA time zone used for local dates",
+    # truncated card number (silver_payment_intents)
+    "card_bin": "First six digits of the card number (BIN). Synthetic BINs start with 00, outside the ranges card networks use, so they match no real bank",
+    "card_last4": "Last four digits of the card number. On Databricks a column mask shows them only to the payments_support group",
+    # forecast alert (gold_volume_alerts_daily)
+    "expected_approved": "Approved payments the forecast expected (weekday, payday and trend terms, fitted on the previous 56 days); empty in the first 42 days",
+    "lower_bound": "Lower bound of the forecast's 99.9% one-sided prediction interval",
+    "pct_vs_expected": "Approved payments versus the forecast, in percent",
+    "z_score": "Distance from the forecast in prediction standard errors (log scale)",
 }
 # Columns whose meaning differs by table.
 COL_BY_TABLE = {
@@ -190,6 +200,8 @@ COL_BY_TABLE = {
     ("ref_routing_rules", "scope"): "domestic (cross-border cards always go to Acquirer A)",
     ("silver_payment_intents", "first_acquirer_id"): "Acquirer chosen by routing for the first attempt (empty if not routed)",
     ("gold_issuer_daily", "issuer_id"): "Fictional issuer code (e.g. CO-ISS-03); INTL-ISS-* are foreign issuers. This table is daily and includes cross-border payments: to rank domestic issuers inside a window, use fn_approval_drivers (dimension 'issuer')",
+    ("gold_volume_alerts_daily", "approved"): "Approved payments that day, first attempt or after a retry, cross-border included",
+    ("gold_volume_alerts_daily", "is_alert"): "True when the day is below the lower bound and at least 8% under the forecast",
     ("gold_cascade_alerts_daily", "is_alert"): "True when the cascade rate collapsed: at least 50 pp below its healthy baseline, with enough volume. To find when an alert began, query from the start of the data (2026-06-01)",
 }
 
@@ -222,6 +234,7 @@ def describe(table, column):
 
 
 TABLE_COMMENT = {name: table_comment(name, comment) for name, _, _, comment, _ in TABLES}
+TABLE_COMMENT.update({name: table_comment(name, comment) for name, comment in JOB_TABLES})
 
 
 def table_md(table, heading="###"):
@@ -265,6 +278,9 @@ def build_dictionary():
                  "The source formats are described in `ref_acquirers.raw_format`. On Databricks, `read_files` also "
                  "adds a `_rescued_data` column (values that did not fit the schema); the local run does not have it.\n")
     parts += [table_md(t) for t in SUPPORT_TABLES]
+    parts.append("## Monitoring table written by the job\n")
+    parts.append("Job task `volume_alerts` (notebook 07), from `gold_approval_daily`. The copilot does not query it.\n")
+    parts += [table_md(name) for name, _ in JOB_TABLES]
     parts.append("## Copilot functions (Unity Catalog SQL table functions)\n")
     parts.append(functions_md())
     return "\n".join(parts)
@@ -366,11 +382,168 @@ def build_comments_notebook():
     return "\n".join(lines)
 
 
+ER_DIAGRAM = """erDiagram
+  ref_merchants ||--o{ silver_payment_intents : merchant_id
+  ref_issuers ||--o{ silver_payment_intents : issuer_id
+  silver_payment_intents ||--o{ silver_auth_attempts : payment_id
+  ref_acquirers ||--o{ silver_auth_attempts : acquirer_id
+  ref_decline_code_map ||--o{ silver_auth_attempts : "acquirer, raw status, raw code, version"
+  silver_payment_intents ||--|| silver_payments : payment_id
+  ref_fx_rates ||--o{ silver_payments : currency
+  ref_country_tz ||--o{ silver_payments : country
+  silver_payment_intents {
+    string payment_id PK
+    string merchant_id FK
+    string issuer_id FK
+    timestamp created_ts_utc
+    string orchestrator_status
+    string routing_rule_version
+    string card_bin
+    string card_last4 "masked on Databricks"
+  }
+  silver_auth_attempts {
+    string acquirer_id FK
+    string source_event_id PK
+    string payment_id FK
+    int attempt_seq
+    string mapping_version
+    string canonical_status
+    boolean retryable
+  }
+  silver_payments {
+    string payment_id PK
+    string first_acquirer_id
+    boolean is_cascaded
+    boolean final_approved
+    date business_date
+    double approved_usd
+  }
+  ref_decline_code_map {
+    string mapping_version PK
+    string source_system PK
+    string raw_status PK
+    string raw_code PK
+    string canonical_status
+    boolean retryable
+  }
+"""
+
+
+def lineage():
+    """Upstream tables of each dataset, read from its SQL body (and the job's Python for job tables)."""
+    names = [t[0] for t in TABLES]
+    edges = []
+    for name, rel, *_ in TABLES:
+        body = re.sub(r"--[^\n]*", "", open(os.path.join(ROOT, "sql", rel)).read())
+        for src in sorted(set(re.findall(r"\{src:([a-z_]+)\}", body))):
+            edges.append((f"feed_{src}" if SOURCES[src][0] == "raw" else f"csv_{src}", name))
+        for other in names:
+            if other != name and re.search(rf"\b{other}\b", body):
+                edges.append((other, name))
+    for name, _ in JOB_TABLES:
+        edges.append(("gold_approval_daily", name))
+    return edges
+
+
+def build_data_model():
+    edges = lineage()
+    layers = {"bronze": [], "silver": [], "gold": [], "ref": []}
+    for name in [t[0] for t in TABLES] + [n for n, _ in JOB_TABLES]:
+        layers[name.split("_")[0]].append(name)
+    feeds = sorted({a for a, _ in edges if a.startswith(("feed_", "csv_"))})
+    flow = ["flowchart LR"]
+    flow.append("  subgraph files[Landing files]")
+    flow += [f"    {f}[{f.split('_', 1)[1]}]" for f in feeds]
+    flow.append("  end")
+    titles = {"ref": "Reference", "bronze": "Bronze", "silver": "Silver", "gold": "Gold"}
+    for layer in ("ref", "bronze", "silver", "gold"):
+        flow.append(f"  subgraph {layer}[{titles[layer]}]")
+        flow += [f"    {n}" for n in layers[layer]]
+        flow.append("  end")
+    flow += [f"  {a} --> {b}" for a, b in edges]
+    grain_rows = "\n".join(f"| `{n}` | {GRAIN[n]} |" for n in [t[0] for t in TABLES] + [n for n, _ in JOB_TABLES]
+                           if n.startswith("gold_") and n in GRAIN)
+    return "\n".join([
+        "# Data model",
+        "",
+        "Generated by `tools/build_docs.py`. The lineage below is read from the SQL of each table, so it always matches",
+        "the code. On Databricks, Unity Catalog also records table lineage when the pipeline runs (notebook 08 lists",
+        "it). Column details are in the [data dictionary](data_dictionary.md).",
+        "",
+        "## Entities and keys (silver and reference)",
+        "",
+        "One payment intent from the orchestrator has zero, one or two authorization attempts: none when risk blocked",
+        "it or the shopper abandoned 3DS, the first acquirer's attempt, and one retry on another acquirer when the",
+        "decline was retryable. `silver_payments` joins them into one row per payment. The versioned decline-code map",
+        "classifies each attempt with the map version active at that moment.",
+        "",
+        "```mermaid",
+        ER_DIAGRAM.rstrip(),
+        "```",
+        "",
+        "## Gold tables and their grain",
+        "",
+        "| Table | Grain |",
+        "|---|---|",
+        grain_rows,
+        "",
+        "## Table lineage",
+        "",
+        "`gold_volume_alerts_daily` is written by a job task after the pipeline; every other table is a pipeline",
+        "dataset.",
+        "",
+        "```mermaid",
+        "\n".join(flow),
+        "```",
+        "",
+    ])
+
+
+def build_volume_alerts_notebook():
+    name, _ = JOB_TABLES[0]
+    src = open(os.path.join(ROOT, "monitoring", "volume_forecast.py")).read()
+    src = src.replace("from __future__ import annotations\n", "")
+    comments = {col: describe(name, col) for col, _ in schema(name)}
+    return (
+        "# Databricks notebook source\n"
+        "# MAGIC %md\n"
+        "# MAGIC # 07 · Forecast alert on approved payments\n"
+        "# MAGIC Runs after the pipeline. Forecasts each day's approved payments per country and card type from\n"
+        "# MAGIC the previous 56 days, with weekday and payday terms, and flags the days that fall well below.\n"
+        "# MAGIC Writes `gold_volume_alerts_daily`. The backtest is in `analysis/detector_backtest.py`.\n"
+        "# MAGIC\n"
+        "# MAGIC Copy of `monitoring/volume_forecast.py` made by `tools/build_docs.py`. Do not edit by hand.\n"
+        "\n# COMMAND ----------\n\n"
+        + src +
+        "\n# COMMAND ----------\n\n"
+        f'SOURCE = "{CATALOG}.{SCHEMA}.gold_approval_daily"\n'
+        f'TARGET = "{CATALOG}.{SCHEMA}.{name}"\n'
+        f"TABLE_COMMENT = {py_str(TABLE_COMMENT[name])}\n"
+        "COLUMN_COMMENTS = " + "{\n" + "".join(f"    {py_str(c)}: {py_str(t)},\n" for c, t in comments.items()) + "}\n"
+        "\n# COMMAND ----------\n\n"
+        "alerts = volume_alerts(daily_approved(spark.table(SOURCE).toPandas()))  # noqa: F821\n"
+        "(spark.createDataFrame(for_spark(alerts), SPARK_SCHEMA)  # noqa: F821\n"
+        "    .write.mode(\"overwrite\").option(\"overwriteSchema\", \"true\").saveAsTable(TARGET))\n"
+        "\n\n"
+        "def sql_literal(text):\n"
+        "    return \"'\" + text.replace(\"\\\\\", \"\\\\\\\\\").replace(\"'\", \"\\\\'\") + \"'\"\n"
+        "\n\n"
+        "spark.sql(f\"COMMENT ON TABLE {TARGET} IS {sql_literal(TABLE_COMMENT)}\")  # noqa: F821\n"
+        "for column, text in COLUMN_COMMENTS.items():\n"
+        "    spark.sql(f\"ALTER TABLE {TARGET} ALTER COLUMN {column} COMMENT {sql_literal(text)}\")  # noqa: F821\n"
+        "flagged = alerts[alerts[\"is_alert\"]]\n"
+        "print(f\"{int(alerts['z_score'].notna().sum()):,} segment-days scored; {len(flagged)} alerts\")\n"
+        "print(flagged.to_string(index=False))\n"
+    )
+
+
 def main():
     targets = {
         "docs/data_dictionary.md": build_dictionary(),
         "evals/model_context.md": build_model_context(),
         "databricks/notebooks/05_column_comments.py": build_comments_notebook(),
+        "databricks/notebooks/07_volume_alerts.py": build_volume_alerts_notebook(),
+        "docs/data_model.md": build_data_model(),
     }
     for rel, text in targets.items():
         path = os.path.join(ROOT, rel)

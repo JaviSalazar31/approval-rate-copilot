@@ -28,8 +28,9 @@ generator, so it works without the rest of the repository.
 
 ## 2. Create the schema and the landing volume
 
-Open `00_setup`, attach **Serverless**, Run all. It creates schema `workspace.approval_copilot` and volume
-`landing`.
+Open `00_setup`, attach **Serverless**, Run all. It creates schema `workspace.approval_copilot`, volume
+`landing` and `mask_card_last4`, the column mask the pipeline attaches to the card's last four digits (so it
+has to exist before step 4).
 
 ## 3. Generate the data
 
@@ -109,6 +110,46 @@ Record the results in the "Databricks Genie run" table of [evals/README.md](../e
 
 Follow [demo_video_script.md](demo_video_script.md).
 
+## 10. Run everything as one job
+
+After the first deployment, one job runs every step in order (`databricks/jobs/approval_copilot_job.json`):
+
+| Task | What it does | Retries |
+|---|---|---|
+| `setup` | Notebook 00: schema, volume and column mask, if missing | 2 |
+| `land_data` | Notebook 01: generates the files, or keeps them when `regenerate_data` is `false` | 2 |
+| `check_feeds` | Notebook 06: each feed against its contract in `contracts/`; a violation stops the job here | none |
+| `refresh_pipeline` | The pipeline from step 4 | 2 |
+| `volume_alerts` | Notebook 07: the forecast alert, written to `gold_volume_alerts_daily` | 2 |
+| `copilot_functions` | Notebook 04 | 2 |
+| `column_comments` | Notebook 05 | 2 |
+| `governance` | Notebook 08: layer and domain tags, tags on the card columns, a check that the mask hides the last four digits, and the lineage Unity Catalog recorded | 2 |
+
+The feed checks never retry, because a broken contract does not fix itself. A failed task sends an email to the
+owner, and the tasks after it do not run. The daily schedule (07:00 Bogotá) is defined but paused: on Free
+Edition the job runs when you start it, which keeps it inside the compute quota.
+
+Create it with the Databricks CLI; the `${...}` placeholders are filled from your environment:
+
+```bash
+export NOTEBOOK_DIR=/Workspace/Users/<you>/approval-rate-copilot/databricks/notebooks
+export PIPELINE_ID=<the pipeline id from step 4> OWNER_EMAIL=<your email>
+envsubst < databricks/jobs/approval_copilot_job.json > /tmp/approval_copilot_job.json
+databricks jobs create --json @/tmp/approval_copilot_job.json
+```
+
+Job parameters: `run_date` (empty checks the newest files) and `regenerate_data` (`false`). After a change to
+the generator, run it once with `regenerate_data` set to `true` and a full refresh of the pipeline, because the
+streaming tables do not re-read files that keep their names:
+
+```bash
+databricks jobs run-now --json '{"job_id": <JOB_ID>, "job_parameters": {"regenerate_data": "true"}, "pipeline_params": {"full_refresh": true}}'
+```
+
+To let someone see the last four digits, add them to an account-level group named `payments_support` (the mask
+calls `is_account_group_member`, which does not see workspace-local groups); everyone else reads `****`.
+Lineage is also visible per table in Catalog Explorer, under **Lineage**.
+
 ## Alternative: deploy through the APIs
 
 The same deployment can run without the UI. That is how it was done on 29 October 2026: the Databricks console
@@ -121,6 +162,7 @@ computer.
 | 2 to 3. Schema, volume and data | Notebooks 00 and 01 as serverless runs; 01 needs environment version 4 |
 | 4. Pipeline | Pipelines API, with `databricks/pipeline/approval_copilot_pipeline.sql` as a workspace file and catalog `workspace`, schema `approval_copilot` |
 | 5. Functions and descriptions | Notebooks 04 and 05 as serverless runs |
+| 10. Job | `databricks/jobs/approval_copilot_job.json` (Jobs API), as in step 10 |
 | 6. Dashboard | `databricks/dashboard/approval_health.lvdash.json` (Lakeview API) |
 | 7. Genie agent | `databricks/genie/approval_copilot_agent.json`: the serialized space (version 2) with the instructions, example SQL, functions, sample questions and the 20 benchmarks |
 | 8. Benchmarks | Chat mode: the benchmark evaluation API of the Genie agent. Its runs grade in chat mode only, so the agent-mode questions went to the Agent mode API (beta) and were graded with the offline judge ([evals/README.md](../evals/README.md)) |
@@ -144,7 +186,12 @@ databricks api post /api/2.0/genie/spaces --json "$(jq -n --arg w "$WAREHOUSE" -
 `<DASHBOARD_ID>` is the `dashboard_id` returned by the first call.
 
 The files that notebook 01 wrote in that run were checked against the local reference run: the 367 files match
-byte for byte.
+byte for byte. On 4 November 2026, after the card fields were added to the orchestrator feed, the job was created
+the same way and run once with `regenerate_data` set to `true` and a full refresh of the pipeline. All eight
+tasks succeeded in about ten minutes: the 367 files it wrote match the local run byte for byte, the 360
+feed-days passed their contracts, the pipeline dropped the same 776 rows, and the forecast alert flagged the
+same two days. A second run with the default parameters, which keeps the files and refreshes the pipeline
+incrementally, finished in under five minutes and left the tables unchanged.
 
 ## Troubleshooting
 
@@ -158,3 +205,5 @@ byte for byte.
 | Function not found in Genie | Functions were created in another schema | Re-run 04 with catalog `workspace`, schema `approval_copilot` |
 | "Quota exceeded" on Free Edition | Daily compute limit | Wait until the next day; nothing is lost |
 | Column descriptions missing after a full refresh | The pipeline recreated the tables | Re-run 05 |
+| The job stops at `check_feeds` | A feed broke its contract | The task output names the feed, the check and the detail. Fix the feed or, for a format change the acquirer announced, update the contract. Replace or remove the bad file before the next run: the check covers only the run date, and the pipeline reads every file in the landing volume |
+| The pipeline fails on `mask_card_last4` | The mask function does not exist yet | Run `00_setup` (or the job's `setup` task) first |

@@ -1,0 +1,104 @@
+{
+ "query": "SELECT * FROM fn_approval_drivers('CO', '2026-08-13 14:00:00', '2026-08-14 12:10:00', 'debit', 14, NULL)",
+ "total_change_pp": -10.95,
+ "dimensions": [
+  {
+   "dimension": "issuer",
+   "rate_effect_pp": -10.92,
+   "mix_effect_pp": -0.02,
+   "largest_rate_effects": [
+    {
+     "segment": "CO-ISS-02",
+     "baseline_rate": 0.8787,
+     "window_rate": 0.7456,
+     "window_share": 0.1683,
+     "rate_effect_pp": -2.24
+    },
+    {
+     "segment": "CO-ISS-03",
+     "baseline_rate": 0.8481,
+     "window_rate": 0.7241,
+     "window_share": 0.1444,
+     "rate_effect_pp": -1.79
+    },
+    {
+     "segment": "CO-ISS-01",
+     "baseline_rate": 0.8778,
+     "window_rate": 0.8,
+     "window_share": 0.2291,
+     "rate_effect_pp": -1.78
+    }
+   ]
+  },
+  {
+   "dimension": "three_ds_authenticated",
+   "rate_effect_pp": -10.9,
+   "mix_effect_pp": -0.04,
+   "largest_rate_effects": [
+    {
+     "segment": "false",
+     "baseline_rate": 0.8581,
+     "window_rate": 0.7617,
+     "window_share": 0.7649,
+     "rate_effect_pp": -7.37
+    },
+    {
+     "segment": "true",
+     "baseline_rate": 0.8877,
+     "window_rate": 0.7373,
+     "window_share": 0.2351,
+     "rate_effect_pp": -3.53
+    }
+   ]
+  },
+  {
+   "dimension": "merchant_segment",
+   "rate_effect_pp": -11.0,
+   "mix_effect_pp": 0.05,
+   "largest_rate_effects": [
+    {
+     "segment": "food_delivery",
+     "baseline_rate": 0.8805,
+     "window_rate": 0.7114,
+     "window_share": 0.245,
+     "rate_effect_pp": -4.14
+    },
+    {
+     "segment": "retail",
+     "baseline_rate": 0.8669,
+     "window_rate": 0.7723,
+     "window_share": 0.3018,
+     "rate_effect_pp": -2.86
+    },
+    {
+     "segment": "marketplace",
+     "baseline_rate": 0.8736,
+     "window_rate": 0.7765,
+     "window_share": 0.1783,
+     "rate_effect_pp": -1.73
+    }
+   ]
+  },
+  {
+   "dimension": "card_brand",
+   "rate_effect_pp": -10.94,
+   "mix_effect_pp": 0.0,
+   "largest_rate_effects": [
+    {
+     "segment": "visa",
+     "baseline_rate": 0.8642,
+     "window_rate": 0.7541,
+     "window_share": 0.6076,
+     "rate_effect_pp": -6.69
+    },
+    {
+     "segment": "mastercard",
+     "baseline_rate": 0.8673,
+     "window_rate": 0.7589,
+     "window_share": 0.3924,
+     "rate_effect_pp": -4.25
+    }
+   ]
+  }
+ ]
+}

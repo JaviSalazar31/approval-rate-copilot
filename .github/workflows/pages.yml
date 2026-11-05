@@ -1,5 +1,5 @@
 # Publishes the project page (site/index.html) with GitHub Pages.
-# One-time setup: repository Settings → Pages → Build and deployment → Source: GitHub Actions.
+# One-time setup: repository Settings > Pages > Build and deployment > Source: GitHub Actions.
 name: Publish the project page
 
 on:

@@ -9,10 +9,11 @@ python data_generator/generate_data.py --out data/full --seed 42
 
 | Folder | Format |
 |---|---|
-| `raw/orchestrator` | Payment intents as logged by the orchestrator |
+| `raw/orchestrator` | Payment intents as logged by the orchestrator, with a truncated card number (synthetic BIN and last four) |
 | `raw/acquirer_a` | ISO-8601 UTC timestamps, decimal amounts, ISO 8583 response codes, some webhook re-deliveries |
 | `raw/acquirer_b` | Local time plus UTC offset, amounts in minor units, `R`-prefixed reason codes |
 | `raw/acquirer_c` | Epoch milliseconds, comma decimals, Portuguese column names and status labels |
 | `reference` | Merchants, issuers, acquirers, routing rules, decline-code map, change log, FX rates |
 
-All data is synthetic. Merchants, issuers and acquirers are fictional.
+All data is synthetic. Merchants, issuers and acquirers are fictional. The data contract of each feed is in
+[`contracts/`](../../contracts), and `python checks/feed_checks.py --data data/sample` checks this day against them.

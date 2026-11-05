@@ -83,11 +83,17 @@ Guardrails: effective fee (bps of approved USD) · p95 authorization latency · 
 
 ## Detection rules
 
-| Detector | Rule | Backtest on the same 90 days used to set the thresholds (in-sample) |
+| Detector | Rule | Backtest |
 |---|---|---|
-| Daily approval anomaly (`gold_anomalies_daily`) | domestic final approval ≥ 3 pp below the trailing 28-day mean **and** z vs history ≤ −3 **and** binomial z ≤ −4 | 1 flag in 540 country × card-type days: CO debit, 13 Aug |
-| Cascade alert (`gold_cascade_alerts_daily`) | baseline cascade rate ≥ 50% on ≥ 50 failures, measured on the healthy days (cascade rate ≥ 50%) of the previous 56 days with failures; ≥ 5 failures today; and today's cascade rate at least 50 pp below the baseline. Collapsed days are left out of the baseline, so a long outage does not lower it; the alert keeps firing while the previous 56 days with failures still hold healthy days with at least 50 failures (about eight weeks at the volumes of B / 05), then stops | 18 alerts: Acquirer B, code 05, MX and CO, 6–14 Aug |
+| Daily approval anomaly (`gold_anomalies_daily`) | domestic final approval ≥ 3 pp below the trailing 28-day mean **and** z vs history ≤ −3 **and** binomial z ≤ −4 | In sample (the 90 days used to set the thresholds): 1 flag in 540 country × card-type days, CO debit on 13 Aug |
+| Cascade alert (`gold_cascade_alerts_daily`) | baseline cascade rate ≥ 50% on ≥ 50 failures, measured on the healthy days (cascade rate ≥ 50%) of the previous 56 days with failures; ≥ 5 failures today; and today's cascade rate at least 50 pp below the baseline. Collapsed days are left out of the baseline, so a long outage does not lower it; the alert keeps firing while the previous 56 days with failures still hold healthy days with at least 50 failures (about eight weeks at the volumes of B / 05), then stops | In sample: 18 alerts, Acquirer B, code 05, MX and CO, 6–14 Aug |
+| Forecast alert on approved payments (`gold_volume_alerts_daily`, written by the job) | approved payments per country × card type below the 99.9% lower bound of a forecast with trend, weekday and payday terms fitted on the previous 56 days, **and** at least 8% under the forecast | In sample: 2 flags in 288 scored segment-days, both noise (MX debit 22 Aug, BR credit 26 Aug). On three more datasets from the same generator: 2 false alerts in 762 segment-days; 81% of days cut by 20% caught, against 54% for a same-weekday mean |
 
 The 21 July issuer outage in Brazil (three hours, one issuer) is visible in the hourly and issuer views but
-does not trip the daily detector. Hourly detection is in the roadmap. Because the thresholds were tuned on
-these 90 days, the backtest shows the rules fit this data; a fair test needs data they were not tuned on.
+does not trip the daily detectors. Hourly detection is in the roadmap. The approval and cascade thresholds
+were tuned on these 90 days, so their backtest shows that the rules fit this data. The forecast alert was
+also run on three datasets generated with other seeds, which keep the planted incidents and draw new noise,
+and its detection power was measured by cutting clean days by 10% to 30%
+([impact and detection](impact_and_detection.md)). None of the planted incidents moves daily approved
+payments by more than its lower bound, about 15% under the forecast: the rate-based detectors stay the alerts
+for authorization problems, and the forecast covers large losses before the acquirer.

@@ -20,11 +20,12 @@ GitHub Pages.
 | | |
 |---|---|
 | **Problem** | Payments teams find approval drops late and are slow to explain them, because the data sits in an orchestrator log and three acquirer feeds with different formats, time zones and decline codes. |
-| **Product** | A Databricks Genie agent that answers in plain language and shows the SQL behind every number. Five SQL functions hold the diagnostic method. A dashboard and two alerts complete it: one alert for approval drops and one for retries that stop working. |
+| **Product** | A Databricks Genie agent that answers in plain language and shows the SQL behind every number. Five SQL functions hold the diagnostic method. A dashboard and three alerts complete it: one for approval drops, one for retries that stop working and one for approved payments that fall well below forecast. |
 | **Evidence** | A 20-question benchmark (16 questions with ground-truth SQL and 4 guardrails) and 14 held-out questions, with every answer and verdict published. Offline, with a Claude model in the copilot's place and a separate model as judge (LLM-as-a-judge), the design scored 18/20 on the first of six runs and 20/20 on each of the last three. The deployed Genie agent scored 13/20 on its first run, then 14, 15 and 17/20 as the method moved from text instructions into functions and example queries. On the held-out questions, committed before the run and asked once, it scored 11/14. The [evaluation write-up](evals/README.md) lists each failure with its cause and, where there is one, the fix. |
+| **Analysis** | A difference-in-differences estimate against Colombian credit puts the cost of the routing change at 12.2 points of approval (95% CI 9.4 to 15.2), in line with the copilot's 10.9; on 55 dates with no change, the same estimate stays within 4 points of zero. Mix effects stay under 0.1 points: the same issuers and merchants were paying, and each of them approved less. A forecast alert on approved payments, with weekday and payday terms, adds cover for large losses before the acquirer: at the same false-alert rate, it caught 81% of days cut by 20% in three more synthetic datasets, against 54% for a same-weekday mean. See [impact and detection](docs/impact_and_detection.md). |
 | **My role** | Product owner of the case. I set the brief (problem, scope, deliverables and acceptance criteria), and I own the product decisions in the [decision log](docs/decisions.md) and the evaluation rules. |
 | **How it was built** | With an AI coding assistant. Claude (Anthropic) wrote the code and the first drafts of the documents from my brief, and ran the checks against the review bar I set. Automated tests cover the pipeline output, and the evaluation publishes every verdict. Each number on the project page traces back to SQL in this repository. |
-| **Status** | The pipeline, functions, dashboard and Genie agent were deployed on Databricks Free Edition on 29 October 2026 through the Databricks APIs, and the data files match the local reference run byte for byte. The agent then went through three tuning rounds, each followed by the full benchmark on Genie, and one run on questions it was never tuned on. The next work is the chat-mode gaps that the benchmark and the held-out set found, and a larger held-out set. The [runbook](docs/runbook_databricks.md) explains how to deploy it yourself. |
+| **Status** | The pipeline, functions, dashboard and Genie agent were deployed on Databricks Free Edition on 29 October 2026 through the Databricks APIs. The agent then went through three tuning rounds, each followed by the full benchmark on Genie, and one run on questions it was never tuned on. On 4 November 2026 one Databricks job ran the whole sequence: it regenerated the data, checked every feed against its data contract, rebuilt the pipeline with a column mask on the card's last four digits, wrote the forecast alert, recreated the functions and column descriptions, and tagged the tables in Unity Catalog. The 367 data files it wrote match the local reference run byte for byte, and the pipeline dropped the same 776 rows and raised the same two forecast alerts. CI on GitHub Actions runs the tests and the whole pipeline on every push to main. The next work is the chat-mode gaps that the benchmark and the held-out set found, and a larger held-out set. The [runbook](docs/runbook_databricks.md) explains how to deploy it yourself. |
 
 ---
 
@@ -33,23 +34,29 @@ GitHub Pages.
 ```
 data_generator/        Synthetic data: 90 days, 661k payment intents, 4 source formats, planted incidents
 data/sample/           One day of every raw feed plus the reference tables, to look at without generating
+contracts/             One data contract per raw feed: columns, formats, volume and reconciliation rules
+checks/                Feed checks against the contracts, run before the pipeline
 sql/                   One SQL body per table and function (single source of truth)
   bronze/ silver/ gold/  Medallion layers
   ref/                 Reference tables (routing rules, versioned decline-code map, change log, FX)
   copilot/             The five diagnostic functions used by the copilot
+monitoring/            Forecast alert on approved payments (weekday and payday terms)
+analysis/              Incident impact (difference-in-differences), mix/rate split, detector backtest
 databricks/
   pipeline/            Lakeflow pipeline (Spark Declarative Pipelines), generated from sql/
+  jobs/                The job that runs every step in order (Jobs API definition)
   notebooks/           00 setup · 01 generate data · 02 build without pipeline · 03 dashboard datasets
-                       04 copilot functions · 05 column descriptions
+                       04 copilot functions · 05 column descriptions · 06 feed checks
+                       07 forecast alert · 08 governance (tags, mask, lineage)
   dashboard/           "Approval Health" as a dashboard file, for the Lakeview API
   genie/               The Genie agent as a serialized space, for the Genie API
 local/                 Runs the same SQL on local Spark to validate everything before deploying
 evals/                 Question set, model context, harness, results of each run
 docs/                  PRD, metrics, decisions, postmortem, runbook, dashboard and Genie setup, data dictionary
 site/                  Project page (built from the pipeline output and the eval results)
-tests/                 Invariants of the pipeline output and a logic test of the retry alert
+tests/                 Pipeline invariants, alert logic, feed contracts, forecast alert, incident analysis
 tools/                 Generators for the Databricks artifacts, docs and the project page
-.github/workflows/     Publishes the project page with GitHub Pages
+.github/workflows/     CI (tests and the whole pipeline on local Spark) and the project page
 ```
 
 ## Architecture
@@ -63,16 +70,19 @@ flowchart LR
     C[Acquirer C<br/>epoch ms, comma decimals, Portuguese]
     R[Reference: routing rules,<br/>versioned code map, change log]
   end
-  subgraph Databricks
+  subgraph Databricks["Databricks job"]
+    CK{{Feed checks<br/>contracts, volume,<br/>reconciliation}}
     BR[Bronze<br/>files as received]
     SI[Silver<br/>harmonized, de-duplicated,<br/>mapped, quality rules]
     Q[(Quarantine<br/>rows + failed rule)]
     GO[Gold<br/>daily/hourly approval, declines,<br/>retries, issuers, funnel,<br/>anomalies, retry alerts]
     FN[5 SQL functions<br/>impact · drivers · declines<br/>retries · changes]
+    VA[Forecast alert<br/>approved payments]
   end
-  O & A & B & C --> BR --> SI --> GO
+  O & A & B & C --> CK --> BR --> SI --> GO
   R --> SI
   SI --> Q
+  GO --> VA
   GO --> D[AI/BI dashboard]
   GO --> G[Genie agent<br/>the copilot]
   FN --> G
@@ -80,17 +90,23 @@ flowchart LR
 
 ## Run it
 
-### Locally
+### Quickstart
 
 You need Python 3.11+ and Java 17 (Java 21 also worked).
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements.txt pytest
+python local/run_local.py      # generates the data on the first run, then runs the whole pipeline on local Spark
+python -m pytest tests         # pipeline invariants, alerts, feed contracts and the incident analysis
+```
+
+The first run takes about three minutes and 4 GB of memory. The same steps one at a time:
+
+```bash
 python data_generator/generate_data.py --out data/full --seed 42   # under a minute
-python local/run_local.py                                          # whole pipeline on local Spark, about 2 minutes, ~4 GB RAM
-python tests/test_pipeline.py                                      # 7 checks
-python tests/test_alert_logic.py                                   # the retry alert through a 20-day collapse, and where it stops
-python -m pytest tests                                             # or all 9 tests at once, if pytest is installed
+python checks/feed_checks.py --data data/full --all-dates          # every day of every feed against its contract
+python local/run_local.py                                          # pipeline, then the forecast alert
+python analysis/incident_impact.py                                 # difference-in-differences for the incident
 ```
 
 Tested with Python 3.13, Java 21, numpy 2.5.3, pandas 3.0.5 and pyarrow 26.0.0. The generator also ran with
@@ -100,20 +116,26 @@ files. The local Spark session runs in UTC with ANSI SQL mode on, like Databrick
 ### On Databricks Free Edition
 
 Follow [docs/runbook_databricks.md](docs/runbook_databricks.md), through the UI or the APIs. It takes about an
-hour, most of it waiting for compute.
+hour, most of it waiting for compute. After the first deployment, one job (`databricks/jobs/`) runs every step
+in order: setup, data landing, feed checks, the pipeline, the forecast alert, the copilot functions, column
+descriptions and governance. Transient steps retry twice, the feed checks never retry, and a failure sends an
+email to the job owner.
 
 ### After a change
 
 Regenerate what depends on it:
 
 ```bash
-python tools/build_databricks.py   # pipeline SQL and notebooks 01, 02, 04 from sql/ and the generator
-python tools/build_docs.py         # data dictionary, copilot context, notebook 05 (column descriptions)
+python tools/build_databricks.py   # pipeline SQL, notebooks 01, 02, 04, 06, 08 and the job definition
+python tools/build_docs.py         # data dictionary, data model, copilot context, notebooks 05 and 07
 python tools/build_deploy_payloads.py  # dashboard and Genie agent files for the API deployment
 python tools/export_site_data.py   # numbers and chart data for the project page
 python tools/build_site.py         # site/index.html (REPO_URL and SITE_URL add links and the preview image)
 python tools/make_og_image.py      # optional: site/og.png, the link-preview image (needs Playwright)
 ```
+
+CI rebuilds all of these except the preview image on every push to main and every pull request, and fails if a
+committed file differs from what its sources produce.
 
 To publish the page with GitHub Pages:
 
@@ -130,12 +152,14 @@ To publish the page with GitHub Pages:
 |---|---|
 | [PRD](docs/PRD.md) | Problem, users, goals and non-goals, solution, requirements with acceptance criteria, risks, rollout with success and stop criteria |
 | [Metrics](docs/metrics.md) | Metric tree, definitions and choices, pitfalls, detection rules and their backtest |
-| [Decision log](docs/decisions.md) | Twelve decisions with alternatives and trade-offs, including retry rules of the card networks |
+| [Decision log](docs/decisions.md) | Fourteen decisions with alternatives and trade-offs, including retry rules of the card networks |
+| [Impact and detection](docs/impact_and_detection.md) | Difference-in-differences for the incident, mix/rate split, forecast alert and its backtest |
 | [Postmortem INC-0814](docs/postmortem_INC-0814.md) | Timeline, impact, root cause, detection gaps, action items |
 | [Genie agent setup](docs/genie_space_setup.md) | Instructions, trusted functions, example SQL, benchmarks |
 | [Dashboard setup](docs/dashboard_setup.md) | Pages, widgets and datasets of "Approval Health" |
+| [Data model](docs/data_model.md) | Entities and keys, gold-table grain, and table lineage read from the SQL |
 | [Data dictionary](docs/data_dictionary.md) | Every table and column, generated from the pipeline output |
-| [Demo script](docs/demo_video_script.md) | Storyboard of the 3-minute demo |
+| [Demo script](docs/demo_video_script.md) | Storyboard of the 3-minute demo and of a 60 to 90 second cut |
 
 ## Scenario planted in the data
 
@@ -165,8 +189,10 @@ and three time-zone conventions.
 - The offline evaluation puts a Claude model in Genie's place, with the same context. It tests the design
   (instructions, tables, functions) and says nothing about Genie's own model, and it overstated Genie: 20 of 20
   offline against 13 on the first Genie run.
-- Detection is daily, and its thresholds come from the same 90 days they are tested on. There are no hourly
-  alerts yet.
+- Detection is daily. The approval-rate and retry thresholds come from the same 90 days they are tested on.
+  The forecast alert was also tested on three more datasets from the same generator, which test new noise but
+  not holidays or promotions, and its lower bound sits about 15% under the forecast, set mostly by day-to-day
+  noise: too wide for any of the planted incidents. There are no hourly alerts yet.
 
 ---
 

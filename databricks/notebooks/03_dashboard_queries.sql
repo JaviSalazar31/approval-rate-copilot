@@ -2,7 +2,7 @@
 -- MAGIC %md
 -- MAGIC # 03 · Dashboard datasets
 -- MAGIC One query per dataset of the AI/BI dashboard "Approval Health". Paste each one as a dataset
--- MAGIC (Dashboards → Create dashboard → Data → Create from SQL). Widget setup is in docs/dashboard_setup.md.
+-- MAGIC (Dashboards > Create dashboard > Data > Create from SQL). Widget setup is in docs/dashboard_setup.md.
 -- MAGIC
 -- MAGIC Names are fully qualified, so each query works on its own in the dashboard editor. Datasets keep
 -- MAGIC `business_date`, `country` and `card_type` wherever the grain allows, so the page filters apply.

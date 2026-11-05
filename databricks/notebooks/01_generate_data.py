@@ -36,6 +36,7 @@ Usage (from the repository root):
 """
 
 import argparse
+import glob
 import os
 from datetime import datetime, timedelta, timezone
 
@@ -661,9 +662,29 @@ def fmt_orchestrator(p, rng):
     return out
 
 
+# Truncated card number in the orchestrator log: BIN (first six digits) and last four, never the full
+# card number (PRD requirement R10). Synthetic BINs start with 00, outside the ranges card networks use
+# for payment cards, so they cannot point to a real bank: 00 + country digit + issuer number + one digit
+# for brand and card type. The last four digits come from their own random stream, so adding them left
+# every other value in the dataset unchanged.
+BIN_COUNTRY_DIGIT = {"MX": "1", "CO": "2", "BR": "3", "INTL": "9"}
+BIN_PRODUCT_DIGIT = {(b, t): str(2 * i + j) for i, b in enumerate(["visa", "mastercard", "amex", "elo"])
+                     for j, t in enumerate(["credit", "debit"])}
+
+
+def card_fields(p, card_rng):
+    country = p.issuer_id.str.split("-").str[0]
+    number = p.issuer_id.str[-2:]
+    product = [BIN_PRODUCT_DIGIT[(b, t)] for b, t in zip(p.card_brand, p.card_type)]
+    card_bin = "00" + country.map(BIN_COUNTRY_DIGIT) + number + pd.Series(product, index=p.index)
+    last4 = pd.Series([f"{x:04d}" for x in card_rng.integers(0, 10000, size=len(p))], index=p.index)
+    return card_bin, last4
+
+
 def generate(out: str, seed: int = 42, days: int = N_DAYS) -> dict:
     """Writes the raw and reference files under `out`. Returns row counts."""
     rng = np.random.default_rng(seed)
+    card_rng = np.random.default_rng([seed, 4])  # separate stream: card digits do not shift other draws
     out = os.path.abspath(out)
     for sub in ["raw/orchestrator", "raw/acquirer_a", "raw/acquirer_b", "raw/acquirer_c", "reference"]:
         os.makedirs(os.path.join(out, sub), exist_ok=True)
@@ -688,7 +709,9 @@ def generate(out: str, seed: int = 42, days: int = N_DAYS) -> dict:
             att_parts.append(a)
         P = pd.concat(pay_parts, ignore_index=True)
         A = pd.concat(att_parts, ignore_index=True)
-        fmt_orchestrator(P, rng).to_csv(os.path.join(out, f"raw/orchestrator/{day}.csv"), index=False)
+        orch = fmt_orchestrator(P, rng)
+        orch["card_bin"], orch["card_last4"] = card_fields(P, card_rng)
+        orch.to_csv(os.path.join(out, f"raw/orchestrator/{day}.csv"), index=False)
         fmt_acquirer_a(A[A.acquirer == "A"], rng).to_csv(os.path.join(out, f"raw/acquirer_a/{day}.csv"), index=False)
         fmt_acquirer_b(A[A.acquirer == "B"], rng).to_csv(os.path.join(out, f"raw/acquirer_b/{day}.csv"), index=False)
         fmt_acquirer_c(A[A.acquirer == "C"], rng).to_csv(os.path.join(out, f"raw/acquirer_c/{day}.csv"), index=False)
@@ -711,10 +734,21 @@ def main():
 
 LANDING = "/Volumes/workspace/approval_copilot/landing"
 
+# In the job, regenerate_data=false keeps files that are already there (the generator is deterministic,
+# so rewriting them changes nothing). Run by hand, the widget is absent and the data is generated.
+try:
+    dbutils.widgets.text("regenerate_data", "true")  # noqa: F821
+    regenerate = dbutils.widgets.get("regenerate_data").strip().lower() == "true"  # noqa: F821
+except NameError:
+    regenerate = True
+existing = len(glob.glob(f"{LANDING}/raw/orchestrator/*.csv"))
 print("numpy", np.__version__, "| pandas", pd.__version__)
-totals = generate(LANDING, seed=42)
-print(f"{totals['payments']:,} payment intents | {totals['attempts']:,} authorization attempts")
-# Reference run (seed 42): 661,301 payment intents | 700,038 authorization attempts.
+if regenerate or existing < N_DAYS:
+    totals = generate(LANDING, seed=42)
+    print(f"{totals['payments']:,} payment intents | {totals['attempts']:,} authorization attempts")
+    # Reference run (seed 42): 661,301 payment intents | 700,038 authorization attempts.
+else:
+    print(f"{existing} days of files already landed; generation skipped (regenerate_data=false)")
 
 # COMMAND ----------
 

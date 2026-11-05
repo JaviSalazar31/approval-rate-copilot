@@ -156,16 +156,48 @@ def main():
     raw_attempt_rows = sum(sum(1 for _ in open(f)) - 1
                            for f in glob.glob(os.path.join(RAW, "acquirer_*", "**", "*.csv"), recursive=True))
     anomalies = t("gold_anomalies_daily")
-    tests = open(os.path.join(ROOT, "tests", "test_pipeline.py")).read()
+    tests = "".join(open(f).read() for f in sorted(glob.glob(os.path.join(ROOT, "tests", "test_*.py"))))
     pipeline = dict(
         objects=len(TABLES),                                              # tables and views declared
         duplicates=int(raw_attempt_rows - len(attempts) - len(quarantine)),  # webhook re-deliveries removed
         segment_days=int(len(anomalies)),
         anomalies_flagged=int(anomalies["is_anomaly"].sum()),
-        checks=len(re.findall(r"^def test_", tests, flags=re.M)),
+        checks=len(re.findall(r"^def test_", tests, flags=re.M)),         # tests in tests/, all run by CI
     )
 
-    data = dict(headline=headline, incident=incident, pipeline=pipeline, hourly_co_debit=hourly_out,
+    # Analysis beyond the copilot (analysis/results, written by the scripts in analysis/) -----------
+    res = os.path.join(ROOT, "analysis", "results")
+    imp = json.load(open(os.path.join(res, "incident_impact.json")))
+    mix = json.load(open(os.path.join(res, "mix_rate_split.json")))
+    bt = json.load(open(os.path.join(res, "detector_backtest.json")))
+    oos = bt["out_of_sample_pooled"]
+    did, ba = imp["did"], imp["copilot_before_after"]
+    analysis = dict(
+        before_after_pp=ba["final_rate_change_pp"], before_after_ci=ba["final_rate_change_ci95_pp"],
+        did_pp=did["did_pp"], did_ci=did["did_ci95_pp"],
+        did_lost_approvals=did["lost_approvals"], did_lost_approvals_ci=did["lost_approvals_ci95"],
+        control_change_pp=round(100 * (did["control"]["post"]["final_rate"] - did["control"]["pre"]["final_rate"]), 2),
+        placebo_min_pp=min(x["did_pp"] for x in imp["placebo"]), placebo_max_pp=max(x["did_pp"] for x in imp["placebo"]),
+        placebo_dates=len(imp["placebo"]),
+        mix_max_pp=max(abs(d["mix_effect_pp"]) for d in mix["dimensions"]),
+        oos_segment_days=oos["scored_segment_days"], oos_false_alerts=oos["false_alerts"]["forecast"],
+        oos_false_alerts_trailing=oos["false_alerts"]["trailing_mean"],
+        oos_false_alerts_weekday=oos["false_alerts"]["same_weekday"],
+        oos_band_pct=oos["band_below_forecast_pct"],
+        placebo_sd_pp=imp["placebo_summary"]["sd_pp"],
+        detection=[dict(drop=d["drop"], forecast=d["forecast"], trailing_mean=d["trailing_mean"],
+                        same_weekday=d["same_weekday"]) for d in oos["detection_rate_by_drop"]],
+    )
+    # flat copies for the page text (the template reads dotted keys, not list items)
+    analysis.update(
+        before_after_lo=ba["final_rate_change_ci95_pp"][0], before_after_hi=ba["final_rate_change_ci95_pp"][1],
+        did_lo=did["did_ci95_pp"][0], did_hi=did["did_ci95_pp"][1],
+        did_lost_lo=did["lost_approvals_ci95"][0], did_lost_hi=did["lost_approvals_ci95"][1],
+        **{f"{k}_{round(d['drop'] * 100)}": d[k] for d in oos["detection_rate_by_drop"]
+           for k in ("forecast", "trailing_mean", "same_weekday")},
+    )
+
+    data = dict(headline=headline, incident=incident, pipeline=pipeline, analysis=analysis, hourly_co_debit=hourly_out,
                 cascade_b05=cascade_out, br_risk_june=risk_out)
     os.makedirs(os.path.join(ROOT, "site"), exist_ok=True)
     path = os.path.join(ROOT, "site", "data.json")

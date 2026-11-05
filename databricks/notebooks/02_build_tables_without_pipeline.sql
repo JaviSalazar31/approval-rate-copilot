@@ -200,8 +200,13 @@ SELECT
   orchestrator_status,
   nullif(routing_rule_version, '') AS routing_rule_version,
   nullif(first_acquirer, '') AS first_acquirer_id,
-  channel
+  channel,
+  -- Truncated card number only (BIN and last four), never the full number. On Databricks the last
+  -- four digits carry a column mask (see the pipeline definition and notebook 00).
+  card_bin,
+  card_last4
 FROM bronze_orchestrator;
+ALTER TABLE silver_payment_intents ALTER COLUMN card_last4 SET MASK mask_card_last4;
 
 -- COMMAND ----------
 
