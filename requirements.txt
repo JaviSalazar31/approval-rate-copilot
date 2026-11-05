@@ -2,8 +2,10 @@
 # versions, and with numpy 2.5.3 + pandas 3.0.5: byte-identical output)
 numpy>=2.1
 pandas>=2.2
-# Local validation of the pipeline (Java 17; Java 21 also worked)
+# Local validation of the pipeline (Java 17; Java 21 also worked). PySpark 3.5 imports distutils, which
+# Python 3.12 removed; setuptools provides it
 pyspark==3.5.3
 pyarrow>=14
+setuptools>=68
 # Data contracts (contracts/*.yml) and the Databricks build
 pyyaml>=6

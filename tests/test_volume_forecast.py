@@ -76,7 +76,7 @@ def test_an_alerted_day_is_left_out_of_later_fits():
     clean = volume_alerts(series())
     cut = volume_alerts(series(drop_on="2026-08-10", drop=0.6))
     dates = pd.to_datetime(clean.business_date)
-    later_mondays = (dates > "2026-08-10") & (dates.dt.weekday == 0)
+    later_mondays = (dates > "2026-08-10") & (dates.dt.day_of_week == 0)
     ratio = cut.loc[later_mondays, "expected_approved"].values / clean.loc[later_mondays, "expected_approved"].values
     assert cut.loc[dates == "2026-08-10", "is_alert"].all()
     assert abs(ratio - 1).max() < 0.03

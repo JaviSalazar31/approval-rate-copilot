@@ -57,7 +57,7 @@ def baselines(daily: pd.DataFrame) -> pd.DataFrame:
         s = s.sort_values("business_date").copy()
         roll = s["approved"].shift(1).rolling(28, min_periods=28)
         s["trailing_mean"], s["trailing_sd"] = roll.mean(), roll.std()
-        s["same_weekday_mean"] = (s.groupby(s["business_date"].dt.weekday)["approved"]
+        s["same_weekday_mean"] = (s.groupby(s["business_date"].dt.day_of_week)["approved"]
                                   .transform(lambda x: x.shift(1).rolling(4, min_periods=4).mean()))
         parts.append(s)
     return pd.concat(parts)
