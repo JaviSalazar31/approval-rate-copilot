@@ -21,11 +21,11 @@ GitHub Pages.
 |---|---|
 | **Problem** | Payments teams find approval drops late and are slow to explain them, because the data sits in an orchestrator log and three acquirer feeds with different formats, time zones and decline codes. |
 | **Product** | A Databricks Genie agent that answers in plain language and shows the SQL behind every number. Five SQL functions hold the diagnostic method. A dashboard and three alerts complete it: one for approval drops, one for retries that stop working and one for approved payments that fall well below forecast. |
-| **Evidence** | A 20-question benchmark (16 questions with ground-truth SQL and 4 guardrails) and two held-out sets of 27 questions in all, with every answer and verdict published. Offline, with a Claude model in the copilot's place and a separate model as judge (LLM-as-a-judge), the design scored 18/20 on the first of six runs and 20/20 on each of the last three. The deployed Genie agent scored 13/20 on its first run, then 14, 15 and 17/20 as the method moved from text instructions into functions and example queries, and 15/20 on a fifth run after the platform changes of November. On held-out questions, committed to the repository before each run, it scored 11/14 asked once, then 25 of 39 answers on 13 new questions asked three times each. Since the fifth run, every answer is an MLflow trace with its SQL, latency and guardrail checks. The [evaluation write-up](evals/README.md) lists each failure with its cause and, where there is one, the fix. |
+| **Evidence** | A 20-question benchmark (16 questions with ground-truth SQL and 4 guardrails) and two held-out sets of 27 questions in all, with every answer and verdict published. Offline, with a Claude model in the copilot's place and a separate model as judge (LLM-as-a-judge), the design scored 18/20 on the first of six runs and 20/20 on each of the last three. The deployed Genie agent scored 13/20 on its first run, then 14, 15 and 17/20 as the method moved from text instructions into functions and example queries, and 15/20 on a fifth run, after the gold layer moved to dbt and the metric views were added. On held-out questions, committed to the repository before each run, it scored 11/14 asked once, then 26 of 39 answers on 13 new questions asked three times each. Since the fifth run, each answer is an MLflow trace with its SQL, its guardrail checks and, when it was asked through Genie's APIs, its latency. The [evaluation write-up](evals/README.md) lists each failure with its cause and, where there is one, the fix. |
 | **Analysis** | A difference-in-differences estimate against Colombian credit puts the cost of the routing change at 12.2 points of approval (95% CI 9.4 to 15.2), in line with the copilot's 10.9; on 55 dates with no change, the same estimate stays within 4 points of zero. Mix effects stay under 0.1 points: the same issuers and merchants were paying, and each of them approved less. A forecast alert on approved payments, with weekday and payday terms, adds cover for large losses before the acquirer: at the same false-alert rate, it caught 81% of days cut by 20% in three more synthetic datasets, against 54% for a same-weekday mean. See [impact and detection](docs/impact_and_detection.md). |
 | **My role** | Product owner of the case. I set the brief (problem, scope, deliverables and acceptance criteria), and I own the product decisions in the [decision log](docs/decisions.md) and the evaluation rules. |
 | **How it was built** | With an AI coding assistant. Claude (Anthropic) wrote the code and the first drafts of the documents from my brief, and ran the checks against the review bar I set. Automated tests cover the pipeline output, and the evaluation publishes every verdict. Each number on the project page traces back to SQL in this repository. |
-| **Status** | The pipeline, functions, dashboard and Genie agent were deployed on Databricks Free Edition on 29 October 2026 through the Databricks APIs. The agent then went through three tuning rounds, each followed by the full benchmark on Genie, and one run on questions it was never tuned on. On 4 November 2026 one Databricks job ran the whole sequence: it regenerated the data, checked every feed against its data contract, rebuilt the pipeline with a column mask on the card's last four digits, wrote the forecast alert, recreated the functions and column descriptions, and tagged the tables in Unity Catalog. The 367 data files it wrote match the local reference run byte for byte, and the pipeline dropped the same 776 rows and raised the same two forecast alerts. On 4 and 5 November the gold layer moved to dbt, run as a task of the same job (17 models and 76 tests, with the same totals), two Unity Catalog metric views took over the rate definitions for the dashboard and the agent, and an evaluation job began logging every answer to MLflow. An Asset Bundle and a GitHub Actions workflow deploy the workspace from this repository. CI runs the tests, the whole pipeline and dbt on every push to main. The next work is the chat-mode fixes that the two held-out sets point to, checked with a third held-out set. The [runbook](docs/runbook_databricks.md) explains how to deploy it yourself. |
+| **Status** | The pipeline, functions, dashboard and Genie agent were deployed on Databricks Free Edition on 29 October 2026 through the Databricks APIs. The agent then went through three tuning rounds, each followed by the full benchmark on Genie, and one run on questions it was never tuned on. On 4 November 2026 one Databricks job ran the whole sequence: it regenerated the data, checked every feed against its data contract, rebuilt the pipeline with a column mask on the card's last four digits, wrote the forecast alert, recreated the functions and column descriptions, and tagged the tables in Unity Catalog. The 367 data files it wrote match the local reference run byte for byte, and the pipeline dropped the same 776 rows and raised the same two forecast alerts. On 4 and 5 November the gold layer moved to dbt, run as a task of the same job (17 models and 76 tests; the gold totals did not change), two Unity Catalog metric views took over the approval, volume and decline definitions, read by two dashboard datasets and by the agent, and an evaluation job began logging every answer to MLflow. An Asset Bundle and a GitHub Actions workflow to deploy the workspace from this repository are in place; the first deploy is pending. CI runs the tests, the whole pipeline and dbt on every push to main. The next work is the chat-mode fixes that the two held-out sets point to, checked with a third held-out set. The [runbook](docs/runbook_databricks.md) explains how to deploy it yourself. |
 
 ---
 
@@ -43,11 +43,11 @@ sql/                   One SQL body per pipeline table and per function (single 
 dbt/                   The gold layer: staging, intermediate and mart models, with 76 tests
 monitoring/            Forecast alert on approved payments (weekday and payday terms)
 analysis/              Incident impact (difference-in-differences), mix/rate split, detector backtest
-databricks.yml         Asset Bundle: the pipeline, the jobs and the dashboard, deployed from GitHub Actions
+databricks.yml         Asset Bundle: the pipeline, the jobs and the dashboard, for deploys from GitHub Actions
 databricks/
   pipeline/            Lakeflow pipeline (Spark Declarative Pipelines), generated from sql/
   jobs/                The daily job, the evaluation job and the agent update (Jobs API definitions)
-  metric_views/        Unity Catalog metric views: approval, approved volume, declines
+  metric_views/        Two Unity Catalog metric views: approval and volume, declines
   notebooks/           00 setup · 01 generate data · 02 build without pipeline or dbt · 03 dashboard datasets
                        04 copilot functions · 05 column descriptions · 06 feed checks · 07 forecast alert
                        08 governance (tags, mask, lineage) · 09 metric views · 10 update the agent
@@ -89,7 +89,8 @@ flowchart LR
   SI --> Q
   GO --> VA
   GO --> MV
-  MV --> D[AI/BI dashboard]
+  GO --> D[AI/BI dashboard]
+  MV --> D
   GO --> G[Genie agent<br/>the copilot]
   MV --> G
   FN --> G
@@ -189,8 +190,8 @@ and three time-zone conventions.
 - The data is synthetic, and its parameters are illustrative assumptions, not market statistics. A pilot on real
   data is the next step.
 - The benchmark questions drove the fixes, and the deployed Genie agent reached 17 of 20 on the fourth run and 15
-  on the fifth, short of the PRD's 90% bar. On held-out questions it scored 11 of 14, then 25 of 39 answers on 13
-  questions asked three times each, with 6 questions passing in all three samples. Most of the losses are in chat
+  on the fifth, short of the PRD's 90% bar. On held-out questions it scored 11 of 14, then 26 of 39 answers on 13
+  questions asked three times each, with 7 questions passing in all three samples. Most of the losses are in chat
   mode. It answers with a function's table and no text, so a question that asks by how much gets both numbers
   but never the gap (C1, H6, N7); it filtered a metric view on a value the dimension does not have and reported
   no declines (N4); and it applied a rule meant for approval comparisons to a count (N3). A text "NULL" passed for

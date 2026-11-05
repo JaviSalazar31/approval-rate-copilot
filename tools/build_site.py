@@ -23,7 +23,7 @@ SITE = os.path.join(ROOT, "site")
 
 CATEGORY = {"kpi": "KPI lookup", "diagnosis": "Diagnosis", "comparison": "Comparison", "guardrail": "Guardrail"}
 ORDINAL = {1: "first", 2: "second", 3: "third", 4: "fourth", 5: "fifth", 6: "sixth"}
-TIMES = {2: "twice", 3: "three times", 4: "four times", 5: "five times"}
+TIMES = {1: "once", 2: "twice", 3: "three times", 4: "four times", 5: "five times"}
 
 
 def fmt(value, f):
@@ -165,7 +165,8 @@ def build():
             cells.append(f"<td data-label=\"{run[1:]}\">{verdict_chip(item.get(run), mark)}</td>")
         for i, g in enumerate(genie_runs):
             cls = ' class="genie"' if i == 0 else ""
-            cells.append(f"<td data-label=\"G{g['run']}\"{cls}>{verdict_chip(g['verdicts'][item['id']])}</td>")
+            mark = "†" if item["id"] in g.get("overruled", []) else ""  # overruled to a failure; see the table note
+            cells.append(f"<td data-label=\"G{g['run']}\"{cls}>{verdict_chip(g['verdicts'][item['id']], mark)}</td>")
         rows.append(f"<tr><td class=\"mono\">{item['id']}</td><td>{html.escape(q['question'])}</td>"
                     f"<td>{CATEGORY[q['category']]}</td>{''.join(cells)}</tr>")
     notes_html = "".join(f"<p class=\"table-note\">{'*' * (i + 1)} {html.escape(n)}</p>" for i, n in enumerate(notes))

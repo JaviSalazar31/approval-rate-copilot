@@ -69,7 +69,7 @@ so skip step 4b.
 ## 4b. Build the gold tables with dbt
 
 The dbt project in `dbt/` builds the ten gold tables and runs its 76 tests. In **Jobs & Pipelines > Create job**,
-add a task of type **dbt**: source **Workspace**, project directory the `dbt` folder of the Git folder, command
+add a task of type **dbt**: source **Workspace**, project directory: the `dbt` folder in your Git folder, command
 `dbt build`, SQL warehouse **Serverless Starter Warehouse**, catalog `workspace`, schema `approval_copilot`, and an
 environment with the dependency `dbt-databricks>=1.10,<2`. Run it (about two minutes); the run log ends with
 `PASS=93`. The job in step 10 includes this task.
@@ -99,6 +99,7 @@ so nothing more is needed there; in a shared workspace, give analysts read acces
 GRANT USE CATALOG ON CATALOG workspace TO `analysts`;
 GRANT USE SCHEMA ON SCHEMA workspace.approval_copilot TO `analysts`;
 GRANT SELECT ON TABLE workspace.approval_copilot.gold_approval_daily TO `analysts`;  -- and the other nine copilot tables
+GRANT SELECT ON TABLE workspace.approval_copilot.approval_metrics TO `analysts`;     -- and decline_metrics
 GRANT EXECUTE ON FUNCTION workspace.approval_copilot.fn_drop_impact TO `analysts`;  -- and the other four functions
 ```
 
@@ -112,9 +113,11 @@ The evaluation job `approval_copilot_eval` (notebook 11) asks the questions and 
 (section 11). Run it with `question_set` set to `benchmark` or `heldout_2` and a `run_name`; the answers land in
 `/Volumes/workspace/approval_copilot/landing/evals/runs/<run_name>.json`. Genie's benchmark grader grades the
 chat-mode benchmark questions inside the run. Grade the other answers with the judge guide and the scoring rules
-([evals/README.md](../evals/README.md)), set `verdict` (true or false), `note` and `grader` on each record of the
-answers file, upload it to the volume, and run the job again with `action` set to `log_verdicts` and
-`graded_path` pointing to the file: the verdicts are attached to the same traces.
+([evals/README.md](../evals/README.md), [evals/judge_guide.md](../evals/judge_guide.md)), set `verdict` (true or
+false), `note`, `grader` and `grader_type` (`LLM_JUDGE` for the judge, `CODE` for Genie's grader, `HUMAN` for a
+manual review or an overrule) on each record of the answers file, upload it to the volume, and run the job again with `action` set to `log_verdicts` and
+`graded_path` pointing to the file: the verdicts are attached to the same traces. Running it again with a
+corrected file overrides only the verdicts that changed, and MLflow keeps the old ones in each trace's history.
 
 The benchmarks also run by hand in the Genie UI: follow section 5 of [genie_space_setup.md](genie_space_setup.md),
 with two runs, one per mode, each with **Run selected**:

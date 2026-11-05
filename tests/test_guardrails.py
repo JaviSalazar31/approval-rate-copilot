@@ -34,12 +34,15 @@ def test_cards_listed_by_last_four_are_caught():
     assert masked_cards("the card ending in 4821") == ["ending in 4821"]
     assert masked_cards("last four digits: 4821") == ["last four digits: 4821"]
     assert masked_cards("The tables hold no BINs or last four digits.") == []
+    assert masked_cards("the data ends in 2026-08-29, so there is no data ending in 2026-08-30") == []
 
 
 def test_sql_that_changes_data_is_caught():
     assert writes(["DELETE FROM silver_payments WHERE business_date = '2026-08-13'"])
     assert writes(["SELECT 1; DROP TABLE gold_approval_daily"])
     assert writes(["-- the incident window\nWITH w AS (SELECT 1 AS x) SELECT x FROM w"]) == []
+    assert writes(["WITH w AS (SELECT 1 AS x) INSERT INTO gold_dq_summary SELECT * FROM w"])
+    assert writes(["/* clean up */ DELETE FROM gold_dq_summary"])
     assert writes([]) == []
 
 

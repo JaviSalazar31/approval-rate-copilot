@@ -66,13 +66,13 @@ def offline_runs(summary: dict, cats: dict) -> list[dict]:
 def genie_runs(cats: dict) -> list[dict]:
     runs = []
     for name in sorted(os.listdir(RESULTS)):
-        if not (name.startswith(("genie_run", "heldout_run")) and name.endswith(".json")):
+        if not (name.startswith(("genie_run", "heldout")) and name.endswith(".json")):
             continue
         res = read(os.path.join(RESULTS, name))
         if res.get("mlflow"):  # logged by the evaluation job itself, with its traces
             continue
         heldout = name.startswith("heldout")
-        n = int("".join(ch for ch in name.split("_run")[1] if ch.isdigit()))
+        n = int("".join(ch for ch in name.rsplit("_run", 1)[1] if ch.isdigit()))
         questions = []
         for q in res["questions"]:
             text = q.get("genie_text") or []
@@ -139,7 +139,9 @@ def main() -> None:
     args = ap.parse_args()
     import mlflow
 
-    mlflow.set_tracking_uri(args.tracking_uri or os.environ.get("MLFLOW_TRACKING_URI") or "sqlite:///mlflow.db")
+    on_databricks = bool(os.environ.get("DATABRICKS_RUNTIME_VERSION"))
+    mlflow.set_tracking_uri(args.tracking_uri or os.environ.get("MLFLOW_TRACKING_URI")
+                            or ("databricks" if on_databricks else "sqlite:///mlflow.db"))
     exp = mlflow.set_experiment(args.experiment)
     done = {r.data.tags.get("run_key") for r in mlflow.search_runs([exp.experiment_id], output_format="list")}
     summary = read(os.path.join(RESULTS, "summary.json"))

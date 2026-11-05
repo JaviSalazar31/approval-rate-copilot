@@ -298,7 +298,7 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
 .disclaimer { max-width: 80ch; }
 
 @media (min-width: 1024px) and (max-width: 1180px) {
-  /* ten verdict columns: drop the type column and narrow the question before the table has to scroll */
+  /* eleven verdict columns: drop the type column and narrow the question before the table has to scroll */
   .eval-table th:nth-child(3), .eval-table td:nth-child(3) { display: none; }
   .eval-table td:nth-child(2) { min-width: 12rem; }
 }
@@ -337,6 +337,7 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
   .eval-table td:nth-child(11) { grid-row: 3; grid-column: 3; }
   .eval-table td:nth-child(12) { grid-row: 3; grid-column: 4; }
   .eval-table td:nth-child(13) { grid-row: 3; grid-column: 5; }
+  .eval-table td:nth-child(14) { grid-row: 3; grid-column: 6; }
   .table-legend { display: block; }
   .eval-table td.genie { padding-left: 0; border-left: 0; }
   .eval-table td[data-label]::before { content: attr(data-label); display: block; font-size: 0.68rem; color: var(--muted); margin-bottom: 0.15rem; }
@@ -612,14 +613,14 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
     <div class="section-head">
       <div class="label">The system</div>
       <h2 id="h-system">From raw feeds to clean tables</h2>
-      <p>A Lakeflow pipeline, Unity Catalog SQL functions, an AI/BI dashboard and a Genie agent were deployed on Databricks Free Edition on 29 October 2026. The same SQL also runs on local Spark, where every number on this page was first computed; on Databricks the generated files match byte for byte, and the pipeline quarantines the same {{headline.quarantined|int}} rows. Since 4 November 2026 one job runs the whole sequence, from landing the files to the governance checks. dbt builds and tests the gold layer as a task of that job, Unity Catalog metric views define each rate once for the dashboard and the agent, and the workspace deploys from GitHub Actions with an Asset Bundle.</p>
+      <p>A Lakeflow pipeline, Unity Catalog SQL functions, an AI/BI dashboard and a Genie agent were deployed on Databricks Free Edition on 29 October 2026. The same SQL also runs on local Spark, where every number on this page was first computed; on Databricks the generated files match byte for byte, and the pipeline quarantines the same {{headline.quarantined|int}} rows. Since 4 November 2026 one job runs the whole sequence, from landing the files to the governance checks. dbt builds and tests the gold layer as a task of that job, two Unity Catalog metric views hold the approval, volume and decline definitions that two dashboard datasets and the agent read, and an Asset Bundle with a GitHub Actions workflow is in place to deploy the workspace.</p>
     </div>
     <div class="flow">
       <div class="stage"><span class="k">Sources</span><span class="t">4 raw feeds + reference data</span><ul><li>Orchestrator log</li><li>Acquirers A, B, C: three formats</li><li>Routing rules, code map, change log</li></ul></div>
       <div class="stage"><span class="k">Bronze</span><span class="t">Files as received, after contract checks</span><ul><li>A broken feed stops the run</li><li>Streaming ingestion</li><li>Source file and load time kept</li></ul></div>
       <div class="stage"><span class="k">Silver</span><span class="t">One clean row per attempt and per payment</span><ul><li>{{pipeline.duplicates|int}} webhook duplicates removed</li><li>Codes mapped with the version in force</li><li>{{headline.quarantined|int}} rows quarantined, with the rule they failed</li></ul></div>
       <div class="stage"><span class="k">Gold</span><span class="t">11 tables shaped for questions, 10 of them built and tested by dbt</span><ul><li>Daily and hourly approval</li><li>Declines, retries, issuers, funnel</li><li>Anomaly, retry and forecast alerts</li></ul></div>
-      <div class="stage"><span class="k">Use</span><span class="t">Dashboard and copilot</span><ul><li>AI/BI dashboard "Approval Health"</li><li>Genie agent + 5 SQL functions</li><li>2 metric views, one definition per rate</li></ul></div>
+      <div class="stage"><span class="k">Use</span><span class="t">Dashboard and copilot</span><ul><li>AI/BI dashboard "Approval Health"</li><li>Genie agent + 5 SQL functions</li><li>2 metric views: approval and volume, declines</li></ul></div>
     </div>
     <div class="two-col" style="margin-top: 2.6rem;">
       <div class="stack">
@@ -643,7 +644,7 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
     <div class="chips" aria-label="Tools">
       <span class="chip">Databricks Free Edition</span><span class="chip">Lakeflow pipelines</span><span class="chip">Lakeflow Jobs</span><span class="chip">Unity Catalog SQL functions</span><span class="chip">Unity Catalog tags and column masks</span><span class="chip">AI/BI dashboards</span><span class="chip">Genie agents</span><span class="chip">Spark SQL</span><span class="chip">Python</span><span class="chip">Data contracts</span><span class="chip">Data-quality expectations</span><span class="chip">Forecasting and backtesting</span><span class="chip">Difference-in-differences</span><span class="chip">dbt</span><span class="chip">Unity Catalog metric views</span><span class="chip">MLflow tracing</span><span class="chip">Databricks Asset Bundles</span><span class="chip">GitHub Actions CI</span><span class="chip">LLM evaluation</span>
     </div>
-    <p class="stats-line">{{headline.attempts|int}} authorization attempts normalized · {{pipeline.objects|int}} tables and views in the pipeline · {{pipeline.checks|int}} automated tests, run by CI on every push to main</p>
+    <p class="stats-line">{{headline.attempts|int}} authorization attempts normalized · {{pipeline.objects|int}} tables and views in the pipeline and {{pipeline.dbt_gold|int}} gold tables built by dbt · {{pipeline.checks|int}} automated tests, run by CI on every push to main</p>
   </section>
 
   <section id="next" aria-labelledby="h-next">
