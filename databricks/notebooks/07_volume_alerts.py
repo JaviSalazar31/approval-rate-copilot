@@ -65,7 +65,7 @@ def daily_approved(gold_approval_daily: pd.DataFrame) -> pd.DataFrame:
 
 
 def _design(dates: pd.Series, t: np.ndarray, country: str) -> np.ndarray:
-    weekday = dates.dt.weekday.to_numpy()
+    weekday = dates.dt.day_of_week.to_numpy()
     payday = np.array([d.day in PAYDAYS[country] for d in dates], dtype=float)
     cols = [np.ones(len(t)), t] + [(weekday == k).astype(float) for k in range(1, 7)] + [payday]
     return np.column_stack(cols)
