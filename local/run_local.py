@@ -1,6 +1,6 @@
 """
-Runs the same SQL bodies used in Databricks on a local Spark session, to validate
-the pipeline end to end before deploying it. Generates the reference data first if it is missing.
+Runs the same SQL bodies used in Databricks on a local Spark session, then the dbt project that builds the gold
+layer, to validate the pipeline end to end before deploying it. Generates the reference data first if it is missing.
 
   python local/run_local.py --data data/full --out local/out
 """
@@ -10,6 +10,7 @@ import argparse
 import glob
 import os
 import re
+import shutil
 import sys
 import time
 
@@ -26,10 +27,15 @@ from pipeline_spec import SOURCES, TABLES  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 SQL_DIR = os.path.join(ROOT, "sql")
+DBT_DIR = os.path.join(ROOT, "dbt")
+DBT_SCHEMA = "approval_copilot"
 
 
-def spark_session():
-    return (SparkSession.builder.master("local[2]").appName("approval-rate-copilot")
+def spark_session(warehouse=None):
+    builder = SparkSession.builder
+    if warehouse:  # where the tables dbt writes live; emptied before each run
+        builder = builder.config("spark.sql.warehouse.dir", warehouse)
+    return (builder.master("local[2]").appName("approval-rate-copilot")
             .config("spark.ui.enabled", "false")
             .config("spark.sql.session.timeZone", "UTC")
             # Databricks serverless compute and SQL warehouses run with ANSI mode on: division by
@@ -55,12 +61,37 @@ def render(body: str) -> str:
     return re.sub(r"\{src:([a-z_]+)\}", lambda m: f"src_{m.group(1)}", body)
 
 
+def run_dbt(spark, out_dir):
+    """dbt build in this Spark session (dbt-spark, method "session"): the pipeline tables the models read become
+    tables in the approval_copilot database, dbt builds the staging, intermediate and gold models and runs their
+    tests, and each gold table is registered under its own name for the steps that follow."""
+    import yaml
+    from dbt.cli.main import dbtRunner
+    spark.sql(f"CREATE DATABASE IF NOT EXISTS {DBT_SCHEMA}")
+    sources = yaml.safe_load(open(os.path.join(DBT_DIR, "models", "sources.yml")))["sources"]
+    for table in [t["name"] for src in sources for t in src["tables"]]:
+        spark.table(table).write.mode("overwrite").saveAsTable(f"{DBT_SCHEMA}.{table}")
+    work = os.path.join(out_dir, "dbt")
+    t0 = time.time()
+    result = dbtRunner().invoke(["--quiet", "--no-send-anonymous-usage-stats", "build", "--project-dir", DBT_DIR, "--profiles-dir", DBT_DIR,
+                                 "--target", "local", "--target-path", os.path.join(work, "target"),
+                                 "--log-path", os.path.join(work, "logs")])
+    if not result.success:
+        raise SystemExit(f"dbt build failed ({result.exception or 'a model or test failed'}); "
+                         f"see {os.path.join(work, 'logs', 'dbt.log')}")
+    print(f"{'dbt build (models and tests)':32s} {'':>9}       {round(time.time() - t0, 1):>5}s")
+
+
 def run(data_root, out_dir, export=True):
-    spark = spark_session()
+    warehouse = os.path.join(out_dir, "warehouse")
+    shutil.rmtree(warehouse, ignore_errors=True)
+    spark = spark_session(warehouse)
     spark.sparkContext.setLogLevel("ERROR")
     load_sources(spark, data_root)
     timings = {}
     for name, rel, kind, comment, expectations in TABLES:
+        if kind == "dbt":  # gold: built by dbt below
+            continue
         t0 = time.time()
         body = render(open(os.path.join(SQL_DIR, rel)).read())
         df = spark.sql(body)
@@ -72,7 +103,13 @@ def run(data_root, out_dir, export=True):
         n = df.count()
         timings[name] = (n, round(time.time() - t0, 1))
         print(f"{name:32s} {n:>9,} rows  {timings[name][1]:>5}s")
-    # After the pipeline, the Databricks job runs the approved-payments forecast alert (notebook 07).
+    run_dbt(spark, out_dir)
+    for name, rel, kind, comment, expectations in TABLES:
+        if kind == "dbt":
+            df = spark.table(f"{DBT_SCHEMA}.{name}").cache()
+            df.createOrReplaceTempView(name)
+            print(f"{name:32s} {df.count():>9,} rows  (dbt)")
+    # After the pipeline and dbt, the Databricks job runs the approved-payments forecast alert (notebook 07).
     # Same module here, on the same input.
     from volume_forecast import SPARK_SCHEMA, daily_approved, for_spark, volume_alerts
     alerts = volume_alerts(daily_approved(spark.table("gold_approval_daily").toPandas()))

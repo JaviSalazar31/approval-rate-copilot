@@ -7,5 +7,9 @@ pandas>=2.2
 pyspark==3.5.3
 pyarrow>=14
 setuptools>=68
+# dbt builds the gold layer: locally in the same Spark session (dbt-spark, method "session"); on Databricks
+# the job's dbt task installs dbt-databricks
+dbt-core==1.12.6
+dbt-spark[session]==1.11.0
 # Data contracts (contracts/*.yml) and the Databricks build
 pyyaml>=6

@@ -9,7 +9,7 @@ WITH daily AS (
     sum(payments_sent) AS payments_sent,
     sum(final_approved) AS final_approved,
     sum(final_approved) / sum(payments_sent) AS final_approval_rate
-  FROM gold_approval_daily
+  FROM {{ ref('gold_approval_daily') }}
   WHERE NOT is_cross_border
   GROUP BY business_date, country, card_type
 ),

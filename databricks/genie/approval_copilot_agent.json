@@ -37,6 +37,12 @@
   "data_sources": {
     "tables": [
       {
+        "identifier": "workspace.approval_copilot.approval_metrics"
+      },
+      {
+        "identifier": "workspace.approval_copilot.decline_metrics"
+      },
+      {
         "identifier": "workspace.approval_copilot.gold_anomalies_daily"
       },
       {
@@ -93,6 +99,10 @@
           "- Rates and percentiles of a period are recomputed from its rows: sum the counts, and take p95\n",
           "  latency with percentile_approx on silver_payments.first_latency_ms. Never average daily rates or\n",
           "  daily p95 values.\n",
+          "- The metric views approval_metrics and decline_metrics define each rate once, as a ratio of sums.\n",
+          "  Query a measure with MEASURE() and group by the dimensions you need, for example\n",
+          "  SELECT country, MEASURE(final_approval_rate) AS final_approval_rate FROM approval_metrics\n",
+          "  WHERE NOT is_cross_border GROUP BY country.\n",
           "- Whole days or months: compare acquirers, issuers or other segments with the daily tables, one row\n",
           "  per item, as in the examples. A window shorter than a day: use gold_approval_hourly or the\n",
           "  functions. To rank one dimension with fn_approval_drivers, pass p_dimension (for example\n",

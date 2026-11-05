@@ -1,0 +1,20 @@
+# local: the Spark session of local/run_local.py, which runs dbt after the pipeline; the same engine CI uses.
+# databricks: a SQL warehouse, credentials from the environment. In a Databricks job, the dbt task writes
+# its own profile for the warehouse it runs on, so this target is only for running dbt from a laptop.
+approval_copilot:
+  target: local
+  outputs:
+    local:
+      type: spark
+      method: session
+      host: localhost
+      schema: approval_copilot
+      threads: 1
+    databricks:
+      type: databricks
+      catalog: workspace
+      schema: approval_copilot
+      host: "{{ env_var('DATABRICKS_HOST') }}"
+      http_path: "{{ env_var('DATABRICKS_HTTP_PATH') }}"
+      token: "{{ env_var('DATABRICKS_TOKEN') }}"
+      threads: 4

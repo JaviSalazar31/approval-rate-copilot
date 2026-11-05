@@ -1,7 +1,8 @@
 """
-Single source of truth for the pipeline: table order, layer, comments, grain and
-data-quality expectations. Used by:
-  - local/run_local.py                 (runs the SQL bodies on local Spark)
+Single source of truth for the tables: order, layer, comments, grain and data-quality expectations. The Lakeflow
+pipeline builds bronze, reference and silver from the SQL bodies in sql/; the dbt project in dbt/ builds gold
+(kind "dbt", whose path is the dbt model). Used by:
+  - local/run_local.py                 (runs the SQL bodies, then dbt, on local Spark)
   - tools/build_databricks.py          (generates the Databricks pipeline and notebook SQL)
   - tools/build_docs.py                (data dictionary, copilot context, column descriptions)
 """
@@ -31,7 +32,7 @@ AUTH_EXPECTATIONS = [
 ]
 
 TABLES = [
-    # name, sql file, kind, comment, expectations (name, condition, action)
+    # name, sql file (under sql/, or the dbt model for kind "dbt"), kind, comment, expectations (name, condition, action)
     ("bronze_orchestrator", "bronze/bronze_orchestrator.sql", "streaming",
      "Raw payment intents from the orchestrator, as received.", []),
     ("bronze_acquirer_a", "bronze/bronze_acquirer_a.sql", "streaming",
@@ -61,31 +62,31 @@ TABLES = [
      "Attempts rejected by the data-quality rules, with the rule they failed.", []),
     ("silver_payments", "silver/silver_payments.sql", "mv",
      "One row per payment with first attempt, cascade attempt and final outcome.", []),
-    ("gold_approval_daily", "gold/gold_approval_daily.sql", "mv",
+    ("gold_approval_daily", "dbt/models/marts/gold_approval_daily.sql", "dbt",
      "Daily approval KPIs by country, card type and first acquirer.", []),
-    ("gold_approval_hourly", "gold/gold_approval_hourly.sql", "mv",
+    ("gold_approval_hourly", "dbt/models/marts/gold_approval_hourly.sql", "dbt",
      "Hourly approval by country, card type and first acquirer, in local time.", []),
-    ("gold_decline_reasons_daily", "gold/gold_decline_reasons_daily.sql", "mv",
+    ("gold_decline_reasons_daily", "dbt/models/marts/gold_decline_reasons_daily.sql", "dbt",
      "Daily failed attempts by canonical reason and how the mapping classified them. Includes cross-border "
      "payments (there is no cross-border flag); fn_decline_shift covers domestic payments only.", []),
-    ("gold_cascade_daily", "gold/gold_cascade_daily.sql", "mv",
+    ("gold_cascade_daily", "dbt/models/marts/gold_cascade_daily.sql", "dbt",
      "Daily cascade health: failed first attempts, retries on another acquirer and recoveries."
      " Includes cross-border payments (there is no cross-border flag); fn_cascade_health covers domestic "
      "payments only.", []),
-    ("gold_issuer_daily", "gold/gold_issuer_daily.sql", "mv",
+    ("gold_issuer_daily", "dbt/models/marts/gold_issuer_daily.sql", "dbt",
      "Daily approval by issuer. Includes cross-border payments (there is no cross-border flag).", []),
-    ("gold_funnel_daily", "gold/gold_funnel_daily.sql", "mv",
+    ("gold_funnel_daily", "dbt/models/marts/gold_funnel_daily.sql", "dbt",
      "Daily payment funnel: intents, risk blocks, 3DS abandonment, sent, approved. Includes cross-border payments (there is no cross-border flag).", []),
-    ("gold_anomalies_daily", "gold/gold_anomalies_daily.sql", "mv",
+    ("gold_anomalies_daily", "dbt/models/marts/gold_anomalies_daily.sql", "dbt",
      "Daily domestic final approval per country and card type against its trailing 28-day baseline. Holds "
      "every day; is_anomaly marks the days that fall well below the baseline (volume-aware).", []),
-    ("gold_cascade_alerts_daily", "gold/gold_cascade_alerts_daily.sql", "mv",
+    ("gold_cascade_alerts_daily", "dbt/models/marts/gold_cascade_alerts_daily.sql", "dbt",
      "Daily cascade (retry) rate per country, first acquirer and first-attempt reason against its healthy "
      "history (the days with a cascade rate of at least 50% among the previous 56 days with failures). Holds "
      "every day; is_alert marks the days when the rate collapsed. Includes cross-border payments (there is "
      "no cross-border flag); fn_cascade_health covers domestic payments only.", []),
-    ("gold_change_log", "gold/gold_change_log.sql", "mv", "Change log with local times per country.", []),
-    ("gold_dq_summary", "gold/gold_dq_summary.sql", "mv", "Rows rejected by data-quality rules, by source and rule.", []),
+    ("gold_change_log", "dbt/models/marts/gold_change_log.sql", "dbt", "Change log with local times per country.", []),
+    ("gold_dq_summary", "dbt/models/marts/gold_dq_summary.sql", "dbt", "Rows rejected by data-quality rules, by source and rule.", []),
 ]
 
 # Column masks applied on Databricks (Unity Catalog). A Lakeflow table with a mask needs its full column

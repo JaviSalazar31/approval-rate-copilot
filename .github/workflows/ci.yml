@@ -1,6 +1,7 @@
-# Tests on every push and pull request: feed contracts, forecast alert, the whole pipeline on local Spark,
-# the incident analysis, and a check that every generated file (Databricks notebooks, docs, project page)
-# is up to date with its sources.
+# Tests on every push and pull request: feed contracts, forecast alert, guardrails and the evaluation runner, the
+# whole pipeline on local Spark with dbt building and testing the gold layer, the incident analysis, and a check
+# that every generated file (Databricks notebooks, jobs, bundle, dbt properties, docs, project page) is up to date
+# with its sources.
 name: CI
 
 on:
@@ -37,7 +38,7 @@ jobs:
         run: pip install -r requirements.txt pytest
 
       - name: Unit tests (no Spark)
-        run: python -m pytest -q tests/test_feed_checks.py tests/test_volume_forecast.py
+        run: python -m pytest -q tests/test_feed_checks.py tests/test_volume_forecast.py tests/test_guardrails.py tests/test_genie_eval.py
 
       - name: Generate the synthetic data
         run: python data_generator/generate_data.py --out data/full --seed 42
@@ -45,7 +46,7 @@ jobs:
       - name: Check every day of every feed against its contract
         run: python checks/feed_checks.py --data data/full --all-dates > feed_checks.txt || (tail -40 feed_checks.txt; exit 1)
 
-      - name: Run the pipeline on local Spark
+      - name: Run the pipeline and dbt on local Spark
         run: python local/run_local.py
 
       - name: Pipeline, alert and analysis tests
@@ -60,6 +61,7 @@ jobs:
           python analysis/mix_rate_split.py > /dev/null
           python tools/build_databricks.py
           python tools/build_docs.py
+          python tools/build_dbt.py
           python tools/build_deploy_payloads.py
           python tools/export_site_data.py
           python tools/build_site.py

@@ -1,5 +1,6 @@
 """
-Logic tests for the cascade alert (sql/gold/gold_cascade_alerts_daily.sql), on small synthetic inputs.
+Logic tests for the cascade alert (the dbt model dbt/models/marts/gold_cascade_alerts_daily.sql), on small
+synthetic inputs.
 
 1. A 20-day collapse of retries after 60 healthy days: the alert fires on every collapsed day, because its
    baseline leaves collapsed days out. The first version, a plain rolling 28-day baseline, learned the
@@ -20,9 +21,9 @@ import sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, os.path.join(ROOT, "local"))
+from dbt_models import render  # noqa: E402
 from run_local import spark_session  # noqa: E402
 
-ALERT_SQL = os.path.join(ROOT, "sql", "gold", "gold_cascade_alerts_daily.sql")
 FAILURES = 10  # failed first attempts per day
 
 
@@ -42,8 +43,7 @@ def run_alert(healthy_days, collapsed_days, failures=FAILURES):
     cols = ("business_date DATE, country STRING, acquirer_id STRING, first_reason_code STRING, "
             "first_attempt_failures BIGINT, cascaded BIGINT, first_mapping_version STRING")
     spark().createDataFrame(rows, cols).createOrReplaceTempView("gold_cascade_daily")
-    with open(ALERT_SQL) as f:
-        out = spark().sql(f.read()).orderBy("business_date").collect()
+    out = spark().sql(render("gold_cascade_alerts_daily")).orderBy("business_date").collect()
     assert len(out) == healthy_days + collapsed_days
     return out[:healthy_days], out[healthy_days:]
 

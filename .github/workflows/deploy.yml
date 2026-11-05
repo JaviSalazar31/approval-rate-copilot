@@ -1,0 +1,83 @@
+# Databricks Asset Bundle (databricks.yml): the pipeline, the three jobs and the dashboard. A push to main that
+# touches them validates the bundle against the workspace; a deploy runs by hand (Run workflow), so nothing reaches
+# the workspace by accident. The Genie agent changes only when a deploy asks for it (update_agent), because a change
+# to what the agent sees needs a new evaluation first (docs/decisions.md, ADR-16).
+# Needs two repository secrets: DATABRICKS_HOST (the workspace URL) and DATABRICKS_TOKEN (a personal access token).
+name: Deploy to Databricks
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - databricks.yml
+      - databricks/**
+      - dbt/**
+  workflow_dispatch:
+    inputs:
+      bind_existing:
+        description: Bind the existing pipeline, jobs and dashboard to the bundle before deploying (once)
+        type: boolean
+        default: false
+      update_agent:
+        description: Apply databricks/genie/approval_copilot_agent.json to the Genie agent after the deploy
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-databricks
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+    steps:
+      - name: Check that the workspace secrets are set
+        id: configured
+        run: |
+          if [ -z "$DATABRICKS_HOST" ] || [ -z "$DATABRICKS_TOKEN" ]; then
+            echo "The Databricks secrets are not set, so there is nothing to deploy."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.configured.outputs.ok == 'true'
+
+      - uses: databricks/setup-cli@main
+        if: steps.configured.outputs.ok == 'true'
+
+      - name: Validate the bundle
+        if: steps.configured.outputs.ok == 'true'
+        run: databricks bundle validate -t prod
+
+      - name: Bind the existing resources, found by name
+        if: steps.configured.outputs.ok == 'true' && github.event_name == 'workflow_dispatch' && inputs.bind_existing
+        run: |
+          bind() {
+            if [ -n "$2" ]; then databricks bundle deployment bind "$1" "$2" -t prod --auto-approve
+            else echo "No existing $1: the deploy creates it."; fi
+          }
+          job_id() { databricks jobs list --name "$1" --output json | jq -r '.[0].job_id // empty'; }
+          bind approval_copilot_daily "$(job_id approval_copilot_daily)"
+          bind approval_copilot_eval "$(job_id approval_copilot_eval)"
+          bind approval_copilot_update_agent "$(job_id approval_copilot_update_agent)"
+          bind approval_copilot "$(databricks pipelines list-pipelines --output json \
+            | jq -r '.[] | select(.name == "approval_copilot") | .pipeline_id' | head -n 1)"
+          bind approval_health "$(databricks lakeview list --output json \
+            | jq -r '.[] | select(.display_name == "Approval Health") | .dashboard_id' | head -n 1)"
+
+      - name: Deploy
+        if: steps.configured.outputs.ok == 'true' && github.event_name == 'workflow_dispatch'
+        run: databricks bundle deploy -t prod
+
+      - name: Update the Genie agent
+        if: steps.configured.outputs.ok == 'true' && github.event_name == 'workflow_dispatch' && inputs.update_agent
+        run: databricks bundle run approval_copilot_update_agent -t prod

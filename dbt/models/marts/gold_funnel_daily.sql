@@ -11,5 +11,5 @@ SELECT
   sum(CAST(final_approved AS INT)) AS approved,
   round(sum(CAST(final_approved AS INT)) / count(*), 4) AS conversion_rate,
   round(sum(CAST(final_status = 'BLOCKED_BY_RISK' AS INT)) / count(*), 4) AS risk_block_rate
-FROM silver_payments
+FROM {{ ref('stg_payments') }}
 GROUP BY business_date, country, card_type

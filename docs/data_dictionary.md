@@ -224,6 +224,55 @@ One row per payment with first attempt, cascade attempt and final outcome. Grain
 | `approved_usd` | double | Amount of approved payments, USD |
 | `fee_usd` | double | Acquirer fee on the approved amount, USD |
 
+## Metric views (the dashboard and the copilot read them with MEASURE())
+
+Unity Catalog metric views over two gold tables, created by notebook 09 from `databricks/metric_views/` (docs/decisions.md, ADR-17).
+
+### `approval_metrics`
+
+Card approval and approved volume per day, country, card type and first acquirer. Every rate is a ratio of sums over the rows in scope. Source: `gold_approval_daily`.
+
+| Dimension | Expression | Description |
+|---|---|---|
+| `business_date` | `business_date` | Local calendar date of the payment (country time zone) |
+| `month` | `date_trunc('MONTH', business_date)` | First day of the local calendar month |
+| `country` | `country` | MX, CO or BR |
+| `card_type` | `card_type` | credit or debit |
+| `first_acquirer` | `acquirer_id` | First acquirer chosen by routing (A, B or C); results are attributed to it |
+| `is_cross_border` | `is_cross_border` | True when the card was issued abroad. Domestic traffic is the default for comparisons |
+
+| Measure | Expression | Description |
+|---|---|---|
+| `payments_sent` | `SUM(payments_sent)` | Payments that reached an acquirer |
+| `final_approved` | `SUM(final_approved)` | Payments approved on the first attempt or after a retry on a second acquirer |
+| `final_approval_rate` | `SUM(final_approved) / SUM(payments_sent)` | Final approval rate, recomputed from counts |
+| `first_attempt_approval_rate` | `SUM(first_attempt_approved) / SUM(payments_sent)` | Approval rate of the first attempt, the routing KPI |
+| `approved_usd` | `SUM(approved_usd)` | Approved volume in USD |
+| `attempted_usd` | `SUM(attempted_usd)` | Volume sent to acquirers in USD |
+| `approved_volume_rate` | `SUM(approved_usd) / SUM(attempted_usd)` | Share of the volume sent that was approved |
+| `fees_usd` | `SUM(fees_usd)` | Acquirer fees on the approved volume, USD |
+
+### `decline_metrics`
+
+Failed authorization attempts per day, country, card type, acquirer and canonical reason, with how the decline-code map classified each code at the time. Source: `gold_decline_reasons_daily`.
+
+| Dimension | Expression | Description |
+|---|---|---|
+| `business_date` | `business_date` | Local calendar date of the attempt (country time zone) |
+| `country` | `country` | MX, CO or BR |
+| `card_type` | `card_type` | credit or debit |
+| `acquirer` | `acquirer_id` | Acquirer that processed the attempt (A, B or C) |
+| `attempt` | `CASE WHEN attempt_seq = 1 THEN 'first attempt' ELSE 'retry' END` | First attempt, or the retry on a second acquirer |
+| `reason_code` | `reason_code` | ISO 8583 response code after normalization, or the canonical status for technical failures |
+| `reason` | `reason` | Reason in plain words |
+| `decline_type` | `decline_type` | soft, hard or technical, as the map classified the code at that time |
+| `retryable` | `retryable` | Whether the map allowed a retry on another acquirer |
+| `mapping_version` | `mapping_version` | Version of the decline-code map in force (v2.2, v2.3, v2.3.1) |
+
+| Measure | Expression | Description |
+|---|---|---|
+| `failed_attempts` | `SUM(attempts)` | Authorization attempts the issuer or the acquirer did not approve |
+
 ## Supporting tables (pipeline internals)
 
 Bronze tables (`bronze_orchestrator`, `bronze_acquirer_a`, `bronze_acquirer_b`, `bronze_acquirer_c`) keep every source column as received, as strings, plus `_source_file` and `_ingested_at`. The source formats are described in `ref_acquirers.raw_format`. On Databricks, `read_files` also adds a `_rescued_data` column (values that did not fit the schema); the local run does not have it.

@@ -9,4 +9,4 @@ SELECT
   scope,
   description,
   owner_team
-FROM ref_change_log
+FROM {{ ref('stg_change_log') }}

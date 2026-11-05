@@ -21,6 +21,5 @@ SELECT
   round(sum(CAST(first_attempt_approved AS INT)) / count(*), 4) AS first_attempt_approval_rate,
   round(sum(CAST(final_approved AS INT)) / count(*), 4) AS final_approval_rate,
   round(sum(approved_usd) / sum(amount_usd), 4) AS approved_volume_rate
-FROM silver_payments
-WHERE sent_to_acquirer
+FROM {{ ref('int_payments_sent') }}
 GROUP BY business_date, country, card_type, first_acquirer_id, is_cross_border

@@ -58,19 +58,30 @@ The generator was tested with the package versions of environment version 4 (num
    `databricks/pipeline/approval_copilot_pipeline.sql` (or **Settings > Source code > Configure paths > Add path**).
 4. Click **Run pipeline** (5–10 minutes).
 
-Check in the **Pipeline graph** tab: 27 datasets (4 streaming tables and 23 materialized views). In the
-**Tables** view, `silver_auth_attempts` shows 776 rows dropped by expectations; they appear, with the rule
-they failed, in `silver_dq_quarantine`.
+Check in the **Pipeline graph** tab: 17 datasets (4 streaming tables and 13 materialized views), from bronze to
+silver. In the **Tables** view, `silver_auth_attempts` shows 776 rows dropped by expectations; they appear, with the
+rule they failed, in `silver_dq_quarantine`.
 
 If the pipeline cannot run in your workspace, use the fallback: open `02_build_tables_without_pipeline` and
-Run all. It creates the same tables as plain Delta tables (see "Choose one build path" in step 0).
+Run all. It creates the same tables, gold included, as plain Delta tables (see "Choose one build path" in step 0),
+so skip step 4b.
+
+## 4b. Build the gold tables with dbt
+
+The dbt project in `dbt/` builds the ten gold tables and runs its 76 tests. In **Jobs & Pipelines > Create job**,
+add a task of type **dbt**: source **Workspace**, project directory the `dbt` folder of the Git folder, command
+`dbt build`, SQL warehouse **Serverless Starter Warehouse**, catalog `workspace`, schema `approval_copilot`, and an
+environment with the dependency `dbt-databricks>=1.10,<2`. Run it (about two minutes); the run log ends with
+`PASS=93`. The job in step 10 includes this task.
 
 ## 5. Create the copilot functions and column descriptions
 
 1. Open `04_copilot_functions`, Run all. The last cell is a smoke test: one row with 1,004 window payments
    and 110 lost approvals.
 2. Open `05_column_comments`, Run all. It writes a description on every column the copilot uses. Run it
-   again after any full refresh of the pipeline; it is idempotent.
+   again after each dbt run or full refresh of the pipeline; it is idempotent.
+3. Open `09_metric_views`, Run all. It creates the metric views `approval_metrics` and `decline_metrics`, which
+   two dashboard datasets and the Genie agent read.
 
 ## 6. Build the dashboard
 
@@ -97,8 +108,16 @@ analysts need no grant on the reference tables the functions read.
 
 ## 8. Run the benchmarks
 
-Follow section 5 of [genie_space_setup.md](genie_space_setup.md). Two runs, one per mode, each with
-**Run selected**:
+The evaluation job `approval_copilot_eval` (notebook 11) asks the questions and logs each answer to MLflow
+(section 11). Run it with `question_set` set to `benchmark` or `heldout_2` and a `run_name`; the answers land in
+`/Volumes/workspace/approval_copilot/landing/evals/runs/<run_name>.json`. Genie's benchmark grader grades the
+chat-mode benchmark questions inside the run. Grade the other answers with the judge guide and the scoring rules
+([evals/README.md](../evals/README.md)), set `verdict` (true or false), `note` and `grader` on each record of the
+answers file, upload it to the volume, and run the job again with `action` set to `log_verdicts` and
+`graded_path` pointing to the file: the verdicts are attached to the same traces.
+
+The benchmarks also run by hand in the Genie UI: follow section 5 of [genie_space_setup.md](genie_space_setup.md),
+with two runs, one per mode, each with **Run selected**:
 
 - Chat mode: A1–A6, B3, C1, C2, C4, graded against their `gold_sql`.
 - Agent mode: B1, B2, B4, B5, B6, C3 and D1–D4, graded against their scoring facts or expected behavior
@@ -120,12 +139,14 @@ After the first deployment, one job runs every step in order (`databricks/jobs/a
 | `land_data` | Notebook 01: generates the files, or keeps them when `regenerate_data` is `false` | 2 |
 | `check_feeds` | Notebook 06: each feed against its contract in `contracts/`; a violation stops the job here | none |
 | `refresh_pipeline` | The pipeline from step 4 | 2 |
+| `dbt_build` | `dbt build` on the SQL warehouse: the gold tables and their tests (step 4b) | none |
 | `volume_alerts` | Notebook 07: the forecast alert, written to `gold_volume_alerts_daily` | 2 |
 | `copilot_functions` | Notebook 04 | 2 |
 | `column_comments` | Notebook 05 | 2 |
+| `metric_views` | Notebook 09 | 2 |
 | `governance` | Notebook 08: layer and domain tags, tags on the card columns, a check that the mask hides the last four digits, and the lineage Unity Catalog recorded | 2 |
 
-The feed checks never retry, because a broken contract does not fix itself. A failed task sends an email to the
+The feed checks and dbt never retry, because a broken contract or a failed test does not fix itself. A failed task sends an email to the
 owner, and the tasks after it do not run. The daily schedule (07:00 Bogotá) is defined but paused: on Free
 Edition the job runs when you start it, which keeps it inside the compute quota.
 
@@ -133,6 +154,7 @@ Create it with the Databricks CLI; the `${...}` placeholders are filled from you
 
 ```bash
 export NOTEBOOK_DIR=/Workspace/Users/<you>/approval-rate-copilot/databricks/notebooks
+export DBT_PROJECT_DIR=/Workspace/Users/<you>/approval-rate-copilot/dbt WAREHOUSE_ID=<your SQL warehouse id>
 export PIPELINE_ID=<the pipeline id from step 4> OWNER_EMAIL=<your email>
 envsubst < databricks/jobs/approval_copilot_job.json > /tmp/approval_copilot_job.json
 databricks jobs create --json @/tmp/approval_copilot_job.json
@@ -149,6 +171,27 @@ databricks jobs run-now --json '{"job_id": <JOB_ID>, "job_parameters": {"regener
 To let someone see the last four digits, add them to an account-level group named `payments_support` (the mask
 calls `is_account_group_member`, which does not see workspace-local groups); everyone else reads `****`.
 Lineage is also visible per table in Catalog Explorer, under **Lineage**.
+
+## 11. Deploy from GitHub Actions with the Asset Bundle
+
+`databricks.yml` describes the pipeline, the three jobs (daily, evaluation, agent update) and the dashboard; it is
+generated from the same definitions as `databricks/jobs/`. The workflow `.github/workflows/deploy.yml` validates it
+on every push to main that touches it, and deploys when you run it by hand.
+
+1. In Databricks, create a personal access token (**Settings > Developer > Access tokens > Generate new token**).
+2. In the GitHub repository, add two secrets under **Settings > Secrets and variables > Actions**:
+   `DATABRICKS_HOST` (the workspace URL) and `DATABRICKS_TOKEN` (the token).
+3. In **Actions > Deploy to Databricks > Run workflow**, tick **bind_existing** the first time: it binds the
+   pipeline, jobs and dashboard you already created, found by name, so the deploy updates them instead of creating
+   copies. Later deploys need no box ticked.
+4. Tick **update_agent** only for a release that changes what the agent sees, after its evaluation: it applies
+   `databricks/genie/approval_copilot_agent.json` to the Genie agent, once its example queries, benchmark answers,
+   functions and tables pass a check.
+
+The evaluation job runs notebook 11 on a question set and logs every answer to the MLflow experiment
+`approval-copilot-evals` in your user folder, as a trace with its latency, its SQL and the guardrail checks; the
+answers also go to `/Volumes/workspace/approval_copilot/landing/evals/runs/`. Its weekly schedule on the benchmark
+is defined but paused.
 
 ## Alternative: deploy through the APIs
 

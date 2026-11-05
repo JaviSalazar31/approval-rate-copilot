@@ -17,7 +17,7 @@ WITH daily AS (
     sum(cascaded) AS cascaded,
     sum(cascaded) / sum(first_attempt_failures) AS cascade_rate,
     concat_ws(',', sort_array(collect_set(first_mapping_version))) AS mapping_versions
-  FROM gold_cascade_daily
+  FROM {{ ref('gold_cascade_daily') }}
   GROUP BY business_date, country, acquirer_id, first_reason_code
 ),
 windowed AS (

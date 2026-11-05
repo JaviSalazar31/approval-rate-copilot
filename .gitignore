@@ -15,3 +15,7 @@ venv/
 .vscode/
 # Copy of the page for hosted previews (built by tools/build_site.py)
 site/artifact.html
+# dbt build output (run_local writes its own under local/out/dbt)
+dbt/target/
+dbt/logs/
+dbt/.user.yml
