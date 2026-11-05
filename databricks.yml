@@ -151,7 +151,7 @@ resources:
         depends_on:
         - task_key: dbt_build
         notebook_task:
-          notebook_path: ./databricks/notebooks/09_metric_views.sql
+          notebook_path: ./databricks/notebooks/09_metric_views.py
           source: WORKSPACE
         max_retries: 2
         min_retry_interval_millis: 60000
