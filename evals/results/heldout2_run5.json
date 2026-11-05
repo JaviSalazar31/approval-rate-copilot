@@ -15,7 +15,11 @@
    "latency_p95_s_agent": 45.2,
    "latency_p50_s_chat": 19.3,
    "latency_p95_s_chat": 28.6
-  }
+  },
+  "answers_started_utc": "2026-11-05T03:22:05+00:00",
+  "context_sha256": "3689ecdea2c7fa8034444754d8162b879d68d0dd26a5f9b39dccaf4fc29a51cd",
+  "mlflow_run_started_utc": "2026-11-05T03:27:02+00:00",
+  "questions_committed_utc": "2026-11-05T02:35:35+00:00"
  },
  "answers_passed": 26,
  "answers_total": 39,

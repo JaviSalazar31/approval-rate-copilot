@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Author | Javier Salazar (Senior Product Owner, payments) · personal project |
-| Status | v1 built on synthetic data, evaluated offline and deployed on Databricks Free Edition (29 Oct 2026) · Genie benchmark 15/20 on the fifth run (13/20 on the first, 17/20 on the fourth) · held-out questions: 11/14 on the first set, 26/39 answers on the second (13 questions, three samples each) · gold layer in dbt, metric views, evaluations tracked in MLflow, a deploy workflow for GitHub Actions (Nov 2026) · pilot on real data not started |
+| Status | v1 built on synthetic data, evaluated offline and deployed on Databricks Free Edition (29 Oct 2026) · Genie benchmark 15/20 on the fifth run (13/20 on the first, 17/20 on the fourth) · held-out questions: 11/14 on the first set, 26/39 answers on the second (13 questions, three samples each) · gold layer in dbt, metric views, evaluations tracked in MLflow, deploys from GitHub Actions with an Asset Bundle (Nov 2026) · pilot on real data not started |
 | Scope | Card payments of a fictional LATAM orchestrator: Mexico, Colombia, Brazil · Acquirers A, B, C |
 
 All figures below come from the synthetic dataset in this repository (90 days, 661k payment intents).
@@ -121,7 +121,7 @@ Full definitions, formulas and pitfalls are in [metrics.md](metrics.md).
 | R12 | Alert on approved payments as well as on rates | A daily forecast of approved payments with weekday and payday terms flags days well below it, tested on datasets its thresholds were not set on | Done: on three more datasets from the same generator, 2 false alerts in 762 segment-days, and 81% of days cut by 20% caught, against 54% for a same-weekday mean at the same false-alert rate ([impact_and_detection.md](impact_and_detection.md)) |
 | R13 | Gold tables built and tested as code | Every gold table built by dbt, tested at its grain (unique keys, accepted values, a relationship to the issuer table, rates between 0 and 1) and reconciled with silver, locally, in CI and in the daily job, which stops on a failed test | Done: 17 models and 76 tests pass on Databricks (job run of 4 November 2026) and in CI, with the same gold totals as the pipeline's previous tables ([ADR-15](decisions.md)) |
 | R14 | One definition per metric for the dashboard and the copilot | Approval, volume and decline measures defined once, as ratios of sums, and read by both the dashboard and Genie | Partly done: two Unity Catalog metric views hold the approval, volume and decline measures; two of the dashboard's eleven datasets read them, with the same rows as before, and Genie's chat mode queries them. The other datasets and the functions still compute their own rates. A dimension comment without its values cost one held-out question (N4), to be fixed in the next evaluated release ([ADR-17](decisions.md)) |
-| R15 | Every evaluation run and every deploy can be traced and repeated | Each evaluation run records its context, answers, SQL, latency, guardrail checks and verdicts; the workspace is deployed from the repository; the agent changes only with an evaluated release | Evaluation done: MLflow traces for Genie run 5 and the second held-out set (63 answers, none failing a guardrail check), with the verdicts attached ([ADR-18](decisions.md)). The Asset Bundle and its deploy workflow are in the repository; first deploy pending ([ADR-16](decisions.md)) |
+| R15 | Every evaluation run and every deploy can be traced and repeated | Each evaluation run records its context, answers, SQL, latency, guardrail checks and verdicts; the workspace is deployed from the repository; the agent changes only with an evaluated release | Evaluation done: MLflow traces for Genie run 5 and the second held-out set (63 answers, none failing a guardrail check), with the verdicts attached ([ADR-18](decisions.md)). Deploy done: on 5 November 2026 the GitHub Actions workflow bound the existing pipeline, three jobs and dashboard and changed them in place, with nothing created or deleted. The first run of the deployed daily job found a bug in the metric views notebook, fixed the same day, and the job then ran end to end ([ADR-16](decisions.md)) |
 
 ## 7. Risks and mitigations
 
@@ -146,13 +146,13 @@ Full definitions, formulas and pitfalls are in [metrics.md](metrics.md).
    The last round also ran 14 held-out questions once: 11/14.
 4. Phase 0d, done (4 to 5 November 2026): one job for the whole run, data contracts checked before the pipeline, a
    forecast alert on approved payments, the gold layer in dbt, metric views for the dashboard and the copilot,
-   evaluations tracked in MLflow, and an Asset Bundle with its GitHub Actions deploy workflow (ADR-13 to ADR-18).
-   The fifth benchmark run passed 15/20; a second held-out set, 13 questions asked three times each, passed 26 of
-   39 answers.
-5. Phase 0e, next: the first deploy from GitHub Actions; then the chat-mode fixes both held-out sets point to
-   (comparison results that carry the gap, a text "NULL" treated as NULL, dimension comments that list their
-   values, the domestic default kept to approval comparisons), then the benchmark and a third held-out set, written
-   before the release. The pilot starts when R8 is met on Genie, with the held-out score as the number to watch.
+   evaluations tracked in MLflow, and deploys from GitHub Actions with an Asset Bundle (ADR-13 to ADR-18). The
+   fifth benchmark run passed 15/20; a second held-out set, 13 questions asked three times each, passed 26 of 39
+   answers.
+5. Phase 0e, next: the chat-mode fixes both held-out sets point to (comparison results that carry the gap, a text
+   "NULL" treated as NULL, dimension comments that list their values, the domestic default kept to approval
+   comparisons), then the benchmark and a third held-out set, written before the release. The pilot starts when R8
+   is met on Genie, with the held-out score as the number to watch.
 6. Phase 1, pilot (4 weeks): first, 20-minute interviews with three analysts to confirm the jobs and
    today's time to diagnosis. Then three analysts on real data; measure time to diagnosis against the
    current process and keep a log of wrong or missing answers.
