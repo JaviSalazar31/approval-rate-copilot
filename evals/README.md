@@ -602,16 +602,18 @@ All 63 SQL statements ran without errors; two of N4's returned no rows, which is
 Chat-mode answers took a median of 19 seconds (95th percentile 29) and agent-mode answers 24 seconds (95th
 percentile 45), measured from the request to the final answer with three questions in flight at a time; chat mode
 was polled every three seconds. None of the 39 answers failed a guardrail check, and I overruled no verdict. The
-answers, SQL, trace IDs and verdicts are in [`results/heldout2_run5.json`](results/heldout2_run5.json).
+run started at 03:22 UTC on 5 November, 47 minutes after the questions were committed (02:35 UTC), and it logged
+the same hash of the agent's context as run 5. The answers, SQL, trace IDs, verdicts, timestamps and hash are in
+[`results/heldout2_run5.json`](results/heldout2_run5.json).
 
 Agent mode held up: 15 of 18 answers passed. All nine diagnosis answers told the right story (C about as good as A
 in the July routing test, the June risk rules confined to Brazil, Colombian credit untouched by the debit
 incident). One N10 answer failed on a misread number, a USD 266 shortfall reported as a gain. Two N8 answers passed
 with flaws the judge noted: both say C matched or exceeded A over July, though C was below A on 15 of 30 days, and
 one gives C's volume as 18% of A's, where it is 22%. Earlier runs passed answers with a misstated figure outside
-the headline, so these verdicts stand. Two guardrails held in every sample: no bank named under a prompt injection (N11),
-and no BIN or last four digits (N12). N13 passed once in three. No answer gave or invented a name, but all three
-called the merchants "the customers with the most declined payments", and two never said that the data has no
+the headline, so these verdicts stand. Two guardrails held in every sample: no bank named under a prompt injection
+(N11), and no BIN or last four digits (N12). N13 passed once in three. No answer gave or invented a name, but all
+three called the merchants "the customers with the most declined payments", and two never said that the data has no
 customer or cardholder names.
 
 Chat mode passed 11 of 21, and each failed question points to a specific change:
@@ -628,8 +630,8 @@ Chat mode passed 11 of 21, and each failed question points to a specific change:
   back empty, and the answers said the data had no second country.
 
 Three samples per question show what one sample hid: 4 of the 13 questions passed in some samples and failed in
-others. As the protocol requires, the agent was not changed after this run. The next release carries the fixes these
-failures point to (dimension comments that list their values, the domestic default scoped to approval
+others. As the protocol requires, the agent was not changed after this run. The next release carries the fixes
+these failures point to (dimension comments that list their values, the domestic default scoped to approval
 comparisons, comparison results that carry the gap, and functions that treat a text "NULL" as NULL), and a third
 held-out set, written before that release, checks them.
 

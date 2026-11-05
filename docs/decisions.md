@@ -378,6 +378,14 @@ project was deployed until 4 November, with nothing to check that the workspace 
 be a service principal, not a person's token. Free Edition has one user, so there is a single production target
 and no staging workspace.
 
+**Result.** On 5 November 2026 the first deploy bound the existing pipeline, three jobs and dashboard, then stopped
+before recreating the dashboard: the bundle had placed it in a folder of its own, and a new parent path would have
+given it a new ID and URL. With the dashboard's folder named in the bundle, the next deploy changed the three jobs
+and the pipeline in place and created and deleted nothing. The deployed daily job then found a bug that no earlier
+run had reached: notebook 09, added after the last full run, was a SQL notebook, and its cell split a metric view's
+definition at a semicolon inside a comment. Notebook 09 now creates the views from Python, with the same
+definitions, and the daily job ran end to end from the deployed files in under seven minutes, with the same gold totals.
+
 ---
 
 ### ADR-17 · Define each rate once, in Unity Catalog metric views

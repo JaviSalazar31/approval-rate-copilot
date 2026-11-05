@@ -186,7 +186,11 @@ on every push to main that touches it, and deploys when you run it by hand.
    `DATABRICKS_HOST` (the workspace URL) and `DATABRICKS_TOKEN` (the token).
 3. In **Actions > Deploy to Databricks > Run workflow**, tick **bind_existing** the first time: it binds the
    pipeline, jobs and dashboard you already created, found by name, so the deploy updates them instead of creating
-   copies. Later deploys need no box ticked.
+   copies. Tick it only once; a resource that is already bound cannot be bound again. The deploy refuses any change
+   that would delete or recreate a resource, so a plan like that stops the run instead of replacing the dashboard
+   or a table. The bundle keeps the dashboard in the folder it was created in (`parent_path`), because moving it
+   would give it a new ID and URL. After the first deploy the jobs show as managed by the bundle and are locked in
+   the UI; change them in the repository.
 4. Tick **update_agent** only for a release that changes what the agent sees, after its evaluation: it applies
    `databricks/genie/approval_copilot_agent.json` to the Genie agent, once its example queries, benchmark answers,
    functions and tables pass a check.
