@@ -31,6 +31,7 @@ def test_window_and_choices_are_checked():
         with pytest.raises(ValueError):
             srv.check_window(*bad)
     assert srv._choice("dimension", "Issuer", srv.DIMENSIONS) == "issuer"
+    assert srv._choice("rank", "Lowest", srv.RANKS) == "lowest" and srv._choice("rate", "NULL", srv.RATES, True) is None
     with pytest.raises(ValueError):
         srv._choice("card_type", "prepaid", srv.CARD_TYPES)
     with pytest.raises(ValueError):
@@ -65,6 +66,8 @@ def test_no_value_from_the_caller_reaches_the_sql_text():
     assert params[-1] == {"name": "p_baseline_days", "value": "14", "type": "INT"}
     sql, params = srv.build_statement("fn_approval_drivers", {**args, "p_card_type": None, "p_dimension": None})
     assert "p_card_type" not in sql and "p_dimension" not in sql  # left out: the function's default applies
+    sql, params = srv.build_statement("fn_approval_drivers", {**args, "p_rate": "first_attempt", "p_rank": "lowest"})
+    assert sql.endswith("p_baseline_days => :p_baseline_days, p_rate => :p_rate, p_rank => :p_rank)")
     with pytest.raises(ValueError):
         srv.build_statement("fn_drop_impact", args, schema="workspace.approval_copilot; DROP SCHEMA x")
 
@@ -106,7 +109,8 @@ async def _call_tools(server_or_params):
     async with Client(server_or_params, read_timeout_seconds=240) as client:
         tools = {t.name: t for t in (await client.list_tools()).tools}
         impact = await client.call_tool("drop_impact", {**WINDOW, "card_type": "debit"})
-        drivers = await client.call_tool("approval_drivers", {**WINDOW, "card_type": "debit", "dimension": "issuer"})
+        drivers = await client.call_tool("approval_drivers", {**WINDOW, "card_type": "debit", "dimension": "issuer",
+                                                              "rank": "lowest"})
         bad = await client.call_tool("drop_impact", {**WINDOW, "country": "AR"})
         incident = await client.call_tool("drop_impact", {"country": "CO", "card_type": "debit",
                                                           "incident_date": "2026-08-13"})
@@ -128,8 +132,10 @@ def test_tools_over_mcp_return_the_copilot_numbers():
     row = _rows(impact)[0]
     assert (row["window_payments"], row["final_rate_change_pp"], row["lost_approvals"]) == (1004, -10.95, 110)
     assert round(row["lost_approved_usd"], 1) == 6354.2
-    issuers = _rows(drivers)
-    assert issuers[0]["segment_value"] == "CO-ISS-07" and {r["dimension"] for r in issuers} == {"issuer"}
+    assert row["lost_conversions"] == 110 and row["window_intents"] == 1026
+    issuers = _rows(drivers)   # the lowest issuer and the next two, with the gap to the next one
+    assert [r["segment_value"] for r in issuers] == ["CO-ISS-07", "CO-ISS-03", "CO-ISS-05"]
+    assert issuers[0]["gap_to_next_pp"] == 7.13 and {r["rate_type"] for r in issuers} == {"final"}
     assert bad.is_error and "country must be one of MX, CO, BR" in bad.content[0].text
     inc = _rows(incident)[0]   # the window comes from the change log: CHG-0813 to its rollback, CHG-0814
     assert (inc["window_start_local"], inc["window_end_local"], inc["lost_approvals"]) == (

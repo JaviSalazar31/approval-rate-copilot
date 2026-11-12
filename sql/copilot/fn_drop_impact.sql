@@ -1,5 +1,7 @@
 -- Size of a drop: approvals and approved volume lost versus the baseline rate, acquirer fees paid in the window,
 -- and the payment funnel of the same segment (risk blocks, 3DS abandonment, conversion).
+-- lost_approvals counts the payments sent to an acquirer; lost_conversions counts all payment intents, so it also
+-- holds the intents stopped before any acquirer, which extra_risk_blocks and extra_3ds_abandons count.
 -- The window is the one given. With p_incident_date and no start or end, it runs from the first production change
 -- of that date in the country (gold_change_log, local time) to the next change in the country, usually a rollback,
 -- a fix or a tuning; with no change that date, it is the calendar day.
@@ -121,5 +123,9 @@ SELECT
   round(bf.blocked / nullif(bf.intents, 0), 4) AS baseline_risk_block_rate,
   round(wf.blocked / nullif(wf.intents, 0), 4) AS window_risk_block_rate,
   round(bf.abandoned / nullif(bf.intents, 0), 4) AS baseline_3ds_abandon_rate,
-  round(wf.abandoned / nullif(wf.intents, 0), 4) AS window_3ds_abandon_rate
+  round(wf.abandoned / nullif(wf.intents, 0), 4) AS window_3ds_abandon_rate,
+  wf.intents AS window_intents,
+  round(wf.intents * bf.approved / nullif(bf.intents, 0)) - wf.approved AS lost_conversions,
+  wf.blocked - round(wf.intents * bf.blocked / nullif(bf.intents, 0)) AS extra_risk_blocks,
+  wf.abandoned - round(wf.intents * bf.abandoned / nullif(bf.intents, 0)) AS extra_3ds_abandons
 FROM bounds_src CROSS JOIN bounds CROSS JOIN w CROSS JOIN b CROSS JOIN wf CROSS JOIN bf

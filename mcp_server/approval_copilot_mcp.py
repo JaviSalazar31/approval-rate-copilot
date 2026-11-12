@@ -32,6 +32,8 @@ COUNTRIES = ("MX", "CO", "BR")
 CARD_TYPES = ("credit", "debit")
 DIMENSIONS = ("acquirer", "issuer", "card_brand", "three_ds_authenticated", "merchant_segment",
               "routing_rule_version")
+RATES = ("final", "first_attempt")
+RANKS = ("lowest", "highest")
 TS_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 # function name -> its parameters in order: (name, SQL type)
@@ -39,7 +41,8 @@ SIGNATURES = {
     "fn_drop_impact": [("p_country", "STRING"), ("p_start_local", "STRING"), ("p_end_local", "STRING"),
                        ("p_card_type", "STRING"), ("p_baseline_days", "INT"), ("p_incident_date", "STRING")],
     "fn_approval_drivers": [("p_country", "STRING"), ("p_start_local", "STRING"), ("p_end_local", "STRING"),
-                            ("p_card_type", "STRING"), ("p_baseline_days", "INT"), ("p_dimension", "STRING")],
+                            ("p_card_type", "STRING"), ("p_baseline_days", "INT"), ("p_dimension", "STRING"),
+                            ("p_rate", "STRING"), ("p_rank", "STRING")],
     "fn_decline_shift": [("p_country", "STRING"), ("p_start_local", "STRING"), ("p_end_local", "STRING"),
                          ("p_card_type", "STRING"), ("p_baseline_days", "INT")],
     "fn_cascade_health": [("p_country", "STRING"), ("p_start_local", "STRING"), ("p_end_local", "STRING"),
@@ -267,7 +270,9 @@ def create_server(backend):
         started an incident, and the window is read from the change log (window_start_local, window_end_local);
         or pass the window of the drop, from the change or hour it started to the change or hour it ended, not a
         calendar day. Lost figures are expected minus actual at the baseline rates: positive means the window
-        approved less."""
+        approved less. lost_approvals counts the payments sent to an acquirer; lost_conversions counts all payment
+        intents, including those that risk blocks (extra_risk_blocks) or 3DS abandonment (extra_3ds_abandons)
+        stopped before any acquirer."""
         def args():
             common = {"p_card_type": _choice("card_type", card_type, CARD_TYPES, optional=True),
                       "p_baseline_days": _integer("baseline_days", baseline_days, 1, 90, 14)}
@@ -281,15 +286,20 @@ def create_server(backend):
 
     @server.tool(annotations=read_only)
     def approval_drivers(country: str, start_local: str, end_local: str, card_type: str | None = None,
-                         baseline_days: int = 14, dimension: str | None = None) -> Table:
-        """Which segments moved final approval between the baseline and the window: for each acquirer, issuer,
-        card brand, 3DS outcome, merchant segment and routing version, the rate effect and the mix effect in
-        points. Pass a dimension to get only its rows, ordered from the lowest window rate, with pp_below_next
-        (how far each value sits below the next one)."""
+                         baseline_days: int = 14, dimension: str | None = None, rate: str | None = None,
+                         rank: str | None = None) -> Table:
+        """Which segments moved approval between the baseline and the window: for each acquirer, issuer, card
+        brand, 3DS outcome, merchant segment and routing version, the rate effect and the mix effect in points.
+        The rate is final approval unless rate is 'first_attempt' (rate_type says which). Pass a dimension to get
+        only its rows, ordered from the lowest window rate, with pp_below_next (how far each value sits below the
+        next one). Pass rank ('lowest' or 'highest') to keep the three values at that end of each dimension, in
+        ranking order, with gap_to_next_pp."""
         return call("fn_approval_drivers", lambda: {**check_window(country, start_local, end_local),
                                             "p_card_type": _choice("card_type", card_type, CARD_TYPES, optional=True),
                                             "p_baseline_days": _integer("baseline_days", baseline_days, 1, 90, 14),
-                                            "p_dimension": _choice("dimension", dimension, DIMENSIONS, optional=True)})
+                                            "p_dimension": _choice("dimension", dimension, DIMENSIONS, optional=True),
+                                            "p_rate": _choice("rate", rate, RATES, optional=True),
+                                            "p_rank": _choice("rank", rank, RANKS, optional=True)})
 
     @server.tool(annotations=read_only)
     def decline_shift(country: str, start_local: str, end_local: str, card_type: str | None = None,

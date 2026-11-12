@@ -176,30 +176,37 @@ def build_generator_notebook():
 
 FUNCTIONS = [
     dict(name="fn_approval_drivers",
-         comment="Explains a change in final approval for a country (and card type) between a baseline and an "
-                 "incident window, usually hours or a few days: contribution of each acquirer, issuer, card brand, "
-                 "3DS, merchant segment and routing version, split into rate effect and mix effect, in percentage "
-                 "points. Pass p_dimension to get only the rows of one dimension, ordered from the lowest "
-                 "window_rate, with pp_below_next (how far each value is below the next one); NULL returns all six "
-                 "dimensions. Each row is one segment: its own contribution is total_effect_pp, and the window's "
-                 "whole change is final_rate_change_pp in fn_drop_impact. To name the lowest value, keep it and the "
-                 "next two (ORDER BY window_rate LIMIT 3). window_rate and baseline_rate are final approval rates "
-                 "(first attempt or retry); for first-attempt approval use first_attempt_approved or "
-                 "approval_metrics. A segment with no baseline traffic is valued at the whole baseline rate, so "
-                 "traffic that moved onto it shows in its rate_effect_pp, not in mix_effect_pp: compare "
-                 "baseline_share and window_share to see whether traffic moved. It is built to diagnose a window "
-                 "against its baseline: to rank or compare segments over whole days or months, query the daily "
-                 "tables or the metric views instead, as in the examples. Domestic payments only.",
+         comment="Explains a change in approval for a country (and card type) between a baseline and an incident "
+                 "window, usually hours or a few days: contribution of each acquirer, issuer, card brand, 3DS, "
+                 "merchant segment and routing version, split into rate effect and mix effect, in percentage "
+                 "points. The rate is final approval (first attempt or retry) unless p_rate is 'first_attempt'; "
+                 "rate_type says which one window_rate and baseline_rate show. Pass p_dimension to get only the "
+                 "rows of one dimension, ordered from the lowest window_rate, with pp_below_next (how far each "
+                 "value is below the next one); NULL returns all six dimensions. To name the lowest or the highest "
+                 "value of a dimension, pass p_rank => 'lowest' or 'highest': only the three values at that end "
+                 "remain, in ranking order, and gap_to_next_pp is how far each one sits from the next. Each row is "
+                 "one segment: its own contribution is total_effect_pp, and the window's whole change in final "
+                 "approval is final_rate_change_pp in fn_drop_impact. A segment with no baseline traffic is valued "
+                 "at the whole baseline rate, so traffic that moved onto it shows in its rate_effect_pp while its "
+                 "mix_effect_pp stays near zero: compare baseline_share and window_share to see whether traffic "
+                 "moved. It is built to diagnose a window against its baseline: to rank or compare segments over "
+                 "whole days or months, the daily tables and the metric views hold the same rates, as in the "
+                 "examples. Domestic payments only.",
          params=[("p_country", "STRING", None, "Country code: MX, CO or BR"),
                  ("p_start_local", "STRING", None, "Window start, local time of the country, as 'YYYY-MM-DD HH:MM:SS'"),
                  ("p_end_local", "STRING", None, "Window end (exclusive), local time, as 'YYYY-MM-DD HH:MM:SS'"),
                  ("p_card_type", "STRING", "NULL", "credit, debit, or NULL for both"),
                  ("p_baseline_days", "INT", "14", "Days before the window used as baseline"),
                  ("p_dimension", "STRING", "NULL", "acquirer, issuer, card_brand, three_ds_authenticated, "
-                                                   "merchant_segment or routing_rule_version; NULL for all six")],
+                                                   "merchant_segment or routing_rule_version; NULL for all six"),
+                 ("p_rate", "STRING", "'final'", "final (approved on the first attempt or on a retry) or "
+                                                 "first_attempt (approved on the first attempt)"),
+                 ("p_rank", "STRING", "NULL", "lowest or highest: keep the three values at that end of each "
+                                              "dimension, in ranking order; NULL keeps every row")],
          returns="dimension STRING, segment_value STRING, baseline_payments BIGINT, window_payments BIGINT, "
                  "baseline_share DOUBLE, window_share DOUBLE, baseline_rate DOUBLE, window_rate DOUBLE, "
-                 "rate_effect_pp DOUBLE, mix_effect_pp DOUBLE, total_effect_pp DOUBLE, pp_below_next DOUBLE"),
+                 "rate_effect_pp DOUBLE, mix_effect_pp DOUBLE, total_effect_pp DOUBLE, pp_below_next DOUBLE, "
+                 "rate_type STRING, gap_to_next_pp DOUBLE"),
     dict(name="fn_decline_shift",
          comment="First-attempt failure reasons per acquirer as % of the segment's payments, baseline vs window, to "
                  "see which decline codes grew during a drop. When traffic moved from one acquirer to another, "
@@ -263,7 +270,11 @@ FUNCTIONS = [
                  "counts payments and the other weighs them by amount. final_rate_change_pp is the change in "
                  "approval of the payments sent to an acquirer; conversion_change_pp is the change over all "
                  "payment intents, so a conversion drop with a flat approval rate comes from risk blocks or 3DS "
-                 "abandonment, not from the acquirers. Domestic payments only.",
+                 "abandonment, not from the acquirers. lost_approvals counts approvals lost among the payments "
+                 "sent to an acquirer; lost_conversions counts them over all payment intents, so it includes the "
+                 "intents that risk blocks or 3DS abandonment stopped before any acquirer, which "
+                 "extra_risk_blocks and extra_3ds_abandons count above the baseline rate. When conversion fell "
+                 "while approval held, size the cost with lost_conversions. Domestic payments only.",
          params=[("p_country", "STRING", None, "Country code: MX, CO or BR"),
                  ("p_start_local", "STRING", "NULL", "Window start, local time, as 'YYYY-MM-DD HH:MM:SS'; leave "
                                                      "it out when you pass p_incident_date"),
@@ -279,7 +290,8 @@ FUNCTIONS = [
                  "lost_approvals DOUBLE, window_attempted_usd DOUBLE, window_approved_usd DOUBLE, "
                  "lost_approved_usd DOUBLE, window_fees_usd DOUBLE, baseline_conversion_rate DOUBLE, "
                  "window_conversion_rate DOUBLE, conversion_change_pp DOUBLE, baseline_risk_block_rate DOUBLE, "
-                 "window_risk_block_rate DOUBLE, baseline_3ds_abandon_rate DOUBLE, window_3ds_abandon_rate DOUBLE"),
+                 "window_risk_block_rate DOUBLE, baseline_3ds_abandon_rate DOUBLE, window_3ds_abandon_rate DOUBLE, "
+                 "window_intents BIGINT, lost_conversions DOUBLE, extra_risk_blocks DOUBLE, extra_3ds_abandons DOUBLE"),
 ]
 
 

@@ -19,23 +19,30 @@ CREATE OR REPLACE FUNCTION fn_approval_drivers(
   p_end_local STRING COMMENT 'Window end (exclusive), local time, as \'YYYY-MM-DD HH:MM:SS\'',
   p_card_type STRING DEFAULT NULL COMMENT 'credit, debit, or NULL for both',
   p_baseline_days INT DEFAULT 14 COMMENT 'Days before the window used as baseline',
-  p_dimension STRING DEFAULT NULL COMMENT 'acquirer, issuer, card_brand, three_ds_authenticated, merchant_segment or routing_rule_version; NULL for all six'
+  p_dimension STRING DEFAULT NULL COMMENT 'acquirer, issuer, card_brand, three_ds_authenticated, merchant_segment or routing_rule_version; NULL for all six',
+  p_rate STRING DEFAULT 'final' COMMENT 'final (approved on the first attempt or on a retry) or first_attempt (approved on the first attempt)',
+  p_rank STRING DEFAULT NULL COMMENT 'lowest or highest: keep the three values at that end of each dimension, in ranking order; NULL keeps every row'
 )
-RETURNS TABLE (dimension STRING, segment_value STRING, baseline_payments BIGINT, window_payments BIGINT, baseline_share DOUBLE, window_share DOUBLE, baseline_rate DOUBLE, window_rate DOUBLE, rate_effect_pp DOUBLE, mix_effect_pp DOUBLE, total_effect_pp DOUBLE, pp_below_next DOUBLE)
-COMMENT 'Explains a change in final approval for a country (and card type) between a baseline and an incident window, usually hours or a few days: contribution of each acquirer, issuer, card brand, 3DS, merchant segment and routing version, split into rate effect and mix effect, in percentage points. Pass p_dimension to get only the rows of one dimension, ordered from the lowest window_rate, with pp_below_next (how far each value is below the next one); NULL returns all six dimensions. Each row is one segment: its own contribution is total_effect_pp, and the window\'s whole change is final_rate_change_pp in fn_drop_impact. To name the lowest value, keep it and the next two (ORDER BY window_rate LIMIT 3). window_rate and baseline_rate are final approval rates (first attempt or retry); for first-attempt approval use first_attempt_approved or approval_metrics. A segment with no baseline traffic is valued at the whole baseline rate, so traffic that moved onto it shows in its rate_effect_pp, not in mix_effect_pp: compare baseline_share and window_share to see whether traffic moved. It is built to diagnose a window against its baseline: to rank or compare segments over whole days or months, query the daily tables or the metric views instead, as in the examples. Domestic payments only.'
+RETURNS TABLE (dimension STRING, segment_value STRING, baseline_payments BIGINT, window_payments BIGINT, baseline_share DOUBLE, window_share DOUBLE, baseline_rate DOUBLE, window_rate DOUBLE, rate_effect_pp DOUBLE, mix_effect_pp DOUBLE, total_effect_pp DOUBLE, pp_below_next DOUBLE, rate_type STRING, gap_to_next_pp DOUBLE)
+COMMENT 'Explains a change in approval for a country (and card type) between a baseline and an incident window, usually hours or a few days: contribution of each acquirer, issuer, card brand, 3DS, merchant segment and routing version, split into rate effect and mix effect, in percentage points. The rate is final approval (first attempt or retry) unless p_rate is \'first_attempt\'; rate_type says which one window_rate and baseline_rate show. Pass p_dimension to get only the rows of one dimension, ordered from the lowest window_rate, with pp_below_next (how far each value is below the next one); NULL returns all six dimensions. To name the lowest or the highest value of a dimension, pass p_rank => \'lowest\' or \'highest\': only the three values at that end remain, in ranking order, and gap_to_next_pp is how far each one sits from the next. Each row is one segment: its own contribution is total_effect_pp, and the window\'s whole change in final approval is final_rate_change_pp in fn_drop_impact. A segment with no baseline traffic is valued at the whole baseline rate, so traffic that moved onto it shows in its rate_effect_pp while its mix_effect_pp stays near zero: compare baseline_share and window_share to see whether traffic moved. It is built to diagnose a window against its baseline: to rank or compare segments over whole days or months, the daily tables and the metric views hold the same rates, as in the examples. Domestic payments only.'
 RETURN
--- Explains a change in final approval between a baseline period and a window.
+-- Explains a change in approval between a baseline period and a window.
 -- For each dimension value, splits its contribution into:
 --   rate_effect_pp: the segment approved more/less than before (weighted by its share in the window)
 --   mix_effect_pp:  traffic moved into/out of a segment that was better/worse than average
--- rate_effect_pp + mix_effect_pp across the values of one dimension = the window's whole change, which
--- fn_drop_impact returns as final_rate_change_pp. No row carries that total: each row is one segment.
+-- rate_effect_pp + mix_effect_pp across the values of one dimension = the window's whole change in that rate
+-- (for the final rate, fn_drop_impact's final_rate_change_pp). No row carries that total: each row is one segment.
 -- p_dimension keeps one dimension (NULL keeps all six); rows come ordered from the lowest window rate.
 -- pp_below_next: how far each value's window rate sits below the next higher value of the same dimension.
--- The rates are final approval rates. A segment with no baseline traffic is valued at the whole baseline rate,
--- so traffic that moved onto it shows in its rate effect: baseline_share and window_share show the move.
+-- p_rate picks the rate: 'final' (the default: approved on the first attempt or on a retry) or 'first_attempt';
+-- rate_type says which one the rows show. p_rank ('lowest' or 'highest') keeps the three values at that end of
+-- each dimension, in ranking order, and gap_to_next_pp is how far each one sits from the next in that order.
+-- A segment with no baseline traffic is valued at the whole baseline rate, so traffic that moved onto it shows
+-- in its rate effect: baseline_share and window_share show the move.
 WITH scope AS (
-  SELECT *
+  SELECT *,
+         CAST(CASE WHEN lower(trim(coalesce(p_rate, 'final'))) IN ('first_attempt', 'first attempt', 'first-attempt')
+                   THEN first_attempt_approved ELSE final_approved END AS INT) AS ok
   FROM workspace.approval_copilot.silver_payments
   WHERE sent_to_acquirer
     AND NOT is_cross_border
@@ -53,7 +60,7 @@ base AS (
 ),
 long_win AS (
   SELECT
-    CAST(final_approved AS INT) AS ok,
+    ok,
     explode(map('acquirer', first_acquirer_id,
                 'issuer', issuer_id,
                 'card_brand', card_brand,
@@ -64,7 +71,7 @@ long_win AS (
 ),
 long_base AS (
   SELECT
-    CAST(final_approved AS INT) AS ok,
+    ok,
     explode(map('acquirer', first_acquirer_id,
                 'issuer', issuer_id,
                 'card_brand', card_brand,
@@ -85,9 +92,10 @@ totals AS (
   SELECT
     (SELECT count(*) FROM win) AS n_win,
     (SELECT count(*) FROM base) AS n_base,
-    (SELECT avg(CAST(final_approved AS INT)) FROM win) AS rate_win,
-    (SELECT avg(CAST(final_approved AS INT)) FROM base) AS rate_base
-)
+    (SELECT avg(ok) FROM win) AS rate_win,
+    (SELECT avg(ok) FROM base) AS rate_base
+),
+seg AS (
 SELECT
   coalesce(w.dimension, b.dimension) AS dimension,
   coalesce(w.segment_value, b.segment_value) AS segment_value,
@@ -105,14 +113,34 @@ SELECT
                * (coalesce(b.rate, t.rate_base) - t.rate_base)), 2) AS total_effect_pp,
   round(100 * (lead(round(w.rate, 4)) OVER (PARTITION BY coalesce(w.dimension, b.dimension)
                                               ORDER BY w.rate ASC NULLS LAST, coalesce(w.segment_value, b.segment_value))
-               - round(w.rate, 4)), 2) AS pp_below_next
+               - round(w.rate, 4)), 2) AS pp_below_next,
+  round(100 * (round(w.rate, 4) - lead(round(w.rate, 4)) OVER (PARTITION BY coalesce(w.dimension, b.dimension)
+                                              ORDER BY w.rate DESC NULLS LAST, coalesce(w.segment_value, b.segment_value))),
+        2) AS pp_above_next_lower,
+  row_number() OVER (PARTITION BY coalesce(w.dimension, b.dimension)
+                     ORDER BY w.rate ASC NULLS LAST, coalesce(w.segment_value, b.segment_value)) AS rank_lowest,
+  row_number() OVER (PARTITION BY coalesce(w.dimension, b.dimension)
+                     ORDER BY w.rate DESC NULLS LAST, coalesce(w.segment_value, b.segment_value)) AS rank_highest
 FROM agg_win w
 FULL OUTER JOIN agg_base b
   ON w.dimension = b.dimension AND w.segment_value = b.segment_value
 CROSS JOIN totals t
 WHERE p_dimension IS NULL OR upper(trim(p_dimension)) IN ('NULL', '')
    OR coalesce(w.dimension, b.dimension) = p_dimension
-ORDER BY dimension, window_rate ASC NULLS LAST, segment_value;
+)
+SELECT
+  dimension, segment_value, baseline_payments, window_payments, baseline_share, window_share, baseline_rate,
+  window_rate, rate_effect_pp, mix_effect_pp, total_effect_pp, pp_below_next,
+  CASE WHEN lower(trim(coalesce(p_rate, 'final'))) IN ('first_attempt', 'first attempt', 'first-attempt')
+       THEN 'first_attempt' ELSE 'final' END AS rate_type,
+  CASE WHEN lower(trim(coalesce(p_rank, ''))) = 'highest' THEN pp_above_next_lower ELSE pp_below_next END
+    AS gap_to_next_pp
+FROM seg
+-- p_rank keeps the three values at one end of each dimension; any other value keeps every row
+WHERE lower(trim(coalesce(p_rank, ''))) NOT IN ('lowest', 'highest')
+   OR (lower(trim(p_rank)) = 'lowest' AND rank_lowest <= 3)
+   OR (lower(trim(p_rank)) = 'highest' AND rank_highest <= 3)
+ORDER BY dimension, CASE WHEN lower(trim(coalesce(p_rank, ''))) = 'highest' THEN rank_highest ELSE rank_lowest END;
 
 -- COMMAND ----------
 
@@ -325,11 +353,13 @@ CREATE OR REPLACE FUNCTION fn_drop_impact(
   p_baseline_days INT DEFAULT 14 COMMENT 'Days before the window used as baseline',
   p_incident_date STRING DEFAULT NULL COMMENT 'Date of the change that started an incident, as \'YYYY-MM-DD\': the window is read from the change log'
 )
-RETURNS TABLE (window_start_local STRING, window_end_local STRING, window_source STRING, window_payments BIGINT, baseline_payments BIGINT, baseline_first_attempt_rate DOUBLE, window_first_attempt_rate DOUBLE, baseline_final_rate DOUBLE, window_final_rate DOUBLE, final_rate_change_pp DOUBLE, window_approvals BIGINT, expected_approvals_at_baseline DOUBLE, lost_approvals DOUBLE, window_attempted_usd DOUBLE, window_approved_usd DOUBLE, lost_approved_usd DOUBLE, window_fees_usd DOUBLE, baseline_conversion_rate DOUBLE, window_conversion_rate DOUBLE, conversion_change_pp DOUBLE, baseline_risk_block_rate DOUBLE, window_risk_block_rate DOUBLE, baseline_3ds_abandon_rate DOUBLE, window_3ds_abandon_rate DOUBLE)
-COMMENT 'Size of an incident or a drop versus the baseline: lost approvals, lost approved volume (USD) and fees paid in the window, plus the payment funnel of the same segment (conversion, risk blocks and 3DS abandonment). For an incident named by its date, pass p_incident_date and leave the start and end out: the window then runs from the first production change of that date in the country to the next change there (a rollback, a fix or a tuning), and window_start_local, window_end_local and window_source say which window was sized. Otherwise pass the window of the drop, from the change or hour it started to the change or hour it ended, never a calendar day: normal hours in the window understate the drop. lost_approvals and lost_approved_usd are expected minus actual at the baseline rates: positive means the window approved less than its baseline predicts, negative means it approved more. The two can differ in sign, because one counts payments and the other weighs them by amount. final_rate_change_pp is the change in approval of the payments sent to an acquirer; conversion_change_pp is the change over all payment intents, so a conversion drop with a flat approval rate comes from risk blocks or 3DS abandonment, not from the acquirers. Domestic payments only.'
+RETURNS TABLE (window_start_local STRING, window_end_local STRING, window_source STRING, window_payments BIGINT, baseline_payments BIGINT, baseline_first_attempt_rate DOUBLE, window_first_attempt_rate DOUBLE, baseline_final_rate DOUBLE, window_final_rate DOUBLE, final_rate_change_pp DOUBLE, window_approvals BIGINT, expected_approvals_at_baseline DOUBLE, lost_approvals DOUBLE, window_attempted_usd DOUBLE, window_approved_usd DOUBLE, lost_approved_usd DOUBLE, window_fees_usd DOUBLE, baseline_conversion_rate DOUBLE, window_conversion_rate DOUBLE, conversion_change_pp DOUBLE, baseline_risk_block_rate DOUBLE, window_risk_block_rate DOUBLE, baseline_3ds_abandon_rate DOUBLE, window_3ds_abandon_rate DOUBLE, window_intents BIGINT, lost_conversions DOUBLE, extra_risk_blocks DOUBLE, extra_3ds_abandons DOUBLE)
+COMMENT 'Size of an incident or a drop versus the baseline: lost approvals, lost approved volume (USD) and fees paid in the window, plus the payment funnel of the same segment (conversion, risk blocks and 3DS abandonment). For an incident named by its date, pass p_incident_date and leave the start and end out: the window then runs from the first production change of that date in the country to the next change there (a rollback, a fix or a tuning), and window_start_local, window_end_local and window_source say which window was sized. Otherwise pass the window of the drop, from the change or hour it started to the change or hour it ended, never a calendar day: normal hours in the window understate the drop. lost_approvals and lost_approved_usd are expected minus actual at the baseline rates: positive means the window approved less than its baseline predicts, negative means it approved more. The two can differ in sign, because one counts payments and the other weighs them by amount. final_rate_change_pp is the change in approval of the payments sent to an acquirer; conversion_change_pp is the change over all payment intents, so a conversion drop with a flat approval rate comes from risk blocks or 3DS abandonment, not from the acquirers. lost_approvals counts approvals lost among the payments sent to an acquirer; lost_conversions counts them over all payment intents, so it includes the intents that risk blocks or 3DS abandonment stopped before any acquirer, which extra_risk_blocks and extra_3ds_abandons count above the baseline rate. When conversion fell while approval held, size the cost with lost_conversions. Domestic payments only.'
 RETURN
 -- Size of a drop: approvals and approved volume lost versus the baseline rate, acquirer fees paid in the window,
 -- and the payment funnel of the same segment (risk blocks, 3DS abandonment, conversion).
+-- lost_approvals counts the payments sent to an acquirer; lost_conversions counts all payment intents, so it also
+-- holds the intents stopped before any acquirer, which extra_risk_blocks and extra_3ds_abandons count.
 -- The window is the one given. With p_incident_date and no start or end, it runs from the first production change
 -- of that date in the country (gold_change_log, local time) to the next change in the country, usually a rollback,
 -- a fix or a tuning; with no change that date, it is the calendar day.
@@ -451,7 +481,11 @@ SELECT
   round(bf.blocked / nullif(bf.intents, 0), 4) AS baseline_risk_block_rate,
   round(wf.blocked / nullif(wf.intents, 0), 4) AS window_risk_block_rate,
   round(bf.abandoned / nullif(bf.intents, 0), 4) AS baseline_3ds_abandon_rate,
-  round(wf.abandoned / nullif(wf.intents, 0), 4) AS window_3ds_abandon_rate
+  round(wf.abandoned / nullif(wf.intents, 0), 4) AS window_3ds_abandon_rate,
+  wf.intents AS window_intents,
+  round(wf.intents * bf.approved / nullif(bf.intents, 0)) - wf.approved AS lost_conversions,
+  wf.blocked - round(wf.intents * bf.blocked / nullif(bf.intents, 0)) AS extra_risk_blocks,
+  wf.abandoned - round(wf.intents * bf.abandoned / nullif(bf.intents, 0)) AS extra_3ds_abandons
 FROM bounds_src CROSS JOIN bounds CROSS JOIN w CROSS JOIN b CROSS JOIN wf CROSS JOIN bf;
 
 -- COMMAND ----------
