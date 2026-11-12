@@ -31,8 +31,8 @@ async def main():
         tools = sorted(t.name for t in (await client.list_tools()).tools)
         print("tools:", ", ".join(tools))
         impact = rows(await client.call_tool("drop_impact", WINDOW))[0]
-        print("drop_impact:", {k: impact[k] for k in ("window_payments", "final_rate_change_pp", "lost_approvals",
-                                                       "lost_approved_usd")})
+        print("drop_impact:", {k: impact[k] for k in ("window_source", "window_payments", "final_rate_change_pp",
+                                                       "lost_approvals", "lost_approved_usd")})
         issuers = rows(await client.call_tool("approval_drivers", {**WINDOW, "dimension": "issuer"}))
         print("lowest issuer:", issuers[0]["segment_value"], issuers[0]["window_rate"], issuers[0]["pp_below_next"])
         changes = rows(await client.call_tool("changes_near", {k: v for k, v in WINDOW.items() if k != "card_type"}))
@@ -49,6 +49,7 @@ async def main():
         assert {"CHG-0813", "CHG-0814"} <= {c["change_id"] for c in changes}, changes
         assert (incident["window_start_local"], incident["window_end_local"], incident["window_payments"]) == (
             "2026-08-13 14:00:00", "2026-08-14 12:10:00", 1004), incident
+        assert incident["window_source"] == impact["window_source"] == "change log: from CHG-0813 to CHG-0814"
         assert stopped == [("B", "05")], stopped
     print("MCP server on Databricks: OK")
 

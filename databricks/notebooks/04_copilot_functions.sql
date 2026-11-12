@@ -364,14 +364,26 @@ bounds AS (
     CASE WHEN CAST(p_start_local AS TIMESTAMP) IS NOT NULL THEN CAST(p_end_local AS TIMESTAMP)
          WHEN s.at_local IS NOT NULL THEN coalesce(e.at_local, s.at_local + INTERVAL 24 HOURS)
          ELSE CAST(date_add(day.d, 1) AS TIMESTAMP) END AS we,
-    CASE WHEN CAST(p_start_local AS TIMESTAMP) IS NOT NULL THEN 'as given'
-         WHEN s.at_local IS NOT NULL
-           THEN concat('change log: from ', s.change_id, ' to ', coalesce(e.change_id, '24 hours later'))
-         WHEN day.d IS NOT NULL THEN 'calendar day: no change in the country that date'
-         ELSE 'no window: pass a start and end, or p_incident_date' END AS source
+    CASE WHEN CAST(p_start_local AS TIMESTAMP) IS NULL AND s.at_local IS NULL AND day.d IS NOT NULL
+         THEN 'calendar day: no change in the country that date' END AS fallback
   FROM day
   LEFT JOIN started s ON true
   LEFT JOIN ended e ON true
+),
+bounds_src AS (
+  -- names the window the same way however it was passed: a window that runs from one change to another is the
+  -- change log's
+  SELECT ws, we,
+    CASE WHEN ws IS NULL OR we IS NULL THEN 'no window: pass a start and end, or p_incident_date'
+         WHEN fallback IS NOT NULL THEN fallback
+         WHEN (SELECT min(change_id) FROM chg WHERE at_local = ws) IS NOT NULL
+              AND (SELECT min(change_id) FROM chg WHERE at_local = we) IS NOT NULL
+           THEN concat('change log: from ', (SELECT min(change_id) FROM chg WHERE at_local = ws),
+                       ' to ', (SELECT min(change_id) FROM chg WHERE at_local = we))
+         WHEN (SELECT min(change_id) FROM chg WHERE at_local = ws) IS NOT NULL AND we = ws + INTERVAL 24 HOURS
+           THEN concat('change log: from ', (SELECT min(change_id) FROM chg WHERE at_local = ws), ' to 24 hours later')
+         ELSE 'as given' END AS source
+  FROM bounds
 ),
 intents AS (
   SELECT p.*
@@ -416,7 +428,7 @@ bf AS (
 SELECT
   date_format(bounds.ws, 'yyyy-MM-dd HH:mm:ss') AS window_start_local,
   date_format(bounds.we, 'yyyy-MM-dd HH:mm:ss') AS window_end_local,
-  bounds.source AS window_source,
+  bounds_src.source AS window_source,
   w.payments AS window_payments,
   b.payments AS baseline_payments,
   round(b.first_rate, 4) AS baseline_first_attempt_rate,
@@ -438,7 +450,7 @@ SELECT
   round(wf.blocked / nullif(wf.intents, 0), 4) AS window_risk_block_rate,
   round(bf.abandoned / nullif(bf.intents, 0), 4) AS baseline_3ds_abandon_rate,
   round(wf.abandoned / nullif(wf.intents, 0), 4) AS window_3ds_abandon_rate
-FROM bounds CROSS JOIN w CROSS JOIN b CROSS JOIN wf CROSS JOIN bf;
+FROM bounds_src CROSS JOIN bounds CROSS JOIN w CROSS JOIN b CROSS JOIN wf CROSS JOIN bf;
 
 -- COMMAND ----------
 
