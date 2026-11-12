@@ -9,6 +9,7 @@ spark-warehouse/
 metastore_db/
 derby.log
 .venv/
+.venv-mcp/
 venv/
 .pytest_cache/
 .idea/
