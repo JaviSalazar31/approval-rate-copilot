@@ -1,15 +1,19 @@
 -- Shared window of the copilot functions, inserted where a function body says {incident_window}.
 -- A start and end, when passed, are the window. With p_incident_date and no start, the window runs from the
--- first production change of that date in the country (gold_change_log, local time; rollbacks and partner
--- notices do not start one) to the next change in the country, usually a rollback, a fix or a tuning, or 24
--- hours if none follows. With no change that date, it is the calendar day.
+-- first production change of that date that affects the country (gold_change_log, local time: the country's own
+-- changes, global ones and those of an acquirer that serves it; rollbacks and partner notices do not start one)
+-- to the next such change, usually a rollback, a fix or a tuning, or 24 hours if none follows. With no change
+-- that date, it is the calendar day.
 chg AS (
-  SELECT change_id, change_type,
-         CASE ${p_country} WHEN 'MX' THEN changed_at_mexico_city
-                           WHEN 'CO' THEN changed_at_bogota
-                           WHEN 'BR' THEN changed_at_sao_paulo END AS at_local
-  FROM {schema}gold_change_log
-  WHERE scope = 'ALL' OR array_contains(split(scope, ','), ${p_country})
+  SELECT c.change_id, c.change_type,
+         CASE ${p_country} WHEN 'MX' THEN c.changed_at_mexico_city
+                           WHEN 'CO' THEN c.changed_at_bogota
+                           WHEN 'BR' THEN c.changed_at_sao_paulo END AS at_local
+  FROM {schema}gold_change_log c
+  LEFT JOIN (SELECT acquirer_id FROM {schema}ref_acquirers
+             WHERE array_contains(split(countries, ','), ${p_country})) a
+    ON c.scope = a.acquirer_id
+  WHERE c.scope = 'ALL' OR array_contains(split(c.scope, ','), ${p_country}) OR a.acquirer_id IS NOT NULL
 ),
 day AS (
   SELECT try_cast(${p_incident_date} AS DATE) AS d

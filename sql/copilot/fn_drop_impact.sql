@@ -7,20 +7,24 @@
 -- The window is the one given, or the one p_incident_date reads from the change log (_incident_window.sql).
 WITH
 {incident_window},
+chg_at AS (
+  SELECT at_local, min(change_id) AS change_id FROM chg GROUP BY at_local
+),
 bounds_src AS (
   -- names the window the same way however it was passed: a window that runs from one change to another is the
-  -- change log's
-  SELECT ws, we,
-    CASE WHEN ws IS NULL OR we IS NULL THEN 'no window: pass a start and end, or p_incident_date'
-         WHEN fallback IS NOT NULL THEN fallback
-         WHEN (SELECT min(change_id) FROM chg WHERE at_local = ws) IS NOT NULL
-              AND (SELECT min(change_id) FROM chg WHERE at_local = we) IS NOT NULL
-           THEN concat('change log: from ', (SELECT min(change_id) FROM chg WHERE at_local = ws),
-                       ' to ', (SELECT min(change_id) FROM chg WHERE at_local = we))
-         WHEN (SELECT min(change_id) FROM chg WHERE at_local = ws) IS NOT NULL AND we = ws + INTERVAL 24 HOURS
-           THEN concat('change log: from ', (SELECT min(change_id) FROM chg WHERE at_local = ws), ' to 24 hours later')
+  -- change log's. Joins, not scalar subqueries: inside a Unity Catalog function, a subquery expression cannot
+  -- read the function's arguments, and chg depends on them.
+  SELECT b.ws, b.we,
+    CASE WHEN b.ws IS NULL OR b.we IS NULL THEN 'no window: pass a start and end, or p_incident_date'
+         WHEN b.fallback IS NOT NULL THEN b.fallback
+         WHEN cs.change_id IS NOT NULL AND ce.change_id IS NOT NULL
+           THEN concat('change log: from ', cs.change_id, ' to ', ce.change_id)
+         WHEN cs.change_id IS NOT NULL AND b.we = b.ws + INTERVAL 24 HOURS
+           THEN concat('change log: from ', cs.change_id, ' to 24 hours later')
          ELSE 'as given' END AS source
-  FROM bounds
+  FROM bounds b
+  LEFT JOIN chg_at cs ON cs.at_local = b.ws
+  LEFT JOIN chg_at ce ON ce.at_local = b.we
 ),
 intents AS (
   SELECT p.*

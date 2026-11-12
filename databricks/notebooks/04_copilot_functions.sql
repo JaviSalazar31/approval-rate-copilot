@@ -48,16 +48,20 @@ RETURN
 WITH
 -- Shared window of the copilot functions, inserted where a function body says {incident_window}.
 -- A start and end, when passed, are the window. With p_incident_date and no start, the window runs from the
--- first production change of that date in the country (gold_change_log, local time; rollbacks and partner
--- notices do not start one) to the next change in the country, usually a rollback, a fix or a tuning, or 24
--- hours if none follows. With no change that date, it is the calendar day.
+-- first production change of that date that affects the country (gold_change_log, local time: the country's own
+-- changes, global ones and those of an acquirer that serves it; rollbacks and partner notices do not start one)
+-- to the next such change, usually a rollback, a fix or a tuning, or 24 hours if none follows. With no change
+-- that date, it is the calendar day.
 chg AS (
-  SELECT change_id, change_type,
-         CASE p_country WHEN 'MX' THEN changed_at_mexico_city
-                           WHEN 'CO' THEN changed_at_bogota
-                           WHEN 'BR' THEN changed_at_sao_paulo END AS at_local
-  FROM workspace.approval_copilot.gold_change_log
-  WHERE scope = 'ALL' OR array_contains(split(scope, ','), p_country)
+  SELECT c.change_id, c.change_type,
+         CASE p_country WHEN 'MX' THEN c.changed_at_mexico_city
+                           WHEN 'CO' THEN c.changed_at_bogota
+                           WHEN 'BR' THEN c.changed_at_sao_paulo END AS at_local
+  FROM workspace.approval_copilot.gold_change_log c
+  LEFT JOIN (SELECT acquirer_id FROM workspace.approval_copilot.ref_acquirers
+             WHERE array_contains(split(countries, ','), p_country)) a
+    ON c.scope = a.acquirer_id
+  WHERE c.scope = 'ALL' OR array_contains(split(c.scope, ','), p_country) OR a.acquirer_id IS NOT NULL
 ),
 day AS (
   SELECT try_cast(p_incident_date AS DATE) AS d
@@ -153,11 +157,11 @@ agg_base AS (
   FROM long_base GROUP BY dimension, segment_value
 ),
 totals AS (
-  SELECT
-    (SELECT count(*) FROM win) AS n_win,
-    (SELECT count(*) FROM base) AS n_base,
-    (SELECT avg(ok) FROM win) AS rate_win,
-    (SELECT avg(ok) FROM base) AS rate_base
+  -- joins, not scalar subqueries: inside a Unity Catalog function, a subquery expression cannot read the
+  -- function's arguments, and win and base depend on them
+  SELECT tw.n_win, tb.n_base, tw.rate_win, tb.rate_base
+  FROM (SELECT count(*) AS n_win, avg(ok) AS rate_win FROM win) tw
+  CROSS JOIN (SELECT count(*) AS n_base, avg(ok) AS rate_base FROM base) tb
 ),
 seg AS (
 SELECT
@@ -229,16 +233,20 @@ RETURN
 WITH
 -- Shared window of the copilot functions, inserted where a function body says {incident_window}.
 -- A start and end, when passed, are the window. With p_incident_date and no start, the window runs from the
--- first production change of that date in the country (gold_change_log, local time; rollbacks and partner
--- notices do not start one) to the next change in the country, usually a rollback, a fix or a tuning, or 24
--- hours if none follows. With no change that date, it is the calendar day.
+-- first production change of that date that affects the country (gold_change_log, local time: the country's own
+-- changes, global ones and those of an acquirer that serves it; rollbacks and partner notices do not start one)
+-- to the next such change, usually a rollback, a fix or a tuning, or 24 hours if none follows. With no change
+-- that date, it is the calendar day.
 chg AS (
-  SELECT change_id, change_type,
-         CASE p_country WHEN 'MX' THEN changed_at_mexico_city
-                           WHEN 'CO' THEN changed_at_bogota
-                           WHEN 'BR' THEN changed_at_sao_paulo END AS at_local
-  FROM workspace.approval_copilot.gold_change_log
-  WHERE scope = 'ALL' OR array_contains(split(scope, ','), p_country)
+  SELECT c.change_id, c.change_type,
+         CASE p_country WHEN 'MX' THEN c.changed_at_mexico_city
+                           WHEN 'CO' THEN c.changed_at_bogota
+                           WHEN 'BR' THEN c.changed_at_sao_paulo END AS at_local
+  FROM workspace.approval_copilot.gold_change_log c
+  LEFT JOIN (SELECT acquirer_id FROM workspace.approval_copilot.ref_acquirers
+             WHERE array_contains(split(countries, ','), p_country)) a
+    ON c.scope = a.acquirer_id
+  WHERE c.scope = 'ALL' OR array_contains(split(c.scope, ','), p_country) OR a.acquirer_id IS NOT NULL
 ),
 day AS (
   SELECT try_cast(p_incident_date AS DATE) AS d
@@ -301,7 +309,10 @@ fb AS (
   GROUP BY first_acquirer_id, coalesce(first_iso_code, first_status)
 ),
 totals AS (
-  SELECT (SELECT count(*) FROM win) AS n_win, (SELECT count(*) FROM base) AS n_base
+  -- joins, not scalar subqueries: inside a Unity Catalog function, a subquery expression cannot read the
+  -- function's arguments, and win and base depend on them
+  SELECT tw.n_win, tb.n_base
+  FROM (SELECT count(*) AS n_win FROM win) tw CROSS JOIN (SELECT count(*) AS n_base FROM base) tb
 )
 SELECT
   coalesce(w.acquirer_id, b.acquirer_id) AS acquirer_id,
@@ -350,16 +361,20 @@ RETURN
 WITH
 -- Shared window of the copilot functions, inserted where a function body says {incident_window}.
 -- A start and end, when passed, are the window. With p_incident_date and no start, the window runs from the
--- first production change of that date in the country (gold_change_log, local time; rollbacks and partner
--- notices do not start one) to the next change in the country, usually a rollback, a fix or a tuning, or 24
--- hours if none follows. With no change that date, it is the calendar day.
+-- first production change of that date that affects the country (gold_change_log, local time: the country's own
+-- changes, global ones and those of an acquirer that serves it; rollbacks and partner notices do not start one)
+-- to the next such change, usually a rollback, a fix or a tuning, or 24 hours if none follows. With no change
+-- that date, it is the calendar day.
 chg AS (
-  SELECT change_id, change_type,
-         CASE p_country WHEN 'MX' THEN changed_at_mexico_city
-                           WHEN 'CO' THEN changed_at_bogota
-                           WHEN 'BR' THEN changed_at_sao_paulo END AS at_local
-  FROM workspace.approval_copilot.gold_change_log
-  WHERE scope = 'ALL' OR array_contains(split(scope, ','), p_country)
+  SELECT c.change_id, c.change_type,
+         CASE p_country WHEN 'MX' THEN c.changed_at_mexico_city
+                           WHEN 'CO' THEN c.changed_at_bogota
+                           WHEN 'BR' THEN c.changed_at_sao_paulo END AS at_local
+  FROM workspace.approval_copilot.gold_change_log c
+  LEFT JOIN (SELECT acquirer_id FROM workspace.approval_copilot.ref_acquirers
+             WHERE array_contains(split(countries, ','), p_country)) a
+    ON c.scope = a.acquirer_id
+  WHERE c.scope = 'ALL' OR array_contains(split(c.scope, ','), p_country) OR a.acquirer_id IS NOT NULL
 ),
 day AS (
   SELECT try_cast(p_incident_date AS DATE) AS d
@@ -488,16 +503,20 @@ RETURN
 WITH
 -- Shared window of the copilot functions, inserted where a function body says {incident_window}.
 -- A start and end, when passed, are the window. With p_incident_date and no start, the window runs from the
--- first production change of that date in the country (gold_change_log, local time; rollbacks and partner
--- notices do not start one) to the next change in the country, usually a rollback, a fix or a tuning, or 24
--- hours if none follows. With no change that date, it is the calendar day.
+-- first production change of that date that affects the country (gold_change_log, local time: the country's own
+-- changes, global ones and those of an acquirer that serves it; rollbacks and partner notices do not start one)
+-- to the next such change, usually a rollback, a fix or a tuning, or 24 hours if none follows. With no change
+-- that date, it is the calendar day.
 chg AS (
-  SELECT change_id, change_type,
-         CASE p_country WHEN 'MX' THEN changed_at_mexico_city
-                           WHEN 'CO' THEN changed_at_bogota
-                           WHEN 'BR' THEN changed_at_sao_paulo END AS at_local
-  FROM workspace.approval_copilot.gold_change_log
-  WHERE scope = 'ALL' OR array_contains(split(scope, ','), p_country)
+  SELECT c.change_id, c.change_type,
+         CASE p_country WHEN 'MX' THEN c.changed_at_mexico_city
+                           WHEN 'CO' THEN c.changed_at_bogota
+                           WHEN 'BR' THEN c.changed_at_sao_paulo END AS at_local
+  FROM workspace.approval_copilot.gold_change_log c
+  LEFT JOIN (SELECT acquirer_id FROM workspace.approval_copilot.ref_acquirers
+             WHERE array_contains(split(countries, ','), p_country)) a
+    ON c.scope = a.acquirer_id
+  WHERE c.scope = 'ALL' OR array_contains(split(c.scope, ','), p_country) OR a.acquirer_id IS NOT NULL
 ),
 day AS (
   SELECT try_cast(p_incident_date AS DATE) AS d
@@ -569,7 +588,7 @@ CREATE OR REPLACE FUNCTION fn_drop_impact(
   p_incident_date STRING DEFAULT NULL COMMENT 'Date of the change that started an incident, as \'YYYY-MM-DD\': the window is read from the change log'
 )
 RETURNS TABLE (window_start_local STRING, window_end_local STRING, window_source STRING, window_payments BIGINT, baseline_payments BIGINT, baseline_first_attempt_rate DOUBLE, window_first_attempt_rate DOUBLE, baseline_final_rate DOUBLE, window_final_rate DOUBLE, final_rate_change_pp DOUBLE, window_approvals BIGINT, expected_approvals_at_baseline DOUBLE, lost_approvals DOUBLE, gained_approvals DOUBLE, window_attempted_usd DOUBLE, window_approved_usd DOUBLE, lost_approved_usd DOUBLE, gained_approved_usd DOUBLE, window_fees_usd DOUBLE, baseline_conversion_rate DOUBLE, window_conversion_rate DOUBLE, conversion_change_pp DOUBLE, baseline_risk_block_rate DOUBLE, window_risk_block_rate DOUBLE, baseline_3ds_abandon_rate DOUBLE, window_3ds_abandon_rate DOUBLE, window_intents BIGINT, lost_conversions DOUBLE, gained_conversions DOUBLE, extra_risk_blocks DOUBLE, extra_3ds_abandons DOUBLE)
-COMMENT 'Size of an incident or a drop versus the baseline: lost approvals, lost approved volume (USD) and fees paid in the window, plus the payment funnel of the same segment (conversion, risk blocks and 3DS abandonment). For an incident named by its date, pass p_incident_date and leave the start and end out: the window then runs from the first production change of that date in the country to the next change there (a rollback, a fix or a tuning), and window_start_local, window_end_local and window_source say which window was sized. Otherwise pass the window of the drop, from the change or hour it started to the change or hour it ended, never a calendar day: normal hours in the window understate the drop. lost_approvals, lost_approved_usd and lost_conversions are what the window approved below its baseline rates, and gained_approvals, gained_approved_usd and gained_conversions what it approved above them; none is ever negative. The payments and the USD can go different ways, because the USD weighs payments by amount: a drop in approvals can come with gained_approved_usd. final_rate_change_pp is the change in approval of the payments sent to an acquirer; conversion_change_pp is the change over all payment intents, so a conversion drop with a flat approval rate comes from risk blocks or 3DS abandonment, not from the acquirers. lost_approvals counts approvals lost among the payments sent to an acquirer; lost_conversions counts them over all payment intents, so it includes the intents that risk blocks or 3DS abandonment stopped before any acquirer, which extra_risk_blocks and extra_3ds_abandons count above the baseline rate. When conversion fell while approval held, size the cost with lost_conversions. Domestic payments only.'
+COMMENT 'Size of an incident or a drop versus the baseline: lost approvals, lost approved volume (USD) and fees paid in the window, plus the payment funnel of the same segment (conversion, risk blocks and 3DS abandonment). For an incident named by its date, pass p_incident_date and leave the start and end out: the window then runs from the first production change of that date that affects the country (its own, a global one or one of an acquirer that serves it) to the next such change (a rollback, a fix or a tuning), and window_start_local, window_end_local and window_source say which window was sized. Otherwise pass the window of the drop, from the change or hour it started to the change or hour it ended, never a calendar day: normal hours in the window understate the drop. lost_approvals, lost_approved_usd and lost_conversions are what the window approved below its baseline rates, and gained_approvals, gained_approved_usd and gained_conversions what it approved above them; none is ever negative. The payments and the USD can go different ways, because the USD weighs payments by amount: a drop in approvals can come with gained_approved_usd. final_rate_change_pp is the change in approval of the payments sent to an acquirer; conversion_change_pp is the change over all payment intents, so a conversion drop with a flat approval rate comes from risk blocks or 3DS abandonment, not from the acquirers. lost_approvals counts approvals lost among the payments sent to an acquirer; lost_conversions counts them over all payment intents, so it includes the intents that risk blocks or 3DS abandonment stopped before any acquirer, which extra_risk_blocks and extra_3ds_abandons count above the baseline rate. When conversion fell while approval held, size the cost with lost_conversions. Domestic payments only.'
 RETURN
 -- Size of a drop: approvals and approved volume lost versus the baseline rate, acquirer fees paid in the window,
 -- and the payment funnel of the same segment (risk blocks, 3DS abandonment, conversion).
@@ -581,16 +600,20 @@ RETURN
 WITH
 -- Shared window of the copilot functions, inserted where a function body says {incident_window}.
 -- A start and end, when passed, are the window. With p_incident_date and no start, the window runs from the
--- first production change of that date in the country (gold_change_log, local time; rollbacks and partner
--- notices do not start one) to the next change in the country, usually a rollback, a fix or a tuning, or 24
--- hours if none follows. With no change that date, it is the calendar day.
+-- first production change of that date that affects the country (gold_change_log, local time: the country's own
+-- changes, global ones and those of an acquirer that serves it; rollbacks and partner notices do not start one)
+-- to the next such change, usually a rollback, a fix or a tuning, or 24 hours if none follows. With no change
+-- that date, it is the calendar day.
 chg AS (
-  SELECT change_id, change_type,
-         CASE p_country WHEN 'MX' THEN changed_at_mexico_city
-                           WHEN 'CO' THEN changed_at_bogota
-                           WHEN 'BR' THEN changed_at_sao_paulo END AS at_local
-  FROM workspace.approval_copilot.gold_change_log
-  WHERE scope = 'ALL' OR array_contains(split(scope, ','), p_country)
+  SELECT c.change_id, c.change_type,
+         CASE p_country WHEN 'MX' THEN c.changed_at_mexico_city
+                           WHEN 'CO' THEN c.changed_at_bogota
+                           WHEN 'BR' THEN c.changed_at_sao_paulo END AS at_local
+  FROM workspace.approval_copilot.gold_change_log c
+  LEFT JOIN (SELECT acquirer_id FROM workspace.approval_copilot.ref_acquirers
+             WHERE array_contains(split(countries, ','), p_country)) a
+    ON c.scope = a.acquirer_id
+  WHERE c.scope = 'ALL' OR array_contains(split(c.scope, ','), p_country) OR a.acquirer_id IS NOT NULL
 ),
 day AS (
   SELECT try_cast(p_incident_date AS DATE) AS d
@@ -623,20 +646,24 @@ bounds AS (
   LEFT JOIN started s ON true
   LEFT JOIN ended e ON true
 ),
+chg_at AS (
+  SELECT at_local, min(change_id) AS change_id FROM chg GROUP BY at_local
+),
 bounds_src AS (
   -- names the window the same way however it was passed: a window that runs from one change to another is the
-  -- change log's
-  SELECT ws, we,
-    CASE WHEN ws IS NULL OR we IS NULL THEN 'no window: pass a start and end, or p_incident_date'
-         WHEN fallback IS NOT NULL THEN fallback
-         WHEN (SELECT min(change_id) FROM chg WHERE at_local = ws) IS NOT NULL
-              AND (SELECT min(change_id) FROM chg WHERE at_local = we) IS NOT NULL
-           THEN concat('change log: from ', (SELECT min(change_id) FROM chg WHERE at_local = ws),
-                       ' to ', (SELECT min(change_id) FROM chg WHERE at_local = we))
-         WHEN (SELECT min(change_id) FROM chg WHERE at_local = ws) IS NOT NULL AND we = ws + INTERVAL 24 HOURS
-           THEN concat('change log: from ', (SELECT min(change_id) FROM chg WHERE at_local = ws), ' to 24 hours later')
+  -- change log's. Joins, not scalar subqueries: inside a Unity Catalog function, a subquery expression cannot
+  -- read the function's arguments, and chg depends on them.
+  SELECT b.ws, b.we,
+    CASE WHEN b.ws IS NULL OR b.we IS NULL THEN 'no window: pass a start and end, or p_incident_date'
+         WHEN b.fallback IS NOT NULL THEN b.fallback
+         WHEN cs.change_id IS NOT NULL AND ce.change_id IS NOT NULL
+           THEN concat('change log: from ', cs.change_id, ' to ', ce.change_id)
+         WHEN cs.change_id IS NOT NULL AND b.we = b.ws + INTERVAL 24 HOURS
+           THEN concat('change log: from ', cs.change_id, ' to 24 hours later')
          ELSE 'as given' END AS source
-  FROM bounds
+  FROM bounds b
+  LEFT JOIN chg_at cs ON cs.at_local = b.ws
+  LEFT JOIN chg_at ce ON ce.at_local = b.we
 ),
 intents AS (
   SELECT p.*

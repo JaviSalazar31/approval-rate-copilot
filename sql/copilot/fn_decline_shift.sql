@@ -36,7 +36,10 @@ fb AS (
   GROUP BY first_acquirer_id, coalesce(first_iso_code, first_status)
 ),
 totals AS (
-  SELECT (SELECT count(*) FROM win) AS n_win, (SELECT count(*) FROM base) AS n_base
+  -- joins, not scalar subqueries: inside a Unity Catalog function, a subquery expression cannot read the
+  -- function's arguments, and win and base depend on them
+  SELECT tw.n_win, tb.n_base
+  FROM (SELECT count(*) AS n_win FROM win) tw CROSS JOIN (SELECT count(*) AS n_base FROM base) tb
 )
 SELECT
   coalesce(w.acquirer_id, b.acquirer_id) AS acquirer_id,

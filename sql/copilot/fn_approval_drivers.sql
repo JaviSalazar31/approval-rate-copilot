@@ -80,11 +80,11 @@ agg_base AS (
   FROM long_base GROUP BY dimension, segment_value
 ),
 totals AS (
-  SELECT
-    (SELECT count(*) FROM win) AS n_win,
-    (SELECT count(*) FROM base) AS n_base,
-    (SELECT avg(ok) FROM win) AS rate_win,
-    (SELECT avg(ok) FROM base) AS rate_base
+  -- joins, not scalar subqueries: inside a Unity Catalog function, a subquery expression cannot read the
+  -- function's arguments, and win and base depend on them
+  SELECT tw.n_win, tb.n_base, tw.rate_win, tb.rate_base
+  FROM (SELECT count(*) AS n_win, avg(ok) AS rate_win FROM win) tw
+  CROSS JOIN (SELECT count(*) AS n_base, avg(ok) AS rate_base FROM base) tb
 ),
 seg AS (
 SELECT
