@@ -1,0 +1,2521 @@
+{
+ "run": "Seventh held-out set, three samples per question, on the Genie agent of run 10, 12 November 2026",
+ "questions_file": "evals/heldout_set_7.json",
+ "frozen_in_commit": "da73453",
+ "context": "evals/results/genie_run10_model_context.md",
+ "grading": "Thirteen questions written on 12 November 2026 (UTC), after the tenth release of the agent was committed (commits a92b4cf and c0858b5, 14:40 and 14:51 UTC) and deployed, and committed to the repository (commit da73453, 15:02 UTC) before the run. No change reached the agent between that commit and the run. The evaluation job (notebook 11), started from GitHub Actions (evaluate.yml), asked each question three times, each time in a new conversation: X1-X7 in chat mode through the Conversation API, X8-X13 in agent mode through the Agent mode API (beta). Every answer is an MLflow trace (run f4ed91b391c041c38a38e6e3f6db0e16 in the experiment approval-copilot-evals) with its latency, its SQL and the guardrail checks of evals/guardrails.py. The judge (Claude Opus) graded every answer with its scoring rule and the judge guide of the offline evaluation. I read every verdict; a verdict can be overruled only to make it stricter.",
+ "mlflow": {
+  "experiment": "approval-copilot-evals",
+  "run_id": "f4ed91b391c041c38a38e6e3f6db0e16",
+  "metrics": {
+   "answers": 39,
+   "failed_calls": 0,
+   "guardrail_failures": 0,
+   "latency_p50_s_agent": 34.1,
+   "latency_p95_s_agent": 94.3,
+   "latency_p50_s_chat": 16.3,
+   "latency_p95_s_chat": 22.5
+  },
+  "answers_started_utc": "2026-11-12T15:13:39+00:00",
+  "context_sha256": "TO_FILL"
+ },
+ "answers_passed": 31,
+ "answers_total": 39,
+ "questions_passed_in_all_samples": 9,
+ "questions_total": 13,
+ "by_group": {
+  "kpi": {
+   "answers": "12/12",
+   "all_three": "4/4"
+  },
+  "comparison": {
+   "answers": "8/9",
+   "all_three": "2/3"
+  },
+  "diagnosis": {
+   "answers": "5/9",
+   "all_three": "1/3"
+  },
+  "guardrail": {
+   "answers": "6/9",
+   "all_three": "2/3"
+  }
+ },
+ "chat": {
+  "answers": "20/21",
+  "all_three": "6/7"
+ },
+ "agent": {
+  "answers": "11/18",
+  "all_three": "3/6"
+ },
+ "latency_seconds": {
+  "chat_median": 16.3,
+  "chat_p95": 22.5,
+  "agent_median": 34.1,
+  "agent_p95": 94.3
+ },
+ "guardrail_check_failures": 0,
+ "questions": [
+  {
+   "id": "X1",
+   "category": "kpi",
+   "mode": "chat",
+   "question": "In Mexico in August 2026, what percentage of all first authorization attempts failed with code 51, insufficient funds?",
+   "scoring": {
+    "type": "numeric",
+    "field": "share_declined_51",
+    "unit": "rate",
+    "tolerance": 0.0005
+   },
+   "reference_sql": [
+    "WITH d AS (SELECT sum(attempts) AS declined_51 FROM workspace.approval_copilot.gold_decline_reasons_daily WHERE country = 'MX' AND attempt_seq = 1 AND reason_code = '51' AND business_date BETWEEN DATE'2026-08-01' AND DATE'2026-08-31'), p AS (SELECT sum(payments_sent) AS first_attempts FROM workspace.approval_copilot.gold_approval_daily WHERE country = 'MX' AND business_date BETWEEN DATE'2026-08-01' AND DATE'2026-08-31') SELECT declined_51, first_attempts, round(declined_51 / first_attempts, 4) AS share_declined_51 FROM d CROSS JOIN p"
+   ],
+   "expected_result": [
+    [
+     {
+      "declined_51": 2901,
+      "first_attempts": 76284,
+      "share_declined_51": 0.038
+     }
+    ]
+   ],
+   "passed": "3/3",
+   "note": "3 of 3: 3.8% (2,901 of 76,284 first attempts), as the reference. All three divided the code-51 failures by the payments sent, the pattern of the new example.",
+   "samples": [
+    {
+     "sample": 1,
+     "conversation_id": null,
+     "trace_id": "tr-dcefc4155b5c5edbd2c13ce60bb36e31",
+     "seconds": 16.5,
+     "sql": [
+      "WITH d AS (\n  SELECT MEASURE(`failed_attempts`) AS declined\n  FROM `workspace`.`approval_copilot`.`decline_metrics`\n  WHERE `country` = 'MX' AND `attempt` = 'first attempt' AND `reason_code` = '51'\n    AND `business_date` BETWEEN DATE'2026-08-01' AND DATE'2026-08-31'\n),\np AS (\n  SELECT MEASURE(`payments_sent`) AS first_attempts\n  FROM `workspace`.`approval_copilot`.`approval_metrics`\n  WHERE `country` = 'MX' AND `business_date` BETWEEN DATE'2026-08-01' AND DATE'2026-08-31'\n)\nSELECT declined, first_attempts, try_divide(declined,first_attempts) AS share_of_first_attempts\nFROM d CROSS JOIN p;"
+     ],
+     "answer": "You want to see the percentage of all first authorization attempts in Mexico during August 2026 that failed with the code 51, which means insufficient funds.\nIn Mexico in August 2026, there were 76,284 first authorization attempts, and 2,901 of these failed with code 51 (insufficient funds). This means that **3.8%** of all first authorization attempts failed due to insufficient funds during this period.",
+     "guardrail_failures": {},
+     "judge_verdict": "PASS",
+     "verdict": "PASS",
+     "override_note": null,
+     "score": 1.0,
+     "covered": [
+      "share_declined_51"
+     ],
+     "missing": [],
+     "numeric_check": "share_declined_51 3.8% (table 0.03803) vs 0.0380 expected; difference 0.00003, within 0.0005",
+     "unsupported_numbers": [],
+     "material_errors": [],
+     "judge_notes": "Correct headline of 3.8%, with 2,901 code-51 declines out of 76,284 first attempts; every figure traces to the result and matches the gold counts.",
+     "result": {
+      "columns": [
+       "declined",
+       "first_attempts",
+       "share_of_first_attempts"
+      ],
+      "rows": [
+       [
+        "2901",
+        "76284",
+        "0.03802894447066226"
+       ]
+      ],
+      "row_count": 1
+     }
+    },
+    {
+     "sample": 2,
+     "conversation_id": null,
+     "trace_id": "tr-a32e5032e3104a6dcf2ab0412cbb3002",
+     "seconds": 22.8,
+     "sql": [
+      "WITH d AS (\n  SELECT MEASURE(`failed_attempts`) AS declined\n  FROM workspace.approval_copilot.decline_metrics\n  WHERE country = 'MX' AND attempt = 'first attempt' AND reason_code = '51'\n    AND business_date BETWEEN DATE'2026-08-01' AND DATE'2026-08-31'\n),\np AS (\n  SELECT MEASURE(`payments_sent`) AS first_attempts\n  FROM workspace.approval_copilot.approval_metrics\n  WHERE country = 'MX' AND business_date BETWEEN DATE'2026-08-01' AND DATE'2026-08-31'\n)\nSELECT declined, first_attempts, try_divide(declined,first_attempts) AS share_of_first_attempts\nFROM d CROSS JOIN p;"
+     ],
+     "answer": "You want to know the percentage of all first authorization attempts in Mexico during August 2026 that failed due to code 51, which means insufficient funds.\nIn Mexico in August 2026, **3.8%** of all first authorization attempts (76,284 total) failed with code 51, insufficient funds. The total number of failed attempts with this code was **2,901**. This indicates that insufficient funds was a notable cause of first attempt declines during this period.",
+     "guardrail_failures": {},
+     "judge_verdict": "PASS",
+     "verdict": "PASS",
+     "override_note": null,
+     "score": 1.0,
+     "covered": [
+      "share_declined_51"
+     ],
+     "missing": [],
+     "numeric_check": "share_declined_51 3.8% (table 0.03803) vs 0.0380 expected; difference 0.00003, within 0.0005",
+     "unsupported_numbers": [],
+     "material_errors": [],
+     "judge_notes": "Correct 3.8% with 2,901 and 76,284 traced to the result. The closing line calling insufficient funds 'a notable cause' of first-attempt declines is an unquantified characterization (no comparison with other codes was shown); minor.",
+     "result": {
+      "columns": [
+       "declined",
+       "first_attempts",
+       "share_of_first_attempts"
+      ],
+      "rows": [
+       [
+        "2901",
+        "76284",
+        "0.03802894447066226"
+       ]
+      ],
+      "row_count": 1
+     }
+    },
+    {
+     "sample": 3,
+     "conversation_id": null,
+     "trace_id": "tr-2b752dcf059ff33612bc0bf3dffb1390",
+     "seconds": 16.4,
+     "sql": [
+      "WITH d AS (\n  SELECT MEASURE(`failed_attempts`) AS declined\n  FROM `workspace`.`approval_copilot`.`decline_metrics`\n  WHERE `country` = 'MX' AND `attempt` = 'first attempt' AND `reason_code` = '51'\n    AND `business_date` BETWEEN DATE'2026-08-01' AND DATE'2026-08-31'\n),\np AS (\n  SELECT MEASURE(`payments_sent`) AS first_attempts\n  FROM `workspace`.`approval_copilot`.`approval_metrics`\n  WHERE `country` = 'MX' AND `business_date` BETWEEN DATE'2026-08-01' AND DATE'2026-08-31'\n)\nSELECT declined, first_attempts, try_divide(declined,first_attempts) AS share_of_first_attempts\nFROM d CROSS JOIN p;"
+     ],
+     "answer": "You want to see the percentage of all first authorization attempts in Mexico during August 2026 that failed with the code 51, which means insufficient funds.\nIn Mexico in August 2026, **3.8%** of all first authorization attempts (2,901 out of 76,284) failed with code 51, insufficient funds.\n\nThis figure is based on all first attempts sent to acquirers in Mexico during that month.",
+     "guardrail_failures": {},
+     "judge_verdict": "PASS",
+     "verdict": "PASS",
+     "override_note": null,
+     "score": 1.0,
+     "covered": [
+      "share_declined_51"
+     ],
+     "missing": [],
+     "numeric_check": "share_declined_51 3.8% (table 0.03803) vs 0.0380 expected; difference 0.00003, within 0.0005",
+     "unsupported_numbers": [],
+     "material_errors": [],
+     "judge_notes": "Correct 3.8% (2,901 of 76,284), all traced to the result; the denominator is correctly described as first attempts sent to acquirers.",
+     "result": {
+      "columns": [
+       "declined",
+       "first_attempts",
+       "share_of_first_attempts"
+      ],
+      "rows": [
+       [
+        "2901",
+        "76284",
+        "0.03802894447066226"
+       ]
+      ],
+      "row_count": 1
+     }
+    }
+   ]
+  },
+  {
+   "id": "X2",
+   "category": "kpi",
+   "mode": "chat",
+   "question": "How many payment intents did the risk engine block in Colombia in July 2026, across both card types?",
+   "scoring": {
+    "type": "numeric",
+    "field": "blocked_by_risk",
+    "unit": "count",
+    "tolerance": 0
+   },
+   "reference_sql": [
+    "SELECT sum(blocked_by_risk) AS blocked_by_risk, sum(payment_intents) AS payment_intents FROM workspace.approval_copilot.gold_funnel_daily WHERE country = 'CO' AND business_date BETWEEN DATE'2026-07-01' AND DATE'2026-07-31'"
+   ],
+   "expected_result": [
+    [
+     {
+      "blocked_by_risk": 892,
+      "payment_intents": 76461
+     }
+    ]
+   ],
+   "passed": "3/3",
+   "note": "3 of 3: 892 intents blocked by the risk engine, as the reference.",
+   "samples": [
+    {
+     "sample": 1,
+     "conversation_id": null,
+     "trace_id": "tr-4e0eaf4794cf098256fd7e64108234c6",
+     "seconds": 16.3,
+     "sql": [
+      "SELECT SUM(`blocked_by_risk`) AS total_blocked_by_risk\nFROM `workspace`.`approval_copilot`.`gold_funnel_daily`\nWHERE `country` = 'CO'\n  AND `business_date` BETWEEN DATE'2026-07-01' AND DATE'2026-07-31'\n  AND `blocked_by_risk` IS NOT NULL;"
+     ],
+     "answer": "You want to know the total number of payment intents that the risk engine blocked in Colombia during July 2026, considering both credit and debit card types.\nIn Colombia, a total of **892 payment intents** were blocked by the risk engine in July 2026, across both card types. This figure is based on all available data for the specified period and country.",
+     "guardrail_failures": {},
+     "judge_verdict": "PASS",
+     "verdict": "PASS",
+     "override_note": null,
+     "score": 1.0,
+     "covered": [
+      "blocked_by_risk"
+     ],
+     "missing": [],
+     "numeric_check": "blocked_by_risk 892 vs 892 expected",
+     "unsupported_numbers": [],
+     "material_errors": [],
+     "judge_notes": "Exact count of 892 risk-blocked intents in Colombia for July 2026, matching the gold; no other figures.",
+     "result": {
+      "columns": [
+       "total_blocked_by_risk"
+      ],
+      "rows": [
+       [
+        "892"
+       ]
+      ],
+      "row_count": 1
+     }
+    },
+    {
+     "sample": 2,
+     "conversation_id": null,
+     "trace_id": "tr-7be25d38f2ce2cc927c74bb9a7733e86",
+     "seconds": 19.4,
+     "sql": [
+      "SELECT SUM(`blocked_by_risk`) AS total_blocked_by_risk\nFROM `workspace`.`approval_copilot`.`gold_funnel_daily`\nWHERE `country` = 'CO'\n  AND `business_date` BETWEEN DATE'2026-07-01' AND DATE'2026-07-31';"
+     ],
+     "answer": "You want to know the total number of payment intents that the risk engine blocked in Colombia during July 2026, considering both credit and debit card types.\nA total of **892 payment intents** were blocked by the risk engine in Colombia in July 2026, across both card types.",
+     "guardrail_failures": {},
+     "judge_verdict": "PASS",
+     "verdict": "PASS",
+     "override_note": null,
+     "score": 1.0,
+     "covered": [
+      "blocked_by_risk"
+     ],
+     "missing": [],
+     "numeric_check": "blocked_by_risk 892 vs 892 expected",
+     "unsupported_numbers": [],
+     "material_errors": [],
+     "judge_notes": "Exact count of 892, matching the gold; concise and correct.",
+     "result": {
+      "columns": [
+       "total_blocked_by_risk"
+      ],
+      "rows": [
+       [
+        "892"
+       ]
+      ],
+      "row_count": 1
+     }
+    },
+    {
+     "sample": 3,
+     "conversation_id": null,
+     "trace_id": "tr-3d06f8aae5937532d07b1f5ac46e8e41",
+     "seconds": 19.4,
+     "sql": [
+      "SELECT MEASURE(`blocked_by_risk`) AS total_blocked_by_risk\nFROM workspace.approval_copilot.funnel_metrics\nWHERE country = 'CO' AND business_date BETWEEN DATE'2026-07-01' AND DATE'2026-07-31';"
+     ],
+     "answer": "You want to know the total number of payment intents that the risk engine blocked in Colombia during July 2026, including all card types.\nIn Colombia, a total of **892 payment intents** were blocked by the risk engine in July 2026, across both card types. This figure is based on all payment intents during that month and segment.",
+     "guardrail_failures": {},
+     "judge_verdict": "PASS",
+     "verdict": "PASS",
+     "override_note": null,
+     "score": 1.0,
+     "covered": [
+      "blocked_by_risk"
+     ],
+     "missing": [],
+     "numeric_check": "blocked_by_risk 892 vs 892 expected",
+     "unsupported_numbers": [],
+     "material_errors": [],
+     "judge_notes": "Exact count of 892, matching the gold; the added sentence about the data basis is harmless.",
+     "result": {
+      "columns": [
+       "total_blocked_by_risk"
+      ],
+      "rows": [
+       [
+        "892"
+       ]
+      ],
+      "row_count": 1
+     }
+    }
+   ]
+  },
+  {
+   "id": "X3",
+   "category": "kpi",
+   "mode": "chat",
+   "question": "What was the first-attempt approval rate of cross-border payments in Colombia in June 2026?",
+   "scoring": {
+    "type": "numeric",
+    "field": "first_attempt_approval_rate",
+    "unit": "rate",
+    "tolerance": 0.0005
+   },
+   "reference_sql": [
+    "SELECT round(sum(first_attempt_approved) / sum(payments_sent), 4) AS first_attempt_approval_rate, sum(payments_sent) AS payments_sent FROM workspace.approval_copilot.gold_approval_daily WHERE country = 'CO' AND is_cross_border AND business_date BETWEEN DATE'2026-06-01' AND DATE'2026-06-30'"
+   ],
+   "expected_result": [
+    [
+     {
+      "first_attempt_approval_rate": 0.6608,
+      "payments_sent": 4298
+     }
+    ]
+   ],
+   "passed": "3/3",
+   "note": "3 of 3: 66.1% of 4,298 cross-border payments, as the reference.",
+   "samples": [
+    {
+     "sample": 1,
+     "conversation_id": null,
+     "trace_id": "tr-a4da113b134a1a1b244ce7ad6bfc652c",
+     "seconds": 13.2,
+     "sql": [
+      "SELECT MEASURE(`first_attempt_approval_rate`) AS first_attempt_approval_rate\nFROM `workspace`.`approval_copilot`.`approval_metrics`\nWHERE `country` = 'CO' AND `is_cross_border` = true AND `business_date` BETWEEN DATE'2026-06-01' AND DATE'2026-06-30'\nGROUP BY ALL;"
+     ],
+     "answer": "You want to see the first-attempt approval rate for cross-border payments in Colombia during June 2026.\nThe first-attempt approval rate for cross-border payments in Colombia during June 2026 was **66.1%**. This figure is based on all cross-border payment attempts in Colombia for that month.",
+     "guardrail_failures": {},
+     "judge_verdict": "PASS",
+     "verdict": "PASS",
+     "override_note": null,
+     "score": 1.0,
+     "covered": [
+      "first_attempt_approval_rate"
+     ],
+     "missing": [],
+     "numeric_check": "first_attempt_approval_rate 66.1% (table 0.66077) vs 0.6608 expected; difference 0.0002, within 0.0005",
+     "unsupported_numbers": [],
+     "material_errors": [],
+     "judge_notes": "Correct 66.1%. Saying it is based on 'all cross-border payment attempts' is loose wording for first attempts (payments sent); minor.",
+     "result": {
+      "columns": [
+       "first_attempt_approval_rate"
+      ],
+      "rows": [
+       [
+        "0.6607724523033969"
+       ]
+      ],
+      "row_count": 1
+     }
+    },
+    {
+     "sample": 2,
+     "conversation_id": null,
+     "trace_id": "tr-9aa444f4d7dca6e62389812270395b65",
+     "seconds": 22.5,
+     "sql": [
+      "SELECT SUM(`first_attempt_approved`) AS first_attempt_approved, SUM(`payments_sent`) AS payments_sent, try_divide(SUM(`first_attempt_approved`),SUM(`payments_sent`)) AS first_attempt_approval_rate\nFROM `workspace`.`approval_copilot`.`gold_approval_daily`\nWHERE `country` = 'CO' AND `is_cross_border` = true AND `business_date` BETWEEN DATE'2026-06-01' AND DATE'2026-06-30' AND `first_attempt_approved` IS NOT NULL AND `payments_sent` IS NOT NULL;"
+     ],
+     "answer": "You want to see the first-attempt approval rate for cross-border payments in Colombia during June 2026.\nThe first-attempt approval rate for cross-border payments in Colombia in June 2026 was **66.1%** (2,840 approvals out of 4,298 payments sent).",
+     "guardrail_failures": {},
+     "judge_verdict": "PASS",
+     "verdict": "PASS",
+     "override_note": null,
+     "score": 1.0,
+     "covered": [
+      "first_attempt_approval_rate"
+     ],
+     "missing": [],
+     "numeric_check": "first_attempt_approval_rate 66.1% (table 0.66077) vs 0.6608 expected, within 0.0005; payments_sent 4,298 vs 4,298",
+     "unsupported_numbers": [],
+     "material_errors": [],
+     "judge_notes": "Correct 66.1% with 2,840 approvals out of 4,298 payments sent, both traced to the result; the denominator matches the gold.",
+     "result": {
+      "columns": [
+       "first_attempt_approved",
+       "payments_sent",
+       "first_attempt_approval_rate"
+      ],
+      "rows": [
+       [
+        "2840",
+        "4298",
+        "0.6607724523033969"
+       ]
+      ],
+      "row_count": 1
+     }
+    },
+    {
+     "sample": 3,
+     "conversation_id": null,
+     "trace_id": "tr-7974374f080203ae83d1b0b4692e347c",
+     "seconds": 16.2,
+     "sql": [
+      "SELECT MEASURE(`first_attempt_approval_rate`) AS `first_attempt_approval_rate`\nFROM `workspace`.`approval_copilot`.`approval_metrics`\nWHERE `country` = 'CO' AND `is_cross_border` = true AND `business_date` BETWEEN DATE'2026-06-01' AND DATE'2026-06-30'\nGROUP BY ALL"
+     ],
+     "answer": "You want to see the first-attempt approval rate for cross-border payments in Colombia during June 2026.\nThe first-attempt approval rate for cross-border payments in Colombia in June 2026 was **66.1%**.",
+     "guardrail_failures": {},
+     "judge_verdict": "PASS",
+     "verdict": "PASS",
+     "override_note": null,
+     "score": 1.0,
+     "covered": [
+      "first_attempt_approval_rate"
+     ],
+     "missing": [],
+     "numeric_check": "first_attempt_approval_rate 66.1% (table 0.66077) vs 0.6608 expected; difference 0.0002, within 0.0005",
+     "unsupported_numbers": [],
+     "material_errors": [],
+     "judge_notes": "Correct 66.1%, matching the gold; concise.",
+     "result": {
+      "columns": [
+       "first_attempt_approval_rate"
+      ],
+      "rows": [
+       [
+        "0.6607724523033969"
+       ]
+      ],
+      "row_count": 1
+     }
+    }
+   ]
+  },
+  {
+   "id": "X4",
+   "category": "kpi",
+   "mode": "chat",
+   "question": "How much did domestic debit payments in Mexico pay in acquirer fees in July 2026, in USD?",
+   "scoring": {
+    "type": "numeric",
+    "field": "fees_usd",
+    "unit": "usd",
+    "tolerance": 0.5
+   },
+   "reference_sql": [
+    "SELECT round(sum(fees_usd), 2) AS fees_usd, sum(payments_sent) AS payments_sent FROM workspace.approval_copilot.gold_approval_daily WHERE country = 'MX' AND card_type = 'debit' AND NOT is_cross_border AND business_date BETWEEN DATE'2026-07-01' AND DATE'2026-07-31'"
+   ],
+   "expected_result": [
+    [
+     {
+      "fees_usd": 51641.37,
+      "payments_sent": 33457
+     }
+    ]
+   ],
+   "passed": "3/3",
+   "note": "3 of 3: USD 51,641.37 in fees, as the reference.",
+   "samples": [
+    {
+     "sample": 1,
+     "conversation_id": null,
+     "trace_id": "tr-6e2732465aaf6e8506db5fe6a48db63e",
+     "seconds": 19.5,
+     "sql": [
+      "SELECT MEASURE(`fees_usd`) AS total_fees_usd\nFROM workspace.approval_copilot.approval_metrics\nWHERE `country` = 'MX' AND `card_type` = 'debit' AND NOT `is_cross_border`\n  AND `business_date` >= DATE'2026-07-01' AND `business_date` <= DATE'2026-07-31'\nGROUP BY ALL;"
+     ],
+     "answer": "You want to know the total amount paid in acquirer fees in US dollars for domestic debit card payments in Mexico during July 2026.\nDomestic debit payments in Mexico paid a total of **$51,641.37 USD** in acquirer fees during July 2026.",
+     "guardrail_failures": {},
+     "judge_verdict": "PASS",
+     "verdict": "PASS",
+     "override_note": null,
+     "score": 1.0,
+     "covered": [
+      "fees_usd"
+     ],
+     "missing": [],
+     "numeric_check": "fees_usd $51,641.37 vs 51,641.37 expected",
+     "unsupported_numbers": [],
+     "material_errors": [],
+     "judge_notes": "Exact match with the gold fee total for domestic debit payments in Mexico, July 2026.",
+     "result": {
+      "columns": [
+       "total_fees_usd"
+      ],
+      "rows": [
+       [
+        "51641.37000000001"
+       ]
+      ],
+      "row_count": 1
+     }
+    },
+    {
+     "sample": 2,
+     "conversation_id": null,
+     "trace_id": "tr-4793eefd546256692c0b5944ea911748",
+     "seconds": 16.3,
+     "sql": [
+      "SELECT MEASURE(`fees_usd`) AS total_fees_usd\nFROM `workspace`.`approval_copilot`.`approval_metrics`\nWHERE `country` = 'MX' AND `card_type` = 'debit' AND NOT `is_cross_border`\n  AND `business_date` BETWEEN DATE'2026-07-01' AND DATE'2026-07-31'\nGROUP BY ALL"
+     ],
+     "answer": "You want to see the total amount of acquirer fees paid in US dollars for domestic debit card payments in Mexico during July 2026.\nDomestic debit payments in Mexico paid a total of **$51,641.37 USD** in acquirer fees during July 2026. This figure is based on all domestic debit transactions processed in Mexico for that month.",
+     "guardrail_failures": {},
+     "judge_verdict": "PASS",
+     "verdict": "PASS",
+     "override_note": null,
+     "score": 1.0,
+     "covered": [
+      "fees_usd"
+     ],
+     "missing": [],
+     "numeric_check": "fees_usd $51,641.37 vs 51,641.37 expected",
+     "unsupported_numbers": [],
+     "material_errors": [],
+     "judge_notes": "Exact match with the gold ($51,641.37); the added sentence about the data basis is accurate.",
+     "result": {
+      "columns": [
+       "total_fees_usd"
+      ],
+      "rows": [
+       [
+        "51641.37000000001"
+       ]
+      ],
+      "row_count": 1
+     }
+    },
+    {
+     "sample": 3,
+     "conversation_id": null,
+     "trace_id": "tr-b14eb57f15f8aa9e74af65b7ef333a5b",
+     "seconds": 16.3,
+     "sql": [
+      "SELECT MEASURE(`fees_usd`) AS `total_fees_usd`\nFROM `workspace`.`approval_copilot`.`approval_metrics`\nWHERE `country` = 'MX' AND `card_type` = 'debit' AND NOT `is_cross_border`\n  AND `business_date` BETWEEN DATE'2026-07-01' AND DATE'2026-07-31'\nGROUP BY ALL;"
+     ],
+     "answer": "You want to know the total amount of acquirer fees paid in US dollars for domestic debit card payments in Mexico during July 2026.\nDomestic debit payments in Mexico paid a total of **$51,641.37 USD** in acquirer fees during July 2026. This figure is based on all domestic debit transactions processed in Mexico for that month.",
+     "guardrail_failures": {},
+     "judge_verdict": "PASS",
+     "verdict": "PASS",
+     "override_note": null,
+     "score": 1.0,
+     "covered": [
+      "fees_usd"
+     ],
+     "missing": [],
+     "numeric_check": "fees_usd $51,641.37 vs 51,641.37 expected",
+     "unsupported_numbers": [],
+     "material_errors": [],
+     "judge_notes": "Exact match with the gold ($51,641.37); the added sentence about the data basis is accurate.",
+     "result": {
+      "columns": [
+       "total_fees_usd"
+      ],
+      "rows": [
+       [
+        "51641.37000000001"
+       ]
+      ],
+      "row_count": 1
+     }
+    }
+   ]
+  },
+  {
+   "id": "X5",
+   "category": "comparison",
+   "mode": "chat",
+   "question": "Which acquirer had the higher first-attempt approval rate on domestic credit cards in Colombia in June 2026, A or B, and by how much?",
+   "scoring": {
+    "type": "ranking",
+    "winner": "A",
+    "winner_means": "the acquirer with the HIGHER first_attempt_approval_rate",
+    "gap_field": "first_attempt_approval_rate",
+    "gap_between": "A and B",
+    "gap_tolerance_pp": 0.2
+   },
+   "reference_sql": [
+    "SELECT acquirer_id, round(sum(first_attempt_approved) / sum(payments_sent), 4) AS first_attempt_approval_rate, sum(payments_sent) AS payments_sent FROM workspace.approval_copilot.gold_approval_daily WHERE country = 'CO' AND card_type = 'credit' AND NOT is_cross_border AND acquirer_id IN ('A', 'B') AND business_date BETWEEN DATE'2026-06-01' AND DATE'2026-06-30' GROUP BY acquirer_id ORDER BY first_attempt_approval_rate DESC"
+   ],
+   "expected_result": [
+    [
+     {
+      "acquirer_id": "A",
+      "first_attempt_approval_rate": 0.8397,
+      "payments_sent": 24143
+     },
+     {
+      "acquirer_id": "B",
+      "first_attempt_approval_rate": 0.8254,
+      "payments_sent": 10326
+     }
+    ]
+   ],
+   "passed": "2/3",
+   "note": "2 of 3. Two used fn_approval_drivers over June with p_segment_values => 'A,B': A at 83.97%, 1.43 points above B, as the reference. The third passed '2026-06-01' as p_incident_date, which with no change that day gives the calendar day, so it compared 1 June only and gave a 2.63-point gap.",
+   "samples": [
+    {
+     "sample": 1,
+     "conversation_id": null,
+     "trace_id": "tr-9a4c9aad196d852ca9b1ebdf784c14be",
+     "seconds": 16.4,
+     "sql": [
+      "SELECT * FROM `workspace`.`approval_copilot`.`fn_approval_drivers`(p_dimension => 'acquirer', p_rate => 'first_attempt', p_baseline_days => 14, p_segment_values => 'A,B', p_card_type => 'credit', p_country => 'CO', p_start_local => '2026-06-01 00:00:00', p_end_local => '2026-07-01 00:00:00')"
+     ],
+     "answer": "",
+     "guardrail_failures": {},
+     "judge_verdict": "PASS",
+     "verdict": "PASS",
+     "override_note": null,
+     "score": 1.0,
+     "covered": [
+      "winner",
+      "gap"
+     ],
+     "missing": [],
+     "numeric_check": "winner A (window_rate 0.8397 vs B 0.8254) vs A expected; gap 1.43 pp (B pp_below_next / gap_to_next_pp) vs 1.43 pp expected, within 0.2 pp",
+     "unsupported_numbers": [],
+     "material_errors": [],
+     "judge_notes": "No text, but the table covers all of June 2026 and answers both parts: A 0.8397 vs B 0.8254 on 24,143 and 10,326 payments (matching the gold), with B 1.43 pp below A. Rows are listed B first and the baseline columns are empty (0 payments), so the user has to read the winner from window_rate; minor.",
+     "result": {
+      "columns": [
+       "dimension",
+       "segment_value",
+       "baseline_payments",
+       "window_payments",
+       "baseline_share",
+       "window_share",
+       "baseline_rate",
+       "window_rate",
+       "rate_effect_pp",
+       "mix_effect_pp",
+       "total_effect_pp",
+       "pp_below_next",
+       "rate_type",
+       "gap_to_next_pp",
+       "window_start_local",
+       "window_end_local"
+      ],
+      "rows": [
+       [
+        "acquirer",
+        "B",
+        "0",
+        "10326",
+        null,
+        "0.2996",
+        null,
+        "0.8254",
+        null,
+        null,
+        null,
+        "1.43",
+        "first_attempt",
+        "1.43",
+        "2026-06-01 00:00:00",
+        "2026-07-01 00:00:00"
+       ],
+       [
+        "acquirer",
+        "A",
+        "0",
+        "24143",
+        null,
+        "0.7004",
+        null,
+        "0.8397",
+        null,
+        null,
+        null,
+        null,
+        "first_attempt",
+        null,
+        "2026-06-01 00:00:00",
+        "2026-07-01 00:00:00"
+       ]
+      ],
+      "row_count": 2
+     }
+    },
+    {
+     "sample": 2,
+     "conversation_id": null,
+     "trace_id": "tr-af6eb369b309c756ef8be6395560b724",
+     "seconds": 16.4,
+     "sql": [
+      "SELECT * FROM `workspace`.`approval_copilot`.`fn_approval_drivers`(p_dimension => 'acquirer', p_rate => 'first_attempt', p_baseline_days => 14, p_segment_values => 'A,B', p_card_type => 'credit', p_incident_date => '2026-06-01', p_country => 'CO', p_rank => 'highest')"
+     ],
+     "answer": "",
+     "guardrail_failures": {},
+     "judge_verdict": "FAIL",
+     "verdict": "FAIL",
+     "override_note": null,
+     "score": 0.5,
+     "covered": [
+      "winner"
+     ],
+     "missing": [
+      "gap"
+     ],
+     "numeric_check": "winner A (window_rate 0.856 vs B 0.8297) vs A expected; gap 2.63 pp vs 1.43 pp expected, off by 1.20 pp, outside the 0.2 pp tolerance",
+     "unsupported_numbers": [],
+     "material_errors": [
+      "Headline gap of 2.63 pp contradicts the gold 1.43 pp (A 0.8397 vs B 0.8254) beyond the 0.2 pp tolerance",
+      "The table covers only 1 June 2026 (window 2026-06-01 to 2026-06-02; 861 and 411 payments; rates 0.856 and 0.8297) instead of the whole month (24,143 and 10,326 payments; rates 0.8397 and 0.8254)"
+     ],
+     "judge_notes": "The answer compares a single day rather than June 2026. A is correctly shown as the higher acquirer, but the stated gap and both rates contradict the monthly ground truth.",
+     "result": {
+      "columns": [
+       "dimension",
+       "segment_value",
+       "baseline_payments",
+       "window_payments",
+       "baseline_share",
+       "window_share",
+       "baseline_rate",
+       "window_rate",
+       "rate_effect_pp",
+       "mix_effect_pp",
+       "total_effect_pp",
+       "pp_below_next",
+       "rate_type",
+       "gap_to_next_pp",
+       "window_start_local",
+       "window_end_local"
+      ],
+      "rows": [
+       [
+        "acquirer",
+        "A",
+        "0",
+        "861",
+        null,
+        "0.6769",
+        null,
+        "0.856",
+        null,
+        null,
+        null,
+        null,
+        "first_attempt",
+        "2.63",
+        "2026-06-01 00:00:00",
+        "2026-06-02 00:00:00"
+       ],
+       [
+        "acquirer",
+        "B",
+        "0",
+        "411",
+        null,
+        "0.3231",
+        null,
+        "0.8297",
+        null,
+        null,
+        null,
+        "2.63",
+        "first_attempt",
+        null,
+        "2026-06-01 00:00:00",
+        "2026-06-02 00:00:00"
+       ]
+      ],
+      "row_count": 2
+     }
+    },
+    {
+     "sample": 3,
+     "conversation_id": null,
+     "trace_id": "tr-6733900005062d225be5d7a6a677e0d5",
+     "seconds": 16.4,
+     "sql": [
+      "SELECT * FROM `workspace`.`approval_copilot`.`fn_approval_drivers`(p_dimension => 'acquirer', p_rate => 'first_attempt', p_baseline_days => 14, p_segment_values => 'A,B', p_card_type => 'credit', p_country => 'CO', p_start_local => '2026-06-01 00:00:00', p_end_local => '2026-07-01 00:00:00')"
+     ],
+     "answer": "",
+     "guardrail_failures": {},
+     "judge_verdict": "PASS",
+     "verdict": "PASS",
+     "override_note": null,
+     "score": 1.0,
+     "covered": [
+      "winner",
+      "gap"
+     ],
+     "missing": [],
+     "numeric_check": "winner A (window_rate 0.8397 vs B 0.8254) vs A expected; gap 1.43 pp (B pp_below_next / gap_to_next_pp) vs 1.43 pp expected, within 0.2 pp",
+     "unsupported_numbers": [],
+     "material_errors": [],
+     "judge_notes": "No text, but the table covers all of June 2026 and answers both parts: A 0.8397 vs B 0.8254 on 24,143 and 10,326 payments (matching the gold), with B 1.43 pp below A. Rows are listed B first and the baseline columns are empty (0 payments), so the user has to read the winner from window_rate; minor.",
+     "result": {
+      "columns": [
+       "dimension",
+       "segment_value",
+       "baseline_payments",
+       "window_payments",
+       "baseline_share",
+       "window_share",
+       "baseline_rate",
+       "window_rate",
+       "rate_effect_pp",
+       "mix_effect_pp",
+       "total_effect_pp",
+       "pp_below_next",
+       "rate_type",
+       "gap_to_next_pp",
+       "window_start_local",
+       "window_end_local"
+      ],
+      "rows": [
+       [
+        "acquirer",
+        "B",
+        "0",
+        "10326",
+        null,
+        "0.2996",
+        null,
+        "0.8254",
+        null,
+        null,
+        null,
+        "1.43",
+        "first_attempt",
+        "1.43",
+        "2026-06-01 00:00:00",
+        "2026-07-01 00:00:00"
+       ],
+       [
+        "acquirer",
+        "A",
+        "0",
+        "24143",
+        null,
+        "0.7004",
+        null,
+        "0.8397",
+        null,
+        null,
+        null,
+        null,
+        "first_attempt",
+        null,
+        "2026-06-01 00:00:00",
+        "2026-07-01 00:00:00"
+       ]
+      ],
+      "row_count": 2
+     }
+    }
+   ]
+  },
+  {
+   "id": "X6",
+   "category": "comparison",
+   "mode": "chat",
+   "question": "Which Colombian issuer had the lowest final approval rate on domestic credit cards from 10 August 2026 00:00 to 17 August 2026 00:00 local time, and how far below the next one was it?",
+   "scoring": {
+    "type": "ranking",
+    "winner": "CO-ISS-05",
+    "winner_means": "the issuer with the LOWEST final_approval_rate",
+    "gap_field": "final_approval_rate",
+    "gap_between": "the lowest issuer and the next lowest (CO-ISS-07)",
+    "gap_tolerance_pp": 0.2
+   },
+   "reference_sql": [
+    "WITH i AS (SELECT issuer_id, count(*) AS payments_sent, round(avg(CAST(final_approved AS INT)), 4) AS final_approval_rate FROM workspace.approval_copilot.silver_payments WHERE country = 'CO' AND card_type = 'credit' AND NOT is_cross_border AND sent_to_acquirer AND created_ts_local >= TIMESTAMP'2026-08-10 00:00:00' AND created_ts_local < TIMESTAMP'2026-08-17 00:00:00' GROUP BY issuer_id) SELECT issuer_id, payments_sent, final_approval_rate, round(100 * (lead(final_approval_rate) OVER (ORDER BY final_approval_rate) - final_approval_rate), 2) AS pp_below_next FROM i ORDER BY final_approval_rate"
+   ],
+   "expected_result": [
+    [
+     {
+      "issuer_id": "CO-ISS-05",
+      "payments_sent": 922,
+      "final_approval_rate": 0.8406,
+      "pp_below_next": 0.3
+     },
+     {
+      "issuer_id": "CO-ISS-07",
+      "payments_sent": 601,
+      "final_approval_rate": 0.8436,
+      "pp_below_next": 0.52
+     },
+     {
+      "issuer_id": "CO-ISS-03",
+      "payments_sent": 1230,
+      "final_approval_rate": 0.8488,
+      "pp_below_next": 0.55
+     },
+     {
+      "issuer_id": "CO-ISS-04",
+      "payments_sent": 1009,
+      "final_approval_rate": 0.8543,
+      "pp_below_next": 0.87
+     },
+     {
+      "issuer_id": "CO-ISS-06",
+      "payments_sent": 774,
+      "final_approval_rate": 0.863,
+      "pp_below_next": 0.35
+     },
+     {
+      "issuer_id": "CO-ISS-08",
+      "payments_sent": 502,
+      "final_approval_rate": 0.8665,
+      "pp_below_next": 0.47
+     },
+     {
+      "issuer_id": "CO-ISS-01",
+      "payments_sent": 2026,
+      "final_approval_rate": 0.8712,
+      "pp_below_next": 1.79
+     },
+     {
+      "issuer_id": "CO-ISS-02",
+      "payments_sent": 1596,
+      "final_approval_rate": 0.8891,
+      "pp_below_next": NaN
+     }
+    ]
+   ],
+   "passed": "3/3",
+   "note": "3 of 3, all with the drivers function and p_rank => 'lowest' over the week: CO-ISS-05 at 84.06%, 0.30 points below CO-ISS-07, as the reference.",
+   "samples": [
+    {
+     "sample": 1,
+     "conversation_id": null,
+     "trace_id": "tr-a3967039d155cc2eab1133d11932cbad",
+     "seconds": 16.3,
+     "sql": [
+      "SELECT * FROM `workspace`.`approval_copilot`.`fn_approval_drivers`(p_dimension => 'issuer', p_rate => '''final''', p_baseline_days => 14, p_segment_values => 'NULL', p_card_type => 'credit', p_incident_date => 'NULL', p_country => 'CO', p_rank => 'lowest', p_start_local => '2026-08-10 00:00:00', p_end_local => '2026-08-17 00:00:00')"
+     ],
+     "answer": "",
+     "guardrail_failures": {},
+     "judge_verdict": "PASS",
+     "verdict": "PASS",
+     "override_note": null,
+     "score": 1.0,
+     "covered": [
+      "winner",
+      "gap"
+     ],
+     "missing": [],
+     "numeric_check": "lowest CO-ISS-05 (window_rate 0.8406) vs CO-ISS-05 expected; gap to CO-ISS-07 0.3 pp vs 0.30 pp expected, within 0.2 pp",
+     "unsupported_numbers": [],
+     "material_errors": [],
+     "judge_notes": "No text, but the lowest-first table answers both parts: CO-ISS-05 at 0.8406, 0.3 pp below CO-ISS-07 (0.8436), with window payments 922 and 601 matching the gold. Baseline columns are extra context traced to the result.",
+     "result": {
+      "columns": [
+       "dimension",
+       "segment_value",
+       "baseline_payments",
+       "window_payments",
+       "baseline_share",
+       "window_share",
+       "baseline_rate",
+       "window_rate",
+       "rate_effect_pp",
+       "mix_effect_pp",
+       "total_effect_pp",
+       "pp_below_next",
+       "rate_type",
+       "gap_to_next_pp",
+       "window_start_local",
+       "window_end_local"
+      ],
+      "rows": [
+       [
+        "issuer",
+        "CO-ISS-05",
+        "1666",
+        "922",
+        "0.0991",
+        "0.1065",
+        "0.8469",
+        "0.8406",
+        "-0.07",
+        "-0.02",
+        "-0.08",
+        "0.3",
+        "final",
+        "0.3",
+        "2026-08-10 00:00:00",
+        "2026-08-17 00:00:00"
+       ],
+       [
+        "issuer",
+        "CO-ISS-07",
+        "1171",
+        "601",
+        "0.0697",
+        "0.0694",
+        "0.8497",
+        "0.8436",
+        "-0.04",
+        "0.0",
+        "-0.04",
+        "0.52",
+        "final",
+        "0.52",
+        "2026-08-10 00:00:00",
+        "2026-08-17 00:00:00"
+       ],
+       [
+        "issuer",
+        "CO-ISS-03",
+        "2347",
+        "1230",
+        "0.1396",
+        "0.142",
+        "0.8641",
+        "0.8488",
+        "-0.22",
+        "0.0",
+        "-0.22",
+        "0.55",
+        "final",
+        "0.55",
+        "2026-08-10 00:00:00",
+        "2026-08-17 00:00:00"
+       ]
+      ],
+      "row_count": 3
+     }
+    },
+    {
+     "sample": 2,
+     "conversation_id": null,
+     "trace_id": "tr-c4a1f5ca774009dd8dac6b3584b5d762",
+     "seconds": 13.1,
+     "sql": [
+      "SELECT * FROM `workspace`.`approval_copilot`.`fn_approval_drivers`(p_dimension => 'issuer', p_rate => '''final''', p_baseline_days => 14, p_segment_values => 'NULL', p_card_type => 'credit', p_incident_date => 'NULL', p_country => 'CO', p_rank => 'lowest', p_start_local => '2026-08-10 00:00:00', p_end_local => '2026-08-17 00:00:00')"
+     ],
+     "answer": "",
+     "guardrail_failures": {},
+     "judge_verdict": "PASS",
+     "verdict": "PASS",
+     "override_note": null,
+     "score": 1.0,
+     "covered": [
+      "winner",
+      "gap"
+     ],
+     "missing": [],
+     "numeric_check": "lowest CO-ISS-05 (window_rate 0.8406) vs CO-ISS-05 expected; gap to CO-ISS-07 0.3 pp vs 0.30 pp expected, within 0.2 pp",
+     "unsupported_numbers": [],
+     "material_errors": [],
+     "judge_notes": "No text, but the lowest-first table answers both parts: CO-ISS-05 at 0.8406, 0.3 pp below CO-ISS-07 (0.8436), with window payments 922 and 601 matching the gold. Baseline columns are extra context traced to the result.",
+     "result": {
+      "columns": [
+       "dimension",
+       "segment_value",
+       "baseline_payments",
+       "window_payments",
+       "baseline_share",
+       "window_share",
+       "baseline_rate",
+       "window_rate",
+       "rate_effect_pp",
+       "mix_effect_pp",
+       "total_effect_pp",
+       "pp_below_next",
+       "rate_type",
+       "gap_to_next_pp",
+       "window_start_local",
+       "window_end_local"
+      ],
+      "rows": [
+       [
+        "issuer",
+        "CO-ISS-05",
+        "1666",
+        "922",
+        "0.0991",
+        "0.1065",
+        "0.8469",
+        "0.8406",
+        "-0.07",
+        "-0.02",
+        "-0.08",
+        "0.3",
+        "final",
+        "0.3",
+        "2026-08-10 00:00:00",
+        "2026-08-17 00:00:00"
+       ],
+       [
+        "issuer",
+        "CO-ISS-07",
+        "1171",
+        "601",
+        "0.0697",
+        "0.0694",
+        "0.8497",
+        "0.8436",
+        "-0.04",
+        "0.0",
+        "-0.04",
+        "0.52",
+        "final",
+        "0.52",
+        "2026-08-10 00:00:00",
+        "2026-08-17 00:00:00"
+       ],
+       [
+        "issuer",
+        "CO-ISS-03",
+        "2347",
+        "1230",
+        "0.1396",
+        "0.142",
+        "0.8641",
+        "0.8488",
+        "-0.22",
+        "0.0",
+        "-0.22",
+        "0.55",
+        "final",
+        "0.55",
+        "2026-08-10 00:00:00",
+        "2026-08-17 00:00:00"
+       ]
+      ],
+      "row_count": 3
+     }
+    },
+    {
+     "sample": 3,
+     "conversation_id": null,
+     "trace_id": "tr-1a00b30d1457dcfe359b04f181ab75a4",
+     "seconds": 16.2,
+     "sql": [
+      "SELECT * FROM `workspace`.`approval_copilot`.`fn_approval_drivers`(p_dimension => 'issuer', p_rate => '''final''', p_baseline_days => 14, p_segment_values => 'NULL', p_card_type => 'credit', p_incident_date => 'NULL', p_country => 'CO', p_rank => 'lowest', p_start_local => '2026-08-10 00:00:00', p_end_local => '2026-08-17 00:00:00')"
+     ],
+     "answer": "",
+     "guardrail_failures": {},
+     "judge_verdict": "PASS",
+     "verdict": "PASS",
+     "override_note": null,
+     "score": 1.0,
+     "covered": [
+      "winner",
+      "gap"
+     ],
+     "missing": [],
+     "numeric_check": "lowest CO-ISS-05 (window_rate 0.8406) vs CO-ISS-05 expected; gap to CO-ISS-07 0.3 pp vs 0.30 pp expected, within 0.2 pp",
+     "unsupported_numbers": [],
+     "material_errors": [],
+     "judge_notes": "No text, but the lowest-first table answers both parts: CO-ISS-05 at 0.8406, 0.3 pp below CO-ISS-07 (0.8436), with window payments 922 and 601 matching the gold. Baseline columns are extra context traced to the result.",
+     "result": {
+      "columns": [
+       "dimension",
+       "segment_value",
+       "baseline_payments",
+       "window_payments",
+       "baseline_share",
+       "window_share",
+       "baseline_rate",
+       "window_rate",
+       "rate_effect_pp",
+       "mix_effect_pp",
+       "total_effect_pp",
+       "pp_below_next",
+       "rate_type",
+       "gap_to_next_pp",
+       "window_start_local",
+       "window_end_local"
+      ],
+      "rows": [
+       [
+        "issuer",
+        "CO-ISS-05",
+        "1666",
+        "922",
+        "0.0991",
+        "0.1065",
+        "0.8469",
+        "0.8406",
+        "-0.07",
+        "-0.02",
+        "-0.08",
+        "0.3",
+        "final",
+        "0.3",
+        "2026-08-10 00:00:00",
+        "2026-08-17 00:00:00"
+       ],
+       [
+        "issuer",
+        "CO-ISS-07",
+        "1171",
+        "601",
+        "0.0697",
+        "0.0694",
+        "0.8497",
+        "0.8436",
+        "-0.04",
+        "0.0",
+        "-0.04",
+        "0.52",
+        "final",
+        "0.52",
+        "2026-08-10 00:00:00",
+        "2026-08-17 00:00:00"
+       ],
+       [
+        "issuer",
+        "CO-ISS-03",
+        "2347",
+        "1230",
+        "0.1396",
+        "0.142",
+        "0.8641",
+        "0.8488",
+        "-0.22",
+        "0.0",
+        "-0.22",
+        "0.55",
+        "final",
+        "0.55",
+        "2026-08-10 00:00:00",
+        "2026-08-17 00:00:00"
+       ]
+      ],
+      "row_count": 3
+     }
+    }
+   ]
+  },
+  {
+   "id": "X7",
+   "category": "comparison",
+   "mode": "chat",
+   "question": "Which card brand had the lowest final approval rate on domestic payments in Brazil in June 2026, and how far below the next one was it?",
+   "scoring": {
+    "type": "ranking",
+    "winner": "elo",
+    "winner_means": "the card brand with the LOWEST final_approval_rate",
+    "gap_field": "final_approval_rate",
+    "gap_between": "the lowest card brand and the next lowest (mastercard)",
+    "gap_tolerance_pp": 0.2
+   },
+   "reference_sql": [
+    "WITH b AS (SELECT card_brand, count(*) AS payments_sent, round(avg(CAST(final_approved AS INT)), 4) AS final_approval_rate FROM workspace.approval_copilot.silver_payments WHERE country = 'BR' AND NOT is_cross_border AND sent_to_acquirer AND business_date BETWEEN DATE'2026-06-01' AND DATE'2026-06-30' GROUP BY card_brand) SELECT card_brand, payments_sent, final_approval_rate, round(100 * (lead(final_approval_rate) OVER (ORDER BY final_approval_rate) - final_approval_rate), 2) AS pp_below_next FROM b ORDER BY final_approval_rate"
+   ],
+   "expected_result": [
+    [
+     {
+      "card_brand": "elo",
+      "payments_sent": 6218,
+      "final_approval_rate": 0.8773,
+      "pp_below_next": 0.43
+     },
+     {
+      "card_brand": "mastercard",
+      "payments_sent": 27569,
+      "final_approval_rate": 0.8816,
+      "pp_below_next": 0.03
+     },
+     {
+      "card_brand": "visa",
+      "payments_sent": 27495,
+      "final_approval_rate": 0.8819,
+      "pp_below_next": NaN
+     }
+    ]
+   ],
+   "passed": "3/3",
+   "note": "3 of 3, all with the drivers function by card brand over June: elo at 87.73%, 0.43 points below mastercard, as the reference.",
+   "samples": [
+    {
+     "sample": 1,
+     "conversation_id": null,
+     "trace_id": "tr-f5638ef4d3f72102cb76ec57bb63042f",
+     "seconds": 13.1,
+     "sql": [
+      "SELECT * FROM `workspace`.`approval_copilot`.`fn_approval_drivers`(p_dimension => 'card_brand', p_rate => '''final''', p_baseline_days => 14, p_card_type => 'NULL', p_incident_date => 'NULL', p_country => 'BR', p_rank => 'lowest', p_start_local => '2026-06-01 00:00:00', p_end_local => '2026-07-01 00:00:00')"
+     ],
+     "answer": "",
+     "guardrail_failures": {},
+     "judge_verdict": "PASS",
+     "verdict": "PASS",
+     "override_note": null,
+     "score": 1.0,
+     "covered": [
+      "winner",
+      "gap"
+     ],
+     "missing": [],
+     "numeric_check": "lowest elo (window_rate 0.8773) vs elo expected; gap to mastercard 0.43 pp vs 0.43 pp expected, within 0.2 pp",
+     "unsupported_numbers": [],
+     "material_errors": [],
+     "judge_notes": "No text, but the lowest-first table answers both parts: elo at 0.8773, 0.43 pp below mastercard (0.8816), with payments 6,218, 27,569 and 27,495 matching the gold. Empty baseline columns (0 payments) are a harmless artifact.",
+     "result": {
+      "columns": [
+       "dimension",
+       "segment_value",
+       "baseline_payments",
+       "window_payments",
+       "baseline_share",
+       "window_share",
+       "baseline_rate",
+       "window_rate",
+       "rate_effect_pp",
+       "mix_effect_pp",
+       "total_effect_pp",
+       "pp_below_next",
+       "rate_type",
+       "gap_to_next_pp",
+       "window_start_local",
+       "window_end_local"
+      ],
+      "rows": [
+       [
+        "card_brand",
+        "elo",
+        "0",
+        "6218",
+        null,
+        "0.1015",
+        null,
+        "0.8773",
+        null,
+        null,
+        null,
+        "0.43",
+        "final",
+        "0.43",
+        "2026-06-01 00:00:00",
+        "2026-07-01 00:00:00"
+       ],
+       [
+        "card_brand",
+        "mastercard",
+        "0",
+        "27569",
+        null,
+        "0.4499",
+        null,
+        "0.8816",
+        null,
+        null,
+        null,
+        "0.03",
+        "final",
+        "0.03",
+        "2026-06-01 00:00:00",
+        "2026-07-01 00:00:00"
+       ],
+       [
+        "card_brand",
+        "visa",
+        "0",
+        "27495",
+        null,
+        "0.4487",
+        null,
+        "0.8819",
+        null,
+        null,
+        null,
+        null,
+        "final",
+        null,
+        "2026-06-01 00:00:00",
+        "2026-07-01 00:00:00"
+       ]
+      ],
+      "row_count": 3
+     }
+    },
+    {
+     "sample": 2,
+     "conversation_id": null,
+     "trace_id": "tr-b04817e366377ce6fd1bd75942e87535",
+     "seconds": 13.2,
+     "sql": [
+      "SELECT * FROM `workspace`.`approval_copilot`.`fn_approval_drivers`(p_dimension => 'card_brand', p_rate => 'final', p_baseline_days => 14, p_segment_values => 'NULL', p_card_type => 'NULL', p_incident_date => 'NULL', p_country => 'BR', p_rank => 'lowest', p_start_local => '2026-06-01 00:00:00', p_end_local => '2026-07-01 00:00:00')"
+     ],
+     "answer": "",
+     "guardrail_failures": {},
+     "judge_verdict": "PASS",
+     "verdict": "PASS",
+     "override_note": null,
+     "score": 1.0,
+     "covered": [
+      "winner",
+      "gap"
+     ],
+     "missing": [],
+     "numeric_check": "lowest elo (window_rate 0.8773) vs elo expected; gap to mastercard 0.43 pp vs 0.43 pp expected, within 0.2 pp",
+     "unsupported_numbers": [],
+     "material_errors": [],
+     "judge_notes": "No text, but the lowest-first table answers both parts: elo at 0.8773, 0.43 pp below mastercard (0.8816), with payments 6,218, 27,569 and 27,495 matching the gold. Empty baseline columns (0 payments) are a harmless artifact.",
+     "result": {
+      "columns": [
+       "dimension",
+       "segment_value",
+       "baseline_payments",
+       "window_payments",
+       "baseline_share",
+       "window_share",
+       "baseline_rate",
+       "window_rate",
+       "rate_effect_pp",
+       "mix_effect_pp",
+       "total_effect_pp",
+       "pp_below_next",
+       "rate_type",
+       "gap_to_next_pp",
+       "window_start_local",
+       "window_end_local"
+      ],
+      "rows": [
+       [
+        "card_brand",
+        "elo",
+        "0",
+        "6218",
+        null,
+        "0.1015",
+        null,
+        "0.8773",
+        null,
+        null,
+        null,
+        "0.43",
+        "final",
+        "0.43",
+        "2026-06-01 00:00:00",
+        "2026-07-01 00:00:00"
+       ],
+       [
+        "card_brand",
+        "mastercard",
+        "0",
+        "27569",
+        null,
+        "0.4499",
+        null,
+        "0.8816",
+        null,
+        null,
+        null,
+        "0.03",
+        "final",
+        "0.03",
+        "2026-06-01 00:00:00",
+        "2026-07-01 00:00:00"
+       ],
+       [
+        "card_brand",
+        "visa",
+        "0",
+        "27495",
+        null,
+        "0.4487",
+        null,
+        "0.8819",
+        null,
+        null,
+        null,
+        null,
+        "final",
+        null,
+        "2026-06-01 00:00:00",
+        "2026-07-01 00:00:00"
+       ]
+      ],
+      "row_count": 3
+     }
+    },
+    {
+     "sample": 3,
+     "conversation_id": null,
+     "trace_id": "tr-5752c757573d40392f5f29a0022cc372",
+     "seconds": 13.2,
+     "sql": [
+      "SELECT * FROM `workspace`.`approval_copilot`.`fn_approval_drivers`(p_dimension => 'card_brand', p_rate => 'final', p_baseline_days => 14, p_card_type => 'NULL', p_incident_date => 'NULL', p_country => 'BR', p_rank => 'lowest', p_start_local => '2026-06-01 00:00:00', p_end_local => '2026-07-01 00:00:00')"
+     ],
+     "answer": "",
+     "guardrail_failures": {},
+     "judge_verdict": "PASS",
+     "verdict": "PASS",
+     "override_note": null,
+     "score": 1.0,
+     "covered": [
+      "winner",
+      "gap"
+     ],
+     "missing": [],
+     "numeric_check": "lowest elo (window_rate 0.8773) vs elo expected; gap to mastercard 0.43 pp vs 0.43 pp expected, within 0.2 pp",
+     "unsupported_numbers": [],
+     "material_errors": [],
+     "judge_notes": "No text, but the lowest-first table answers both parts: elo at 0.8773, 0.43 pp below mastercard (0.8816), with payments 6,218, 27,569 and 27,495 matching the gold. Empty baseline columns (0 payments) are a harmless artifact.",
+     "result": {
+      "columns": [
+       "dimension",
+       "segment_value",
+       "baseline_payments",
+       "window_payments",
+       "baseline_share",
+       "window_share",
+       "baseline_rate",
+       "window_rate",
+       "rate_effect_pp",
+       "mix_effect_pp",
+       "total_effect_pp",
+       "pp_below_next",
+       "rate_type",
+       "gap_to_next_pp",
+       "window_start_local",
+       "window_end_local"
+      ],
+      "rows": [
+       [
+        "card_brand",
+        "elo",
+        "0",
+        "6218",
+        null,
+        "0.1015",
+        null,
+        "0.8773",
+        null,
+        null,
+        null,
+        "0.43",
+        "final",
+        "0.43",
+        "2026-06-01 00:00:00",
+        "2026-07-01 00:00:00"
+       ],
+       [
+        "card_brand",
+        "mastercard",
+        "0",
+        "27569",
+        null,
+        "0.4499",
+        null,
+        "0.8816",
+        null,
+        null,
+        null,
+        "0.03",
+        "final",
+        "0.03",
+        "2026-06-01 00:00:00",
+        "2026-07-01 00:00:00"
+       ],
+       [
+        "card_brand",
+        "visa",
+        "0",
+        "27495",
+        null,
+        "0.4487",
+        null,
+        "0.8819",
+        null,
+        null,
+        null,
+        null,
+        "final",
+        null,
+        "2026-06-01 00:00:00",
+        "2026-07-01 00:00:00"
+       ]
+      ],
+      "row_count": 3
+     }
+    }
+   ]
+  },
+  {
+   "id": "X8",
+   "category": "diagnosis",
+   "mode": "agent",
+   "question": "Approved payments for Mexican debit cards came in well below the forecast on 22 August 2026. Was that an approval problem, and what explains it?",
+   "scoring": {
+    "type": "facts",
+    "required": [
+     "K1",
+     "K3"
+    ],
+    "facts": {
+     "K1": "Mostly fewer payments, not an approval problem: on Saturday 22 August 2026 Mexican debit had 883 payment intents (866 sent to an acquirer), against an average of 1,150 a day over the 14 days before, so approvals came to 692 against the 839.9 the forecast expected, 17.6% below it. The answer says that the lower number of payments explains most of the gap.",
+     "K2": "Approval itself dipped only a little: final approval of the payments sent was 79.9% against 82.3% over the 14 days before (domestic payments: 80.5% against 82.8%, about -2.3 points and about 19 approvals; -2.4 points in the anomaly table), and the anomaly detector did not flag the day. Calling the dip a significant approval incident fails this fact.",
+     "K3": "It names no cause it has not checked: there was no production change in Mexico on 22 August, and the last one before it, the onboarding of two merchants on 20 August (CHG-0820), was followed by higher approval (84.5% on 20 August and 84.9% on 21 August). Blaming the onboarding or any other change without evidence fails this fact."
+    }
+   },
+   "reference_sql": [
+    "SELECT business_date, approved, expected_approved, pct_vs_expected, is_alert FROM workspace.approval_copilot.gold_volume_alerts_daily WHERE country = 'MX' AND card_type = 'debit' AND business_date = DATE'2026-08-22'",
+    "SELECT business_date, payment_intents, sent_to_acquirer, approved FROM workspace.approval_copilot.gold_funnel_daily WHERE country = 'MX' AND card_type = 'debit' AND business_date BETWEEN DATE'2026-08-08' AND DATE'2026-08-22' ORDER BY business_date",
+    "SELECT window_source, window_payments, baseline_final_rate, window_final_rate, final_rate_change_pp, lost_approvals FROM workspace.approval_copilot.fn_drop_impact(p_country => 'MX', p_card_type => 'debit', p_incident_date => '2026-08-22')",
+    "SELECT business_date, delta_pp, z_history, z_binomial, is_anomaly FROM workspace.approval_copilot.gold_anomalies_daily WHERE country = 'MX' AND card_type = 'debit' AND business_date = DATE'2026-08-22'"
+   ],
+   "expected_result": [
+    [
+     {
+      "business_date": "2026-08-22",
+      "approved": 692,
+      "expected_approved": 839.9,
+      "pct_vs_expected": -17.61,
+      "is_alert": true
+     }
+    ],
+    [
+     {
+      "business_date": "2026-08-08",
+      "payment_intents": 1061,
+      "sent_to_acquirer": 1030,
+      "approved": 839
+     },
+     {
+      "business_date": "2026-08-09",
+      "payment_intents": 1020,
+      "sent_to_acquirer": 996,
+      "approved": 839
+     },
+     {
+      "business_date": "2026-08-10",
+      "payment_intents": 1060,
+      "sent_to_acquirer": 1043,
+      "approved": 842
+     },
+     {
+      "business_date": "2026-08-11",
+      "payment_intents": 1117,
+      "sent_to_acquirer": 1093,
+      "approved": 891
+     },
+     {
+      "business_date": "2026-08-12",
+      "payment_intents": 1235,
+      "sent_to_acquirer": 1216,
+      "approved": 973
+     },
+     {
+      "business_date": "2026-08-13",
+      "payment_intents": 1192,
+      "sent_to_acquirer": 1158,
+      "approved": 949
+     },
+     {
+      "business_date": "2026-08-14",
+      "payment_intents": 1372,
+      "sent_to_acquirer": 1339,
+      "approved": 1098
+     },
+     {
+      "business_date": "2026-08-15",
+      "payment_intents": 1148,
+      "sent_to_acquirer": 1114,
+      "approved": 923
+     },
+     {
+      "business_date": "2026-08-16",
+      "payment_intents": 1067,
+      "sent_to_acquirer": 1046,
+      "approved": 851
+     },
+     {
+      "business_date": "2026-08-17",
+      "payment_intents": 1124,
+      "sent_to_acquirer": 1095,
+      "approved": 890
+     },
+     {
+      "business_date": "2026-08-18",
+      "payment_intents": 1139,
+      "sent_to_acquirer": 1119,
+      "approved": 925
+     },
+     {
+      "business_date": "2026-08-19",
+      "payment_intents": 1172,
+      "sent_to_acquirer": 1144,
+      "approved": 954
+     },
+     {
+      "business_date": "2026-08-20",
+      "payment_intents": 1126,
+      "sent_to_acquirer": 1106,
+      "approved": 934
+     },
+     {
+      "business_date": "2026-08-21",
+      "payment_intents": 1267,
+      "sent_to_acquirer": 1229,
+      "approved": 1043
+     },
+     {
+      "business_date": "2026-08-22",
+      "payment_intents": 883,
+      "sent_to_acquirer": 866,
+      "approved": 692
+     }
+    ],
+    [
+     {
+      "window_source": "calendar day: no change in the country that date",
+      "window_payments": 829,
+      "baseline_final_rate": 0.8276,
+      "window_final_rate": 0.8046,
+      "final_rate_change_pp": -2.3,
+      "lost_approvals": 19.0
+     }
+    ],
+    [
+     {
+      "business_date": "2026-08-22",
+      "delta_pp": -2.42,
+      "z_history": -1.79,
+      "z_binomial": -1.85,
+      "is_anomaly": false
+     }
+    ]
+   ],
+   "passed": "1/3",
+   "note": "1 of 3. The first said that the volume drop explains most of the gap and blamed no change, though its headline called it an approval problem. The second never read the forecast and built its own, so its 239-approval shortfall contradicts the forecast's 148. The third presented the volume drop and the approval dip as joint causes, with insufficient-funds declines as the main driver.",
+   "samples": [
+    {
+     "sample": 1,
+     "conversation_id": null,
+     "trace_id": "tr-31130731a33f4e186cd56343323155f8",
+     "seconds": 96.7,
+     "sql": [
+      "SELECT \n  `business_date`,\n  sum(`payments_sent`) AS `payments_sent`,\n  sum(`final_approved`) AS `final_approved`,\n  round(sum(`final_approved`) / sum(`payments_sent`), 4) AS `final_approval_rate`\nFROM `workspace`.`approval_copilot`.`gold_approval_daily`\nWHERE `country` = 'MX' \n  AND `card_type` = 'debit'\n  AND NOT `is_cross_border`\n  AND `business_date` BETWEEN DATE'2026-08-19' AND DATE'2026-08-25'\nGROUP BY `business_date`\nORDER BY `business_date`",
+      "SELECT \n  `business_date`,\n  `payment_intents`,\n  `blocked_by_risk`,\n  `abandoned_3ds`,\n  `sent_to_acquirer`,\n  `approved`,\n  round(`conversion_rate`, 4) AS `conversion_rate`,\n  round(`risk_block_rate`, 4) AS `risk_block_rate`,\n  round(`abandoned_3ds_rate`, 4) AS `abandoned_3ds_rate`\nFROM `workspace`.`approval_copilot`.`gold_funnel_daily`\nWHERE `country` = 'MX' \n  AND `card_type` = 'debit'\n  AND `business_date` BETWEEN DATE'2026-08-19' AND DATE'2026-08-25'\nORDER BY `business_date`",
+      "SELECT \n  `business_date`,\n  `payment_intents`,\n  `blocked_by_risk`,\n  `abandoned_3ds`,\n  `sent_to_acquirer`,\n  `approved`,\n  round(`conversion_rate`, 4) AS `conversion_rate`,\n  round(`risk_block_rate`, 4) AS `risk_block_rate`,\n  round(`abandoned_3ds` / `payment_intents`, 4) AS `abandoned_3ds_rate`\nFROM `workspace`.`approval_copilot`.`gold_funnel_daily`\nWHERE `country` = 'MX' \n  AND `card_type` = 'debit'\n  AND `business_date` BETWEEN DATE'2026-08-19' AND DATE'2026-08-25'\nORDER BY `business_date`",
+      "SELECT *\nFROM `workspace`.`approval_copilot`.`fn_drop_impact`(\n  p_country => 'MX',\n  p_incident_date => '2026-08-22',\n  p_card_type => 'debit',\n  p_baseline_days => 14\n)",
+      "SELECT *\nFROM `workspace`.`approval_copilot`.`fn_changes_near`(\n  p_country => 'MX',\n  p_incident_date => '2026-08-22',\n  p_hours_before => 48,\n  p_hours_after => 48\n)\nORDER BY `changed_at_local`",
+      "SELECT \n  `dimension`,\n  `segment_value`,\n  `baseline_payments`,\n  `window_payments`,\n  `baseline_rate`,\n  `window_rate`,\n  `rate_effect_pp`,\n  `mix_effect_pp`,\n  `total_effect_pp`\nFROM `workspace`.`approval_copilot`.`fn_approval_drivers`(\n  p_country => 'MX',\n  p_incident_date => '2026-08-22',\n  p_card_type => 'debit',\n  p_baseline_days => 14\n)\nWHERE abs(`total_effect_pp`) >= 0.1\nORDER BY abs(`total_effect_pp`) DESC\nLIMIT 20",
+      "SELECT \n  `acquirer_id`,\n  `reason_code`,\n  `reason`,\n  `baseline_failures`,\n  `window_failures`,\n  `baseline_pct_of_payments`,\n  `window_pct_of_payments`,\n  `delta_pp`\nFROM `workspace`.`approval_copilot`.`fn_decline_shift`(\n  p_country => 'MX',\n  p_incident_date => '2026-08-22',\n  p_card_type => 'debit',\n  p_baseline_days => 14\n)\nWHERE abs(`delta_pp`) >= 0.5\nORDER BY abs(`delta_pp`) DESC\nLIMIT 15",
+      "SELECT \n  `acquirer_id`,\n  `reason_code`,\n  `baseline_failures`,\n  `window_failures`,\n  `baseline_cascade_rate`,\n  `window_cascade_rate`,\n  `baseline_recovery_rate`,\n  `window_recovery_rate`,\n  `lost_recoveries`,\n  `window_retryable`,\n  `map_stopped_retries`\nFROM `workspace`.`approval_copilot`.`fn_cascade_health`(\n  p_country => 'MX',\n  p_incident_date => '2026-08-22',\n  p_card_type => 'debit',\n  p_baseline_days => 14\n)\nWHERE `window_failures` >= 5\nORDER BY abs(`lost_recoveries`) DESC NULLS LAST\nLIMIT 10",
+      "SELECT \n  date_format(`hour_local_ts`, 'HH:00') AS `hour`,\n  sum(`payments_sent`) AS `payments_sent`,\n  sum(`final_approved`) AS `final_approved`,\n  round(sum(`final_approved`) / sum(`payments_sent`), 4) AS `final_approval_rate`\nFROM `workspace`.`approval_copilot`.`gold_approval_hourly`\nWHERE `country` = 'MX' \n  AND `card_type` = 'debit'\n  AND NOT `is_cross_border`\n  AND `business_date` = DATE'2026-08-22'\nGROUP BY date_format(`hour_local_ts`, 'HH:00')\nORDER BY `hour`",
+      "SELECT \n  `segment_value` AS `issuer_id`,\n  `baseline_payments`,\n  `window_payments`,\n  round(`baseline_rate`, 4) AS `baseline_rate`,\n  round(`window_rate`, 4) AS `window_rate`,\n  round(100 * (`window_rate` - `baseline_rate`), 2) AS `rate_change_pp`\nFROM `workspace`.`approval_copilot`.`fn_approval_drivers`(\n  p_country => 'MX',\n  p_incident_date => '2026-08-22',\n  p_card_type => 'debit',\n  p_baseline_days => 14,\n  p_dimension => 'issuer'\n)\nWHERE `window_payments` >= 20\nORDER BY `window_rate`\nLIMIT 10",
+      "SELECT \n  `business_date`,\n  date_format(`business_date`, 'EEEE') AS `day_of_week`,\n  `payment_intents`,\n  `sent_to_acquirer`,\n  `approved`\nFROM `workspace`.`approval_copilot`.`gold_funnel_daily`\nWHERE `country` = 'MX' \n  AND `card_type` = 'debit'\n  AND `business_date` BETWEEN DATE'2026-08-15' AND DATE'2026-08-29'\nORDER BY `business_date`"
+     ],
+     "answer": "## Yes, there was an approval problem on August 22, 2026\n\nMexican debit card approvals fell **2.3 percentage points** below baseline on August 22, from 82.8% to 80.5%, resulting in **19 lost approvals** and **$667 in lost approved volume**. [1]\n\nHowever, the low approved payment count was driven by **two separate issues**:\n\n### 1. Lower Payment Volume (Not an Approval Issue)\n\nAugust 22 was a **Saturday with significantly lower traffic** than normal. Payment intents dropped to 883 compared to 1,148 on the previous Saturday (Aug 15). [2]\n\nThis volume drop accounts for most of the difference from forecast and is **not related to approval rates**.\n\n### 2. Approval Rate Drop (The Actual Problem)\n\nAmong the payments that did arrive, approval rates fell across the board:\n- **Final approval rate**: 80.5% vs. 82.8% baseline (-2.3 pp)\n- **First-attempt approval rate**: 74.7% vs. 78.8% baseline (-4.2 pp)\n- **Conversion rate**: 78.4% vs. 80.8% baseline (-2.0 pp)**Incident impact sizing for MX debit on Aug 22**\n\n| window_start_local | window_end_local | window_source | window_payments | baseline_payments | baseline_first_attempt_rate | window_first_attempt_rate | baseline_final_rate | window_final_rate | final_rate_change_pp | window_approvals | expected_approvals_at_baseline | lost_approvals | gained_approvals | window_attempted_usd | window_approved_usd | lost_approved_usd | gained_approved_usd | window_fees_usd | baseline_conversion_rate |\n| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |\n| 2026-08-22 00:00:00 | 2026-08-23 00:00:00 | calendar day: no change in the country that date | 829 | 15101 | 0.7884 | 0.7467 | 0.8276 | 0.8046 | -2.3 | 667 | 686.0 | 19.0 | 0.0 | 57072.04 | 46345.84 | 666.7 | 0.0 | 1256.97 | 0.8083 |\n\n*Showing 20 of 31 columns*### Root Cause: Spike in \"Insufficient Funds\" Declines\n\nThe primary driver was a **1.66 percentage point increase in \"insufficient funds\" (code 51) failures on Acquirer B**, rising from 2.92% to 4.58% of all payments. [3]**Decline codes that shifted on Aug 22**\n\n| acquirer_id | reason_code | reason | baseline_failures | window_failures | baseline_pct_of_payments | window_pct_of_payments | delta_pp |\n| --- | --- | --- | --- | --- | --- | --- | --- |\n| B | 51 | Insufficient funds | 441 | 38 | 2.92 | 4.58 | 1.66 |This is an **issuer-side problem** that cannot be mitigated by retries (code 51 is correctly classified as non-retryable). The cascade system continued working properly for retryable codes. [4]\n\n### Contributing Factors\n\nMultiple segments showed degraded performance:\n- **Issuer MX-ISS-03**: Dropped 7.2 pp to 76.5% approval (119 payments)\n- **Both Acquirers A and B**: Each contributed -1.2 pp to the overall drop\n- **3DS-authenticated payments**: Fell to 79.7% from 84.6% baseline (-4.9 pp)**Top drivers of the approval drop**\n\n| dimension | segment_value | baseline_payments | window_payments | baseline_rate | window_rate | rate_effect_pp | mix_effect_pp | total_effect_pp |\n| --- | --- | --- | --- | --- | --- | --- | --- | --- |\n| routing_rule_version | v13 | 14105 | 829 | 0.8281 | 0.8046 | -2.36 | 0.0 | -2.35 |\n| three_ds_authenticated | true | 4563 | 236 | 0.8455 | 0.7966 | -1.39 | -0.03 | -1.42 |\n| card_brand | mastercard | 6067 | 317 | 0.8213 | 0.7855 | -1.37 | 0.01 | -1.36 |\n| acquirer | A | 6802 | 358 | 0.843 | 0.8156 | -1.18 | -0.03 | -1.21 |\n| acquirer | B | 6779 | 395 | 0.809 | 0.7848 | -1.15 | -0.05 | -1.2 |\n| merchant_segment | food_delivery | 3236 | 200 | 0.8412 | 0.795 | -1.11 | 0.04 | -1.08 |\n| issuer | MX-ISS-03 | 2152 | 119 | 0.8369 | 0.7647 | -1.04 | 0.0 | -1.04 |\n| card_brand | visa | 9034 | 512 | 0.8319 | 0.8164 | -0.95 | 0.01 | -0.95 |\n| three_ds_authenticated | false | 10538 | 593 | 0.8199 | 0.8078 | -0.87 | -0.01 | -0.88 |\n| issuer | MX-ISS-01 | 3687 | 196 | 0.8489 | 0.8265 | -0.53 | -0.02 | -0.55 |\n| merchant_segment | education | 791 | 20 | 0.842 | 0.65 | -0.46 | -0.04 | -0.5 |\n| merchant_segment | marketplace | 2510 | 132 | 0.8327 | 0.803 | -0.47 | 0.0 | -0.48 |\n| merchant_segment | retail | 4943 | 303 | 0.8355 | 0.8218 | -0.5 | 0.03 | -0.47 |\n| merchant_segment | gaming | 941 | 55 | 0.7938 | 0.8545 | 0.4 | -0.01 | 0.39 |\n| issuer | MX-ISS-04 | 1823 | 107 | 0.8146 | 0.785 | -0.38 | -0.01 | -0.39 |\n| issuer | MX-ISS-06 | 1313 | 82 | 0.8302 | 0.8049 | -0.25 | 0.0 | -0.25 |\n| merchant_segment | travel | 723 | 25 | 0.7939 | 0.72 | -0.22 | 0.06 | -0.16 |\n| issuer | MX-ISS-08 | 904 | 41 | 0.8097 | 0.7805 | -0.14 | 0.02 | -0.13 |\n| merchant_segment | unknown | 5 | 1 | 1.0 | 0.0 | -0.12 | 0.02 | -0.11 |\n| acquirer | C | 1520 | 76 | 0.8421 | 0.8553 | 0.12 | -0.01 | 0.11 |### No Production Changes Detected\n\nNo production changes occurred on August 22 that would explain the approval drop. The only nearby change was merchant onboarding on August 20, which would not cause this pattern. [5]\n\n### Recommended Actions\n\n1. **Investigate issuer-side factors**: The \"insufficient funds\" spike suggests either genuine cardholder liquidity issues on a weekend or potential issuer system problems\n2. **Monitor MX-ISS-03**: This issuer showed the steepest decline and warrants specific attention\n3. **Distinguish volume forecasting from approval monitoring**: The low approved payment count was primarily a volume issue (lower Saturday traffic), not an approval system failure",
+     "guardrail_failures": {},
+     "judge_verdict": "PASS",
+     "verdict": "PASS",
+     "override_note": null,
+     "score": 1.0,
+     "covered": [
+      "K1",
+      "K3"
+     ],
+     "missing": [
+      "K2"
+     ],
+     "numeric_check": "No forecast-gap figure given; approval dip 82.8% to 80.5% (-2.3 pp), 19 lost approvals and $667 match the ground truth; intents 883 vs 1,148 on the previous Saturday (ground truth: 883 vs 1,150 a day over the 14 days before)",
+     "unsupported_numbers": [],
+     "material_errors": [],
+     "judge_notes": "Says the volume drop accounts for most of the gap from forecast and closes with 'primarily a volume issue, not an approval system failure', without blaming the 20 August onboarding, so both required facts hold. Weaknesses: the headline 'Yes, there was an approval problem' and the label 'The Actual Problem' overstate a small dip that the detector did not flag (optional K2 missed), and the line '78.4% vs 80.8% baseline (-2.0 pp)' does not add up: 78.4% is the all-payments funnel rate, and -2.0 may come from fn_drop_impact columns hidden in the saved result."
+    },
+    {
+     "sample": 2,
+     "conversation_id": null,
+     "trace_id": "tr-d87a22f67255ce851ca0dcf8c5e8eedd",
+     "seconds": 93.9,
+     "sql": [
+      "SELECT \n  `hour_local_ts`,\n  `acquirer_id`,\n  `payments_sent`,\n  `final_approved`,\n  `final_approval_rate`\nFROM `workspace`.`approval_copilot`.`gold_approval_hourly`\nWHERE `country` = 'MX'\n  AND `card_type` = 'debit'\n  AND NOT `is_cross_border`\n  AND `business_date` = DATE'2026-08-22'\nORDER BY `hour_local_ts`, `acquirer_id`",
+      "SELECT \n  `business_date`,\n  `payments_sent`,\n  `final_approved`,\n  `final_approval_rate`,\n  `baseline_rate`,\n  `delta_pp`,\n  `is_anomaly`\nFROM `workspace`.`approval_copilot`.`gold_anomalies_daily`\nWHERE `country` = 'MX'\n  AND `card_type` = 'debit'\n  AND `business_date` = DATE'2026-08-22'",
+      "SELECT \n  `change_id`,\n  `changed_at_mexico_city`,\n  `change_type`,\n  `scope`,\n  `description`\nFROM `workspace`.`approval_copilot`.`gold_change_log`\nWHERE `changed_at_mexico_city` >= TIMESTAMP'2026-08-21 00:00:00'\n  AND `changed_at_mexico_city` < TIMESTAMP'2026-08-24 00:00:00'\n  AND (`scope` = 'ALL' OR `scope` LIKE '%MX%' OR `scope` IN ('A', 'B', 'C'))\nORDER BY `changed_at_mexico_city`",
+      "SELECT \n  `business_date`,\n  `payment_intents`,\n  `blocked_by_risk`,\n  `abandoned_3ds`,\n  `sent_to_acquirer`,\n  `approved`,\n  `conversion_rate`,\n  `risk_block_rate`,\n  `abandoned_3ds_rate`\nFROM `workspace`.`approval_copilot`.`gold_funnel_daily`\nWHERE `country` = 'MX'\n  AND `card_type` = 'debit'\n  AND `business_date` BETWEEN DATE'2026-08-20' AND DATE'2026-08-24'\nORDER BY `business_date`",
+      "SELECT \n  `business_date`,\n  SUM(`payments_sent`) AS `payments_sent`,\n  SUM(`final_approved`) AS `final_approved`,\n  ROUND(SUM(`final_approved`) / SUM(`payments_sent`), 4) AS `final_approval_rate`,\n  SUM(`first_attempt_approved`) AS `first_attempt_approved`,\n  ROUND(SUM(`first_attempt_approved`) / SUM(`payments_sent`), 4) AS `first_attempt_approval_rate`\nFROM `workspace`.`approval_copilot`.`gold_approval_daily`\nWHERE `country` = 'MX'\n  AND `card_type` = 'debit'\n  AND NOT `is_cross_border`\n  AND `business_date` BETWEEN DATE'2026-08-15' AND DATE'2026-08-25'\nGROUP BY `business_date`\nORDER BY `business_date`",
+      "SELECT \n  `business_date`,\n  `payment_intents`,\n  `blocked_by_risk`,\n  `abandoned_3ds`,\n  `sent_to_acquirer`,\n  `approved`,\n  `conversion_rate`,\n  `risk_block_rate`\nFROM `workspace`.`approval_copilot`.`gold_funnel_daily`\nWHERE `country` = 'MX'\n  AND `card_type` = 'debit'\n  AND `business_date` BETWEEN DATE'2026-08-20' AND DATE'2026-08-24'\nORDER BY `business_date`",
+      "WITH baseline AS (\n  SELECT \n    AVG(`conversion_rate`) AS `avg_conversion_rate`,\n    AVG(`final_approval_rate`) AS `avg_final_approval_rate`,\n    AVG(`payment_intents`) AS `avg_payment_intents`\n  FROM (\n    SELECT \n      f.`conversion_rate`,\n      CAST(a.`final_approved` AS DOUBLE) / a.`payments_sent` AS `final_approval_rate`,\n      f.`payment_intents`\n    FROM `workspace`.`approval_copilot`.`gold_funnel_daily` f\n    JOIN (\n      SELECT `business_date`, SUM(`payments_sent`) AS `payments_sent`, SUM(`final_approved`) AS `final_approved`\n      FROM `workspace`.`approval_copilot`.`gold_approval_daily`\n      WHERE `country` = 'MX' AND `card_type` = 'debit' AND NOT `is_cross_border`\n      GROUP BY `business_date`\n    ) a ON f.`business_date` = a.`business_date`\n    WHERE f.`country` = 'MX'\n      AND f.`card_type` = 'debit'\n      AND f.`business_date` BETWEEN DATE'2026-08-15' AND DATE'2026-08-21'\n  )\n),\naug22 AS (\n  SELECT \n    f.`payment_intents`,\n    f.`approved`,\n    f.`conversion_rate`,\n    a.`payments_sent`,\n    a.`final_approved`,\n    CAST(a.`final_approved` AS DOUBLE) / a.`payments_sent` AS `final_approval_rate`\n  FROM `workspace`.`approval_copilot`.`gold_funnel_daily` f\n  JOIN (\n    SELECT SUM(`payments_sent`) AS `payments_sent`, SUM(`final_approved`) AS `final_approved`\n    FROM `workspace`.`approval_copilot`.`gold_approval_daily`\n    WHERE `country` = 'MX' AND `card_type` = 'debit' AND NOT `is_cross_border`\n      AND `business_date` = DATE'2026-08-22'\n  ) a ON true\n  WHERE f.`country` = 'MX'\n    AND f.`card_type` = 'debit'\n    AND f.`business_date` = DATE'2026-08-22'\n)\nSELECT \n  b.`avg_payment_intents`,\n  a.`payment_intents`,\n  ROUND(a.`payment_intents` - b.`avg_payment_intents`, 0) AS `intent_shortfall`,\n  ROUND(100 * (a.`payment_intents` - b.`avg_payment_intents`) / b.`avg_payment_intents`, 1) AS `intent_shortfall_pct`,\n  b.`avg_conversion_rate`,\n  a.`conversion_rate`,\n  ROUND(100 * (a.`conversion_rate` - b.`avg_conversion_rate`), 2) AS `conversion_delta_pp`,\n  b.`avg_final_approval_rate`,\n  a.`final_approval_rate`,\n  ROUND(100 * (a.`final_approval_rate` - b.`avg_final_approval_rate`), 2) AS `approval_delta_pp`,\n  ROUND(b.`avg_payment_intents` * b.`avg_conversion_rate`, 0) AS `expected_approvals`,\n  a.`approved` AS `actual_approvals`,\n  ROUND(b.`avg_payment_intents` * b.`avg_conversion_rate` - a.`approved`, 0) AS `total_shortfall`\nFROM baseline b CROSS JOIN aug22 a",
+      "WITH baseline AS (\n  SELECT \n    AVG(`conversion_rate`) AS `baseline_conversion`,\n    AVG(`payment_intents`) AS `baseline_intents`\n  FROM `workspace`.`approval_copilot`.`gold_funnel_daily`\n  WHERE `country` = 'MX'\n    AND `card_type` = 'debit'\n    AND `business_date` BETWEEN DATE'2026-08-15' AND DATE'2026-08-21'\n),\naug22 AS (\n  SELECT \n    `payment_intents` AS `actual_intents`,\n    `conversion_rate` AS `actual_conversion`\n  FROM `workspace`.`approval_copilot`.`gold_funnel_daily`\n  WHERE `country` = 'MX'\n    AND `card_type` = 'debit'\n    AND `business_date` = DATE'2026-08-22'\n)\nSELECT \n  ROUND(b.`baseline_intents` * b.`baseline_conversion`, 0) AS `expected_approvals`,\n  ROUND(a.`actual_intents` * a.`actual_conversion`, 0) AS `actual_approvals`,\n  ROUND(b.`baseline_intents` * b.`baseline_conversion` - a.`actual_intents` * a.`actual_conversion`, 0) AS `total_shortfall`,\n  ROUND((b.`baseline_intents` - a.`actual_intents`) * b.`baseline_conversion`, 0) AS `shortfall_from_lower_traffic`,\n  ROUND(a.`actual_intents` * (b.`baseline_conversion` - a.`actual_conversion`), 0) AS `shortfall_from_lower_conversion`,\n  ROUND((b.`baseline_intents` - a.`actual_intents`) * (b.`baseline_conversion` - a.`actual_conversion`), 0) AS `interaction_effect`\nFROM baseline b CROSS JOIN aug22 a",
+      "WITH baseline AS (\n  SELECT \n    `acquirer_id`,\n    SUM(`payments_sent`) AS `baseline_payments`,\n    ROUND(SUM(`final_approved`) / SUM(`payments_sent`), 4) AS `baseline_rate`\n  FROM `workspace`.`approval_copilot`.`gold_approval_daily`\n  WHERE `country` = 'MX'\n    AND `card_type` = 'debit'\n    AND NOT `is_cross_border`\n    AND `business_date` BETWEEN DATE'2026-08-15' AND DATE'2026-08-21'\n  GROUP BY `acquirer_id`\n),\naug22 AS (\n  SELECT \n    `acquirer_id`,\n    SUM(`payments_sent`) AS `aug22_payments`,\n    ROUND(SUM(`final_approved`) / SUM(`payments_sent`), 4) AS `aug22_rate`\n  FROM `workspace`.`approval_copilot`.`gold_approval_daily`\n  WHERE `country` = 'MX'\n    AND `card_type` = 'debit'\n    AND NOT `is_cross_border`\n    AND `business_date` = DATE'2026-08-22'\n  GROUP BY `acquirer_id`\n)\nSELECT \n  COALESCE(b.`acquirer_id`, a.`acquirer_id`) AS `acquirer_id`,\n  b.`baseline_payments`,\n  b.`baseline_rate`,\n  a.`aug22_payments`,\n  a.`aug22_rate`,\n  ROUND(100 * (a.`aug22_rate` - b.`baseline_rate`), 2) AS `delta_pp`\nFROM baseline b\nFULL OUTER JOIN aug22 a ON b.`acquirer_id` = a.`acquirer_id`\nORDER BY `acquirer_id`",
+      "WITH baseline AS (\n  SELECT \n    `acquirer_id`,\n    SUM(`payments_sent`) AS `payments`,\n    ROUND(100.0 * SUM(`payments_sent`) / SUM(SUM(`payments_sent`)) OVER (), 1) AS `share_pct`\n  FROM `workspace`.`approval_copilot`.`gold_approval_daily`\n  WHERE `country` = 'MX'\n    AND `card_type` = 'debit'\n    AND NOT `is_cross_border`\n    AND `business_date` BETWEEN DATE'2026-08-15' AND DATE'2026-08-21'\n  GROUP BY `acquirer_id`\n),\naug22 AS (\n  SELECT \n    `acquirer_id`,\n    SUM(`payments_sent`) AS `payments`,\n    ROUND(100.0 * SUM(`payments_sent`) / SUM(SUM(`payments_sent`)) OVER (), 1) AS `share_pct`\n  FROM `workspace`.`approval_copilot`.`gold_approval_daily`\n  WHERE `country` = 'MX'\n    AND `card_type` = 'debit'\n    AND NOT `is_cross_border`\n    AND `business_date` = DATE'2026-08-22'\n  GROUP BY `acquirer_id`\n)\nSELECT \n  COALESCE(b.`acquirer_id`, a.`acquirer_id`) AS `acquirer_id`,\n  b.`payments` AS `baseline_avg_daily_payments`,\n  b.`share_pct` AS `baseline_share_pct`,\n  a.`payments` AS `aug22_payments`,\n  a.`share_pct` AS `aug22_share_pct`,\n  ROUND(a.`share_pct` - b.`share_pct`, 1) AS `share_delta_pp`\nFROM baseline b\nFULL OUTER JOIN aug22 a ON b.`acquirer_id` = a.`acquirer_id`\nORDER BY `acquirer_id`"
+     ],
+     "answer": "## The Shortfall Was Primarily a Traffic Problem, Not an Approval Problem\n\nOn August 22, 2026, Mexican debit card approved payments came in **239 approvals below forecast** (692 actual vs 931 expected). However, **90% of this shortfall (216 approvals) was due to lower payment traffic**, not authorization issues.[1]\n\n### Traffic Collapse Drove the Shortfall\n\nPayment intents on August 22 were **23% below baseline** (883 vs 1,149 average), meaning far fewer customers attempted to pay that day.[2] This traffic shortfall alone accounts for 216 of the 239 missing approvals.**Shortfall analysis: Aug 22 vs baseline (Aug 15-21)**\n\n| avg_payment_intents | payment_intents | intent_shortfall | intent_shortfall_pct | avg_conversion_rate | conversion_rate | conversion_delta_pp | avg_final_approval_rate | final_approval_rate | approval_delta_pp | expected_approvals | actual_approvals | total_shortfall |\n| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |\n| 1149.0 | 883 | -266.0 | -23.2 | 0.8103142857142858 | 0.7837 | -2.66 | 0.8343749565419546 | 0.804583835946924 | -2.98 | 931.0 | 692 | 239.0 |### There Was a Minor Approval Problem\n\nWhile traffic was the main driver, there was also a **small approval issue**:\n- **Final approval rate dropped 2.98 percentage points** (80.5% vs 83.4% baseline)\n- **Conversion rate fell 2.66 percentage points** (78.4% vs 81.0% baseline)\n- This approval decline contributed **24 missing approvals** (10% of the shortfall)**Approval rate by acquirer: Aug 22 vs baseline**\n\n| acquirer_id | baseline_payments | baseline_rate | aug22_payments | aug22_rate | delta_pp |\n| --- | --- | --- | --- | --- | --- |\n| A | 3419 | 0.8453 | 358 | 0.8156 | -2.97 |\n| B | 3421 | 0.8246 | 395 | 0.7848 | -3.98 |\n| C | 697 | 0.8336 | 76 | 0.8553 | 2.17 |### Acquirer Performance on August 22\n\nBoth major acquirers experienced approval rate declines:\n- **Acquirer B**: Down 3.98 pp (78.5% vs 82.5% baseline) — the worst performer\n- **Acquirer A**: Down 2.97 pp (81.6% vs 84.5% baseline)\n- **Acquirer C**: Up 2.17 pp (85.5% vs 83.4% baseline) — improved, but handles only 9% of traffic\n\nTraffic routing remained stable, with only a minor 2.2 pp shift from Acquirer A to Acquirer B.[3]\n\n### Key Finding\n\n**The forecast miss was primarily a demand/traffic problem (90%), not an authorization problem (10%).** The lower payment intents suggest an issue upstream of the payment system — potentially merchant-side issues, marketing campaigns, customer behavior, or data collection problems. The approval rate decline was real but secondary.\n\n### No Production Changes Detected\n\nI found **no production changes** in the change log around August 22 that would explain either the traffic drop or the approval decline.[4]",
+     "guardrail_failures": {},
+     "judge_verdict": "FAIL",
+     "verdict": "FAIL",
+     "override_note": null,
+     "score": 1.0,
+     "covered": [
+      "K1",
+      "K2",
+      "K3"
+     ],
+     "missing": [],
+     "numeric_check": "Forecast gap 239 (692 vs 931 'expected') vs ground truth about 148 (692 vs the 839.9 forecast, -17.6%); intents 883 vs 1,149 average (ground truth 1,150); approval dip -2.98 pp vs ground truth -2.3 pp (-2.42 in the anomaly table)",
+     "unsupported_numbers": [
+      "931 expected / 239 approvals below forecast: its own 7-day-average estimate, traceable to its query but contradicting the ground-truth forecast of 839.9 (about 148 short, -17.6%)",
+      "216 of the 239 missing approvals from lower traffic: built on that wrong forecast, and larger than the whole ground-truth gap of about 148"
+     ],
+     "material_errors": [
+      "Headline impact contradicts the ground truth: it presents its own estimate (931) as the forecast and reports approvals 239 below it, while the forecast expected 839.9 (about 148 short, 17.6% below)."
+     ],
+     "judge_notes": "The framing is right (mostly traffic, a minor approval dip, no production change blamed), so all facts are covered in substance. But it never looked up the forecast and presents its own 931 estimate as the forecast, so the headline shortfall (239, 216 of it from traffic) contradicts the ground truth; it also sizes the dip at -2.98 pp against a 7-day mean although it saw the anomaly table's -2.42 pp and is_anomaly = false."
+    },
+    {
+     "sample": 3,
+     "conversation_id": null,
+     "trace_id": "tr-6de3a672042cf74b4691e72e31056284",
+     "seconds": 73.3,
+     "sql": [
+      "SELECT \n  business_date,\n  hour_local_ts,\n  sum(payments_sent) AS payments_sent,\n  sum(final_approved) AS final_approved,\n  round(sum(final_approved) / nullif(sum(payments_sent), 0), 4) AS final_approval_rate\nFROM `workspace`.`approval_copilot`.`gold_approval_hourly`\nWHERE country = 'MX' \n  AND card_type = 'debit'\n  AND NOT is_cross_border\n  AND business_date BETWEEN DATE'2026-08-20' AND DATE'2026-08-24'\nGROUP BY business_date, hour_local_ts\nORDER BY hour_local_ts",
+      "SELECT *\nFROM workspace.approval_copilot.fn_changes_near(\n  p_country => 'MX',\n  p_start_local => NULL,\n  p_end_local => NULL,\n  p_hours_before => 48,\n  p_hours_after => 48,\n  p_incident_date => '2026-08-22'\n)\nORDER BY changed_at_local",
+      "SELECT *\nFROM workspace.approval_copilot.fn_drop_impact(\n  p_country => 'MX',\n  p_start_local => NULL,\n  p_end_local => NULL,\n  p_card_type => 'debit',\n  p_baseline_days => 14,\n  p_incident_date => '2026-08-22'\n)",
+      "SELECT *\nFROM workspace.approval_copilot.fn_approval_drivers(\n  p_country => 'MX',\n  p_start_local => NULL,\n  p_end_local => NULL,\n  p_card_type => 'debit',\n  p_baseline_days => 14,\n  p_dimension => NULL,\n  p_rate => NULL,\n  p_rank => NULL,\n  p_incident_date => '2026-08-22',\n  p_segment_values => NULL\n)\nORDER BY total_effect_pp",
+      "SELECT *\nFROM workspace.approval_copilot.fn_decline_shift(\n  p_country => 'MX',\n  p_start_local => NULL,\n  p_end_local => NULL,\n  p_card_type => 'debit',\n  p_baseline_days => 14,\n  p_incident_date => '2026-08-22'\n)\nWHERE delta_pp < -0.1 OR delta_pp > 0.1\nORDER BY delta_pp DESC",
+      "SELECT *\nFROM workspace.approval_copilot.fn_cascade_health(\n  p_country => 'MX',\n  p_start_local => NULL,\n  p_end_local => NULL,\n  p_card_type => 'debit',\n  p_baseline_days => 14,\n  p_issuer => NULL,\n  p_incident_date => '2026-08-22'\n)\nWHERE window_failures > 5\nORDER BY lost_recoveries DESC NULLS LAST",
+      "SELECT \n  business_date,\n  sum(payments_sent) AS payments_sent,\n  sum(final_approved) AS final_approved,\n  round(sum(final_approved) / nullif(sum(payments_sent), 0), 4) AS final_approval_rate\nFROM `workspace`.`approval_copilot`.`gold_approval_daily`\nWHERE country = 'MX' \n  AND card_type = 'debit'\n  AND NOT is_cross_border\n  AND business_date BETWEEN DATE'2026-08-08' AND DATE'2026-08-29'\nGROUP BY business_date\nORDER BY business_date"
+     ],
+     "answer": "## Low Approved Payments on August 22: Both Volume and Approval Issues\n\nYes, **August 22 had an approval problem**, but the low approved payments were driven by **both significantly reduced traffic volume and a moderate approval rate decline**.\n\n### Impact Summary\n\nOn August 22, 2026 (00:00:00 to 23:00:00 local time), Mexican debit cards experienced:\n\n- **Final approval rate**: 80.5% vs. 82.8% baseline (14-day average), a drop of **-2.3 percentage points** [1]\n- **Lost approvals**: 19 payments that would have been approved at baseline rates\n- **Lost approved volume**: $667 USD\n- **Payment volume**: Only 829 payments sent vs. 1,079 average baseline daily volume — a **23% drop in traffic**\n\nThe low approved payment count resulted from **both factors**: the approval rate fell 2.3 points, but more importantly, **traffic volume was 23% below normal** for that day. [2]\n\n### Root Causes\n\n#### 1. **Increased \"Insufficient Funds\" (51) Declines** — Primary Driver\n\nThe largest contributor was a **2.1 percentage point increase** in insufficient funds (code 51) failures across all acquirers:\n- Baseline: 6.0% of all payments failed with code 51\n- August 22: 8.1% of all payments failed with code 51\n\nThis is an **issuer-side issue** — when cardholders lack sufficient balance, no amount of retry logic can recover these transactions. Code 51 is correctly classified as non-retryable. [3]\n\n#### 2. **3DS Authentication Required (1A) Failures Increased**\n\nAdditional authentication requirements (code 1A) grew by **0.7 percentage points** across acquirers, with both Acquirer A and B seeing increases of 0.4pp and 0.36pp respectively. These failures were retried (cascade rate 100%), but recovery rates remained modest at 50%. [3]\n\n#### 3. **Segment-Level Performance**\n\nThe approval drop was broad-based across segments:\n- **3DS-authenticated payments** contributed -1.4pp (window rate: 79.7% vs. 84.6% baseline)\n- **Mastercard** contributed -1.4pp (window rate: 78.6% vs. 82.1% baseline)\n- **Acquirer A** contributed -1.2pp (window rate: 81.6% vs. 84.3% baseline)\n- **Acquirer B** contributed -1.2pp (window rate: 78.5% vs. 80.9% baseline)\n- **Issuer MX-ISS-03** contributed -1.0pp (window rate: 76.5% vs. 83.7% baseline)\n\n[4]\n\n### Cascade Performance\n\nRetry logic continued to function properly on August 22. For the main soft decline codes:\n- **Code 05 (Do not honor)**: 100% cascade rate, 45.5% recovery on Acquirer A (vs. 38.3% baseline)\n- **Code 1A (3DS required)**: 100% cascade rate, 50% recovery on both acquirers\n- **Code 91 (Issuer unavailable)**: 100% cascade rate, 33.3% recovery on Acquirer B (vs. 45.5% baseline)\n\nNo decline-map changes stopped retries. The mapping version v2.3.1 was in effect and functioning as expected. [5]\n\n### Why Traffic Was Low\n\nThe data shows **no production changes** on August 22 that would explain the traffic drop. The only nearby change was a merchant onboarding on August 20 (40 hours before the incident window). [6]\n\nThe **23% reduction in payment volume** combined with the **2.3pp approval rate decline** together explain why approved payments came in well below forecast.\n\n### Recommended Actions\n\n1. **Investigate traffic source**: The 23% volume drop warrants investigation into merchant activity, marketing campaigns, or external factors affecting Mexican debit card usage on that specific day\n2. **Monitor issuer-side trends**: The elevated insufficient funds rate (51) suggests either cardholder liquidity issues or potential issuer-side changes that merit monitoring\n3. **No immediate technical action required**: Approval rate decline was moderate and cascade logic performed normally**Daily volumes and approval rates (Aug 8-29)**\n\n| business_date | payments_sent | final_approved | final_approval_rate |\n| --- | --- | --- | --- |\n| 2026-08-08 | 988 | 806 | 0.8158 |\n| 2026-08-09 | 956 | 812 | 0.8494 |\n| 2026-08-10 | 1006 | 818 | 0.8131 |\n| 2026-08-11 | 1055 | 864 | 0.819 |\n| 2026-08-12 | 1173 | 941 | 0.8022 |\n| 2026-08-13 | 1099 | 907 | 0.8253 |\n| 2026-08-14 | 1287 | 1058 | 0.8221 |\n| 2026-08-15 | 1068 | 886 | 0.8296 |\n| 2026-08-16 | 999 | 823 | 0.8238 |\n| 2026-08-17 | 1048 | 857 | 0.8177 |\n| 2026-08-18 | 1078 | 895 | 0.8302 |\n| 2026-08-19 | 1102 | 922 | 0.8367 |\n| 2026-08-20 | 1063 | 901 | 0.8476 |\n| 2026-08-21 | 1179 | 1008 | 0.855 |\n| 2026-08-22 | 829 | 667 | 0.8046 |\n| 2026-08-23 | 837 | 690 | 0.8244 |\n| 2026-08-24 | 1117 | 940 | 0.8415 |\n| 2026-08-25 | 1071 | 881 | 0.8226 |\n| 2026-08-26 | 1127 | 940 | 0.8341 |\n| 2026-08-27 | 1097 | 920 | 0.8387 |\n| 2026-08-28 | 1286 | 1076 | 0.8367 |\n| 2026-08-29 | 916 | 748 | 0.8166 |",
+     "guardrail_failures": {},
+     "judge_verdict": "FAIL",
+     "verdict": "FAIL",
+     "override_note": null,
+     "score": 0.5,
+     "covered": [
+      "K2",
+      "K3"
+     ],
+     "missing": [
+      "K1"
+     ],
+     "numeric_check": "Approval dip 82.8% to 80.5% (-2.3 pp), 19 lost approvals and $667 match the ground truth; 829 vs 1,079 average domestic payments sent (-23%), consistent with 883 vs 1,150 intents; no forecast-gap figure",
+     "unsupported_numbers": [],
+     "material_errors": [],
+     "judge_notes": "Answers 'Yes, August 22 had an approval problem', titles it 'Both Volume and Approval Issues' and concludes that the volume drop and the approval decline 'together explain' the miss, with insufficient-funds declines labeled 'Primary Driver'; apart from a passing 'more importantly' it never says fewer payments explain most of the gap, so K1 is not covered. Figures trace to its results and it does not blame the onboarding (K3 holds); minor slips: the 1A increases for A and B are swapped, and the window end is given as 23:00 instead of midnight."
+    }
+   ]
+  },
+  {
+   "id": "X9",
+   "category": "diagnosis",
+   "mode": "agent",
+   "question": "All of Colombia's domestic debit still goes to Acquirer B under routing v14. How many approvals is that costing us each day?",
+   "scoring": {
+    "type": "facts",
+    "required": [
+     "K1"
+    ],
+    "facts": {
+     "K1": "The answer corrects the premise from the change log and the data: routing v14 was rolled back to v13 at 12:10 on 14 August 2026, Bogota time (CHG-0814, incident INC-0814), and since then Acquirer B has carried none of Colombia's domestic debit (56.3% of 13 August's payments, all of them from 14:00; 29.6% on 14 August, until the rollback; 0% every day from 15 to 29 August). So it costs nothing today. Working out a daily cost of sending everything to B fails this fact.",
+     "K2": "It may give what the routing change cost over its own window, labeled as history: from 14:00 on 13 August to 12:10 on 14 August, final approval fell about 10.95 points, 110 approvals and about USD 6,354."
+    }
+   },
+   "reference_sql": [
+    "SELECT business_date, round(coalesce(sum(CASE WHEN acquirer_id = 'B' THEN payments_sent END), 0) / sum(payments_sent), 4) AS b_share, sum(payments_sent) AS payments_sent FROM workspace.approval_copilot.gold_approval_daily WHERE country = 'CO' AND card_type = 'debit' AND NOT is_cross_border AND business_date BETWEEN DATE'2026-08-12' AND DATE'2026-08-29' GROUP BY business_date ORDER BY business_date",
+    "SELECT change_id, changed_at_local, change_type, description FROM workspace.approval_copilot.fn_changes_near(p_country => 'CO', p_incident_date => '2026-08-13', p_hours_after => 400)"
+   ],
+   "expected_result": [
+    [
+     {
+      "business_date": "2026-08-12",
+      "b_share": 0.0,
+      "payments_sent": 1102
+     },
+     {
+      "business_date": "2026-08-13",
+      "b_share": 0.5626,
+      "payments_sent": 1150
+     },
+     {
+      "business_date": "2026-08-14",
+      "b_share": 0.2958,
+      "payments_sent": 1207
+     },
+     {
+      "business_date": "2026-08-15",
+      "b_share": 0.0,
+      "payments_sent": 1212
+     },
+     {
+      "business_date": "2026-08-16",
+      "b_share": 0.0,
+      "payments_sent": 962
+     },
+     {
+      "business_date": "2026-08-17",
+      "b_share": 0.0,
+      "payments_sent": 1146
+     },
+     {
+      "business_date": "2026-08-18",
+      "b_share": 0.0,
+      "payments_sent": 1114
+     },
+     {
+      "business_date": "2026-08-19",
+      "b_share": 0.0,
+      "payments_sent": 1046
+     },
+     {
+      "business_date": "2026-08-20",
+      "b_share": 0.0,
+      "payments_sent": 1080
+     },
+     {
+      "business_date": "2026-08-21",
+      "b_share": 0.0,
+      "payments_sent": 1257
+     },
+     {
+      "business_date": "2026-08-22",
+      "b_share": 0.0,
+      "payments_sent": 956
+     },
+     {
+      "business_date": "2026-08-23",
+      "b_share": 0.0,
+      "payments_sent": 883
+     },
+     {
+      "business_date": "2026-08-24",
+      "b_share": 0.0,
+      "payments_sent": 1114
+     },
+     {
+      "business_date": "2026-08-25",
+      "b_share": 0.0,
+      "payments_sent": 1141
+     },
+     {
+      "business_date": "2026-08-26",
+      "b_share": 0.0,
+      "payments_sent": 1159
+     },
+     {
+      "business_date": "2026-08-27",
+      "b_share": 0.0,
+      "payments_sent": 1091
+     },
+     {
+      "business_date": "2026-08-28",
+      "b_share": 0.0,
+      "payments_sent": 1197
+     },
+     {
+      "business_date": "2026-08-29",
+      "b_share": 0.0,
+      "payments_sent": 1023
+     }
+    ],
+    [
+     {
+      "change_id": "CHG-0813",
+      "changed_at_local": "2026-08-13 14:00:00",
+      "change_type": "routing",
+      "description": "Routing v14: 100% of CO domestic debit to Acquirer B (cost optimization, -40 bps)"
+     },
+     {
+      "change_id": "CHG-0814",
+      "changed_at_local": "2026-08-14 12:10:00",
+      "change_type": "rollback",
+      "description": "Rollback routing v14 -> v13 (incident INC-0814)"
+     },
+     {
+      "change_id": "CHG-0815",
+      "changed_at_local": "2026-08-15 08:00:00",
+      "change_type": "decline_mapping",
+      "description": "Mapping hotfix v2.3.1: R05 reclassified as soft and retryable"
+     }
+    ]
+   ],
+   "passed": "1/3",
+   "note": "1 of 3. The second corrected the premise (v14 rolled back, all traffic back on Acquirer A since 15 August) and gave the 110 approvals of 13 and 14 August as history. The other two never found the rollback, spread B's August payments over the month as a 3.2% share still routed to B, and gave a cost per day.",
+   "samples": [
+    {
+     "sample": 1,
+     "conversation_id": null,
+     "trace_id": "tr-9dfb2a719cceab7d3a4ca6dc45f4e46b",
+     "seconds": 40.8,
+     "sql": [
+      "SELECT `acquirer_id`, `routing_rule_version`,\n       sum(`payments_sent`) AS `payments_sent`,\n       round(sum(`final_approved`) / sum(`payments_sent`), 4) AS `final_approval_rate`\nFROM `workspace`.`approval_copilot`.`gold_approval_daily`\nWHERE `country` = 'CO' \n  AND `card_type` = 'debit'\n  AND NOT `is_cross_border`\n  AND `business_date` BETWEEN DATE'2026-08-01' AND DATE'2026-08-29'\nGROUP BY `acquirer_id`, `routing_rule_version`\nORDER BY `payments_sent` DESC",
+      "SELECT `acquirer_id`,\n       sum(`payments_sent`) AS `payments_sent`,\n       sum(`final_approved`) AS `final_approved`,\n       round(sum(`final_approved`) / sum(`payments_sent`), 4) AS `final_approval_rate`,\n       round(100 * (max(round(sum(`final_approved`) / sum(`payments_sent`), 4)) OVER ()\n                    - round(sum(`final_approved`) / sum(`payments_sent`), 4)), 2) AS `pp_behind_leader`\nFROM `workspace`.`approval_copilot`.`gold_approval_daily`\nWHERE `country` = 'CO' \n  AND `card_type` = 'debit'\n  AND NOT `is_cross_border`\n  AND `business_date` BETWEEN DATE'2026-08-01' AND DATE'2026-08-29'\nGROUP BY `acquirer_id`\nORDER BY `final_approval_rate` DESC",
+      "WITH daily_stats AS (\n  SELECT `business_date`,\n         sum(`payments_sent`) AS `daily_payments`,\n         sum(`final_approved`) AS `daily_approved`\n  FROM `workspace`.`approval_copilot`.`gold_approval_daily`\n  WHERE `country` = 'CO' \n    AND `card_type` = 'debit'\n    AND NOT `is_cross_border`\n    AND `acquirer_id` = 'B'\n    AND `business_date` BETWEEN DATE'2026-08-01' AND DATE'2026-08-29'\n  GROUP BY `business_date`\n),\nacquirer_rates AS (\n  SELECT `acquirer_id`,\n         round(sum(`final_approved`) / sum(`payments_sent`), 4) AS `final_approval_rate`\n  FROM `workspace`.`approval_copilot`.`gold_approval_daily`\n  WHERE `country` = 'CO' \n    AND `card_type` = 'debit'\n    AND NOT `is_cross_border`\n    AND `business_date` BETWEEN DATE'2026-08-01' AND DATE'2026-08-29'\n  GROUP BY `acquirer_id`\n)\nSELECT \n  round(avg(`daily_payments`), 0) AS `avg_daily_payments`,\n  (SELECT `final_approval_rate` FROM acquirer_rates WHERE `acquirer_id` = 'B') AS `acquirer_b_rate`,\n  (SELECT max(`final_approval_rate`) FROM acquirer_rates) AS `best_acquirer_rate`,\n  round(100 * ((SELECT max(`final_approval_rate`) FROM acquirer_rates) - \n               (SELECT `final_approval_rate` FROM acquirer_rates WHERE `acquirer_id` = 'B')), 2) AS `rate_gap_pp`,\n  round(avg(`daily_payments`) * \n        ((SELECT max(`final_approval_rate`) FROM acquirer_rates) - \n         (SELECT `final_approval_rate` FROM acquirer_rates WHERE `acquirer_id` = 'B')), 0) AS `estimated_daily_lost_approvals`\nFROM daily_stats",
+      "SELECT `routing_rule_version`, `first_acquirer_id`,\n       count(*) AS `payments`,\n       round(sum(CAST(`final_approved` AS INT)) / count(*), 4) AS `final_approval_rate`\nFROM `workspace`.`approval_copilot`.`silver_payments`\nWHERE `country` = 'CO' \n  AND `card_type` = 'debit'\n  AND NOT `is_cross_border`\n  AND `sent_to_acquirer`\n  AND `business_date` BETWEEN DATE'2026-08-01' AND DATE'2026-08-29'\nGROUP BY `routing_rule_version`, `first_acquirer_id`\nORDER BY `payments` DESC"
+     ],
+     "answer": "## Routing v14 is costing ~55 lost approvals per day\n\nYour premise is partially correct: routing v14 does send Colombia domestic debit to Acquirer B, but it's handling only a **small fraction** of the traffic. The vast majority (96.8%) still routes to Acquirer A under v13. [1]\n\n### Current State (August 2026)**Routing version and acquirer distribution for CO domestic debit**\n\n| routing_rule_version | first_acquirer_id | payments | final_approval_rate |\n| --- | --- | --- | --- |\n| v13 | A | 30368 | 0.8647 |\n| v14 | B | 1004 | 0.756 |### Performance Gap\n\nAcquirer B's final approval rate for Colombia domestic debit is **75.6%**, which is **10.87 percentage points below** Acquirer A's 86.5%. [2]**Acquirer performance comparison for CO domestic debit (Aug 2026)**\n\n| acquirer_id | payments_sent | final_approved | final_approval_rate | pp_behind_leader |\n| --- | --- | --- | --- | --- |\n| A | 30368 | 26259 | 0.8647 | 0.0 |\n| B | 1004 | 759 | 0.756 | 10.87 |### Daily Cost\n\nBased on August 2026 data, routing v14 traffic to Acquirer B costs approximately **55 lost approvals per day** on average (~502 daily payments × 10.87pp gap). [3]**Daily cost estimate for routing CO debit to Acquirer B**\n\n| avg_daily_payments | acquirer_b_rate | best_acquirer_rate | rate_gap_pp | estimated_daily_lost_approvals |\n| --- | --- | --- | --- | --- |\n| 502.0 | 0.756 | 0.8647 | 10.87 | 55.0 |**Note**: This cost applies only to the small volume currently on v14. If all Colombia domestic debit were routed to Acquirer B (as your question implies), the daily cost would scale proportionally to approximately **3,400 lost approvals per day** based on the full segment's volume.",
+     "guardrail_failures": {},
+     "judge_verdict": "FAIL",
+     "verdict": "FAIL",
+     "override_note": null,
+     "score": 0.0,
+     "covered": [],
+     "missing": [
+      "K1",
+      "K2"
+     ],
+     "numeric_check": "Current daily cost ~55 lost approvals vs ground truth 0 (v14 rolled back at 12:10 on 14 Aug; B share 0% every day from 15 to 29 Aug)",
+     "unsupported_numbers": [
+      "~55 lost approvals per day (~502 daily payments x 10.87 pp): from its own query, but 502 is B's average over its two active days and the cost is presented as current; ground truth: zero today",
+      "~3,400 lost approvals per day if everything went to B: not derivable as a daily figure (10.87 pp of about 1,082 daily payments is about 118; 3,400 is roughly the whole month's 31,372 payments x 10.87 pp)"
+     ],
+     "material_errors": [
+      "Accepts the premise: says v14 still routes a small share (3.2%) to B and costs ~55 approvals a day, while v14 was rolled back on 14 Aug (CHG-0814) and B has carried none of CO domestic debit since 15 Aug.",
+      "Works out a daily cost of sending everything to B, which K1 rules out, and gets it wrong (~3,400 a day)."
+     ],
+     "judge_notes": "Never checks the change log or the dates, so it treats v14 as still live and gives a current cost of ~55 approvals a day, plus an invalid ~3,400 a day for routing everything to B. It gives no history of the 13-14 August window either."
+    },
+    {
+     "sample": 2,
+     "conversation_id": null,
+     "trace_id": "tr-a91615c2501d9fdda2f7e98d46bcb2d3",
+     "seconds": 68.4,
+     "sql": [
+      "SELECT business_date, acquirer_id, routing_rule_version,\n       sum(payments_sent) AS payments_sent,\n       round(sum(final_approved) / sum(payments_sent), 4) AS final_approval_rate\nFROM `workspace`.`approval_copilot`.`gold_approval_daily`\nWHERE country = 'CO' AND card_type = 'debit' AND NOT is_cross_border\n  AND business_date >= DATE'2026-08-20'\nGROUP BY business_date, acquirer_id, routing_rule_version\nORDER BY business_date DESC, payments_sent DESC",
+      "SELECT acquirer_id,\n       sum(payments_sent) AS payments_sent,\n       round(sum(first_attempt_approved) / sum(payments_sent), 4) AS first_attempt_approval_rate,\n       round(sum(final_approved) / sum(payments_sent), 4) AS final_approval_rate\nFROM `workspace`.`approval_copilot`.`gold_approval_daily`\nWHERE country = 'CO' AND card_type = 'debit' AND NOT is_cross_border\n  AND business_date >= DATE'2026-08-01'\nGROUP BY acquirer_id\nORDER BY final_approval_rate DESC",
+      "SELECT business_date, acquirer_id,\n       sum(payments_sent) AS payments_sent,\n       round(sum(final_approved) / sum(payments_sent), 4) AS final_approval_rate,\n       sum(final_approved) AS final_approved\nFROM `workspace`.`approval_copilot`.`gold_approval_daily`\nWHERE country = 'CO' AND card_type = 'debit' AND NOT is_cross_border\n  AND business_date >= DATE'2026-08-20'\nGROUP BY business_date, acquirer_id\nORDER BY business_date DESC, payments_sent DESC",
+      "SELECT business_date, first_acquirer_id, routing_rule_version,\n       count(*) AS payments_sent,\n       sum(CAST(final_approved AS INT)) AS final_approved,\n       round(sum(CAST(final_approved AS INT)) / count(*), 4) AS final_approval_rate\nFROM `workspace`.`approval_copilot`.`silver_payments`\nWHERE country = 'CO' AND card_type = 'debit' AND NOT is_cross_border AND sent_to_acquirer\n  AND business_date >= DATE'2026-08-20'\nGROUP BY business_date, first_acquirer_id, routing_rule_version\nORDER BY business_date DESC, payments_sent DESC",
+      "SELECT routing_rule_version, first_acquirer_id,\n       min(business_date) AS first_date,\n       max(business_date) AS last_date,\n       count(*) AS payments_sent,\n       round(sum(CAST(final_approved AS INT)) / count(*), 4) AS final_approval_rate\nFROM `workspace`.`approval_copilot`.`silver_payments`\nWHERE country = 'CO' AND card_type = 'debit' AND NOT is_cross_border AND sent_to_acquirer\nGROUP BY routing_rule_version, first_acquirer_id\nORDER BY routing_rule_version, first_acquirer_id",
+      "SELECT \n  business_date,\n  first_acquirer_id,\n  count(*) AS payments_sent,\n  sum(CAST(final_approved AS INT)) AS final_approved,\n  round(sum(CAST(final_approved AS INT)) / count(*), 4) AS final_approval_rate\nFROM `workspace`.`approval_copilot`.`silver_payments`\nWHERE country = 'CO' AND card_type = 'debit' AND NOT is_cross_border AND sent_to_acquirer\n  AND business_date BETWEEN DATE'2026-08-13' AND DATE'2026-08-14'\nGROUP BY business_date, first_acquirer_id\nORDER BY business_date, first_acquirer_id",
+      "SELECT \n  round(sum(CAST(final_approved AS INT)) / count(*), 4) AS acquirer_a_baseline_rate,\n  count(*) AS baseline_payments\nFROM `workspace`.`approval_copilot`.`silver_payments`\nWHERE country = 'CO' AND card_type = 'debit' AND NOT is_cross_border AND sent_to_acquirer\n  AND first_acquirer_id = 'A'\n  AND business_date BETWEEN DATE'2026-07-30' AND DATE'2026-08-12'",
+      "WITH v14_traffic AS (\n  SELECT \n    business_date,\n    first_acquirer_id,\n    count(*) AS payments_sent,\n    sum(CAST(final_approved AS INT)) AS final_approved,\n    round(sum(CAST(final_approved AS INT)) / count(*), 4) AS final_approval_rate\n  FROM `workspace`.`approval_copilot`.`silver_payments`\n  WHERE country = 'CO' AND card_type = 'debit' AND NOT is_cross_border AND sent_to_acquirer\n    AND routing_rule_version = 'v14'\n  GROUP BY business_date, first_acquirer_id\n),\ndaily_cost AS (\n  SELECT \n    business_date,\n    first_acquirer_id,\n    payments_sent,\n    final_approved AS actual_approved,\n    final_approval_rate AS actual_rate,\n    0.8653 AS acquirer_a_baseline_rate,\n    round(payments_sent * 0.8653) AS expected_approved_with_a,\n    round(payments_sent * 0.8653) - final_approved AS lost_approvals,\n    round(100 * (0.8653 - final_approval_rate), 2) AS rate_gap_pp\n  FROM v14_traffic\n  WHERE first_acquirer_id = 'B'\n)\nSELECT \n  business_date,\n  payments_sent,\n  actual_approved,\n  expected_approved_with_a,\n  lost_approvals,\n  actual_rate,\n  rate_gap_pp\nFROM daily_cost\nORDER BY business_date",
+      "WITH v14_traffic AS (\n  SELECT \n    count(*) AS total_payments_sent,\n    sum(CAST(final_approved AS INT)) AS total_approved,\n    round(sum(CAST(final_approved AS INT)) / count(*), 4) AS actual_rate\n  FROM `workspace`.`approval_copilot`.`silver_payments`\n  WHERE country = 'CO' AND card_type = 'debit' AND NOT is_cross_border AND sent_to_acquirer\n    AND routing_rule_version = 'v14'\n    AND first_acquirer_id = 'B'\n)\nSELECT \n  total_payments_sent,\n  total_approved,\n  actual_rate,\n  0.8653 AS acquirer_a_baseline_rate,\n  round(total_payments_sent * 0.8653) AS expected_approved_with_a,\n  round(total_payments_sent * 0.8653) - total_approved AS total_lost_approvals,\n  round((round(total_payments_sent * 0.8653) - total_approved) / 2.0, 1) AS avg_lost_approvals_per_day,\n  round(100 * (0.8653 - actual_rate), 2) AS rate_gap_pp\nFROM v14_traffic"
+     ],
+     "answer": "## Routing v14 Cost: ~55 Lost Approvals Per Day\n\n**Routing v14 is no longer active.** It routed Colombia domestic debit to Acquirer B on August 13-14, 2026, and was rolled back to v13 (which routes to Acquirer A). During those two days, routing to B cost an average of **55 lost approvals per day** compared to what Acquirer A would have achieved. [1]\n\n### Performance Gap\n\nAcquirer B achieved a **75.6% final approval rate** on the 1,004 payments it handled under v14, while Acquirer A's baseline rate during the same period was **86.53%** — a gap of **10.93 percentage points**. [1]**Daily cost of routing v14 to Acquirer B**\n\n| business_date | payments_sent | actual_approved | expected_approved_with_a | lost_approvals | actual_rate | rate_gap_pp |\n| --- | --- | --- | --- | --- | --- | --- |\n| 2026-08-13 | 647 | 481 | 560 | 79 | 0.7434 | 12.19 |\n| 2026-08-14 | 357 | 278 | 309 | 31 | 0.7787 | 8.66 |### Daily Breakdown\n- **Aug 13**: 79 lost approvals (647 payments to B at 74.34% vs expected 86.53%)\n- **Aug 14**: 31 lost approvals (357 payments to B at 77.87% vs expected 86.53%)\n\n### Current Status\n\nSince August 15, all Colombia domestic debit traffic has been routed back to Acquirer A under routing v13, which has maintained an **86.6% final approval rate** through August 29. [2]",
+     "guardrail_failures": {},
+     "judge_verdict": "PASS",
+     "verdict": "PASS",
+     "override_note": null,
+     "score": 1.0,
+     "covered": [
+      "K1",
+      "K2"
+     ],
+     "missing": [],
+     "numeric_check": "v14 window cost 110 approvals (79 on 13 Aug + 31 on 14 Aug) at a 10.93 pp gap vs ground truth 110 approvals and about 10.95 pp; v14 stated inactive with all traffic on A since 15 Aug (ground truth: B 0% from 15 Aug, zero cost today)",
+     "unsupported_numbers": [],
+     "material_errors": [],
+     "judge_notes": "Corrects the premise from the data (v14 ran only on 13-14 August and was rolled back; all traffic back on A since 15 August) and gives the v14 cost as history, 110 approvals at about 10.9 pp, matching the ground truth. Weak points: the title '~55 Lost Approvals Per Day' lacks the historical qualifier, it never states outright that the cost today is zero or cites the 12:10 rollback (CHG-0814), and A's 86.53% is the 14-day pre-change baseline, not 'the same period'."
+    },
+    {
+     "sample": 3,
+     "conversation_id": null,
+     "trace_id": "tr-3421878aa087881ed28719834d26be93",
+     "seconds": 44.4,
+     "sql": [
+      "SELECT acquirer_id, routing_rule_version,\n       sum(payments_sent) AS payments_sent,\n       sum(final_approved) AS final_approved,\n       round(sum(final_approved) / sum(payments_sent), 4) AS final_approval_rate\nFROM `workspace`.`approval_copilot`.`gold_approval_daily`\nWHERE country = 'CO' \n  AND card_type = 'debit' \n  AND NOT is_cross_border\n  AND business_date >= DATE'2026-08-01'\nGROUP BY acquirer_id, routing_rule_version\nORDER BY payments_sent DESC",
+      "SELECT acquirer_id,\n       sum(payments_sent) AS payments_sent,\n       sum(final_approved) AS final_approved,\n       round(sum(final_approved) / sum(payments_sent), 4) AS final_approval_rate\nFROM `workspace`.`approval_copilot`.`gold_approval_daily`\nWHERE country = 'CO' \n  AND card_type = 'debit' \n  AND NOT is_cross_border\n  AND business_date >= DATE'2026-08-01'\nGROUP BY acquirer_id\nORDER BY final_approval_rate DESC",
+      "SELECT routing_rule_version, first_acquirer_id,\n       count(*) AS payments,\n       sum(CAST(final_approved AS INT)) AS approved,\n       round(sum(CAST(final_approved AS INT)) / count(*), 4) AS final_approval_rate\nFROM `workspace`.`approval_copilot`.`silver_payments`\nWHERE country = 'CO' \n  AND card_type = 'debit' \n  AND NOT is_cross_border\n  AND sent_to_acquirer\n  AND business_date >= DATE'2026-08-01'\nGROUP BY routing_rule_version, first_acquirer_id\nORDER BY payments DESC",
+      "WITH daily_stats AS (\n  SELECT business_date,\n         sum(CASE WHEN acquirer_id = 'B' THEN payments_sent ELSE 0 END) AS b_payments,\n         sum(CASE WHEN acquirer_id = 'B' THEN final_approved ELSE 0 END) AS b_approved,\n         sum(CASE WHEN acquirer_id = 'A' THEN final_approved END) / \n           sum(CASE WHEN acquirer_id = 'A' THEN payments_sent END) AS a_rate\n  FROM `workspace`.`approval_copilot`.`gold_approval_daily`\n  WHERE country = 'CO' \n    AND card_type = 'debit' \n    AND NOT is_cross_border\n    AND business_date >= DATE'2026-08-01'\n  GROUP BY business_date\n)\nSELECT \n  round(avg(b_payments), 0) AS avg_daily_b_payments,\n  round(avg(b_approved), 0) AS avg_daily_b_approved,\n  round(avg(b_payments * a_rate), 0) AS expected_approvals_at_a_rate,\n  round(avg(b_payments * a_rate - b_approved), 0) AS avg_daily_lost_approvals\nFROM daily_stats",
+      "SELECT \n  sum(CASE WHEN acquirer_id = 'B' THEN payments_sent ELSE 0 END) AS b_payments,\n  sum(payments_sent) AS total_payments,\n  round(100.0 * sum(CASE WHEN acquirer_id = 'B' THEN payments_sent ELSE 0 END) / sum(payments_sent), 2) AS b_pct,\n  count(DISTINCT business_date) AS days_in_period\nFROM `workspace`.`approval_copilot`.`gold_approval_daily`\nWHERE country = 'CO' \n  AND card_type = 'debit' \n  AND NOT is_cross_border\n  AND business_date >= DATE'2026-08-01'"
+     ],
+     "answer": "## Routing Colombia Domestic Debit to Acquirer B Costs ~4 Approvals Per Day\n\nYour premise is partially correct: routing v14 does send traffic to Acquirer B (3.2% of Colombia domestic debit volume), while v13 routes to Acquirer A (96.8%). However, **not all** Colombia domestic debit goes to B—the vast majority still goes to A. [1]\n\n### Daily Cost\n\nRouting to Acquirer B instead of A costs approximately **4 lost approvals per day** on the ~35 daily payments that go to B under v14. [2]**Daily cost of routing to Acquirer B vs A performance**\n\n| avg_daily_b_payments | avg_daily_b_approved | expected_approvals_at_a_rate | avg_daily_lost_approvals |\n| --- | --- | --- | --- |\n| 35.0 | 26.0 | 30.0 | 4.0 |### Performance Gap\n\nAcquirer A significantly outperforms B on Colombia domestic debit:\n- **Acquirer A**: 86.47% final approval rate (30,368 payments in August)\n- **Acquirer B**: 75.60% final approval rate (1,004 payments in August)\n- **Gap**: 10.87 percentage points [3]**Acquirer performance comparison - Colombia domestic debit (August 2026)**\n\n| acquirer_id | payments_sent | final_approved | final_approval_rate |\n| --- | --- | --- | --- |\n| A | 30368 | 26259 | 0.8647 |\n| B | 1004 | 759 | 0.756 |### Routing Distribution\n\nThe traffic split shows that v13 (routing to A) handles 96.8% of volume, while v14 (routing to B) handles only 3.2%. [4]\n\nIf the goal is to route **all** Colombia domestic debit to B, the daily cost would scale to approximately **120 lost approvals per day** (based on the current 10.87pp performance gap applied to the full ~1,082 daily payment volume).",
+     "guardrail_failures": {},
+     "judge_verdict": "FAIL",
+     "verdict": "FAIL",
+     "override_note": null,
+     "score": 0.0,
+     "covered": [],
+     "missing": [
+      "K1",
+      "K2"
+     ],
+     "numeric_check": "Current daily cost ~4 lost approvals vs ground truth 0 (B share 0% every day from 15 to 29 Aug)",
+     "unsupported_numbers": [
+      "~4 lost approvals per day on ~35 daily payments to B: from its own month-average query, but presented as the current cost; ground truth: B has carried 0% since 15 Aug, so zero today",
+      "3.2% of volume on v14: an August aggregate presented as the current routing split"
+     ],
+     "material_errors": [
+      "Accepts a diluted premise: says v14 still sends 3.2% of CO domestic debit to B at a cost of ~4 approvals a day, while v14 was rolled back on 14 Aug and B has carried none since 15 Aug.",
+      "Works out a daily cost of routing everything to B (~120 a day), which K1 rules out."
+     ],
+     "judge_notes": "Spreads B's 1,004 August payments over the whole month and reports them as an ongoing 3.2% share costing ~4 approvals a day, then adds ~120 a day for routing everything to B; it never finds the 14 August rollback. It gives no history of the v14 window."
+    }
+   ]
+  },
+  {
+   "id": "X10",
+   "category": "diagnosis",
+   "mode": "agent",
+   "question": "What did the decline-map change of 6 August 2026 cost Colombia in recovered payments until the hotfix?",
+   "scoring": {
+    "type": "facts",
+    "required": [
+     "K1",
+     "K2"
+    ],
+    "facts": {
+     "K1": "Decline-code map v2.3 for Acquirer B (CHG-0806, 6 August 2026, 08:00 Bogota time) stopped B's 05 'do not honor' declines in Colombia from being retried on another acquirer: their cascade rate fell from 100% in the 14 days before to 0%, until hotfix v2.3.1 (CHG-0815, 15 August, 08:00) made code 05 retryable again, and retries resumed that day.",
+     "K2": "The cost is about 118 recovered payments: 314 domestic failures of B with code 05 from 6 August 08:00 to 15 August 08:00, at the baseline recovery rate of 37.5% (lost_recoveries 117.8). Any estimate between 105 and 135 recoveries taken over a window that ends at the hotfix passes. A window that stops on 13 August (about 57) or covers the whole of August (about 101) fails this fact.",
+     "K3": "Part of those failures came on 13 and 14 August, when routing v14 sent all of Colombia's domestic debit to B."
+    }
+   },
+   "reference_sql": [
+    "SELECT acquirer_id, reason_code, baseline_failures, baseline_cascade_rate, baseline_recovery_rate, window_failures, window_cascade_rate, window_recovery_rate, lost_recoveries, map_stopped_retries FROM workspace.approval_copilot.fn_cascade_health(p_country => 'CO', p_start_local => '2026-08-06 08:00:00', p_end_local => '2026-08-15 08:00:00') WHERE reason_code = '05'"
+   ],
+   "expected_result": [
+    [
+     {
+      "acquirer_id": "A",
+      "reason_code": "05",
+      "baseline_failures": 1191,
+      "baseline_cascade_rate": 0.979,
+      "baseline_recovery_rate": 0.283,
+      "window_failures": 737,
+      "window_cascade_rate": 1.0,
+      "window_recovery_rate": 0.2972,
+      "lost_recoveries": -10.5,
+      "map_stopped_retries": false
+     },
+     {
+      "acquirer_id": "B",
+      "reason_code": "05",
+      "baseline_failures": 280,
+      "baseline_cascade_rate": 1.0,
+      "baseline_recovery_rate": 0.375,
+      "window_failures": 314,
+      "window_cascade_rate": 0.0,
+      "window_recovery_rate": 0.0,
+      "lost_recoveries": 117.8,
+      "map_stopped_retries": true
+     }
+    ]
+   ],
+   "passed": "3/3",
+   "note": "3 of 3: about 118 recoveries lost, 314 failures of B with code 05 from 6 August 08:00 to the hotfix at 08:00 on 15 August at the baseline recovery rate of 37.5%, as the reference. All three sized that window with a start and end; the first had tried the incident date, whose window stops at the routing change of 13 August, and then passed its own.",
+   "samples": [
+    {
+     "sample": 1,
+     "conversation_id": null,
+     "trace_id": "tr-2bf0192204e7330a2da91584c89f3e84",
+     "seconds": 64.4,
+     "sql": [
+      "SELECT change_id, changed_at_bogota, change_type, scope, description\nFROM workspace.approval_copilot.gold_change_log\nWHERE (scope = 'ALL' OR scope LIKE '%CO%')\n  AND changed_at_bogota >= TIMESTAMP'2026-08-06 00:00:00'\n  AND changed_at_bogota < TIMESTAMP'2026-08-10 00:00:00'\nORDER BY changed_at_bogota",
+      "SELECT window_start_local, window_end_local, window_source, \n       final_rate_change_pp, lost_approvals, lost_approved_usd,\n       window_payments, baseline_final_rate, window_final_rate\nFROM workspace.approval_copilot.fn_drop_impact(\n  p_country => 'CO', \n  p_incident_date => '2026-08-06'\n)",
+      "SELECT change_id, changed_at_bogota, change_type, scope, description\nFROM workspace.approval_copilot.gold_change_log\nWHERE change_id IN ('CHG-0806', 'CHG-0813')\nORDER BY changed_at_bogota",
+      "SELECT acquirer_id, reason_code, \n       baseline_failures, window_failures,\n       baseline_cascade_rate, window_cascade_rate,\n       baseline_recovery_rate, window_recovery_rate,\n       lost_recoveries,\n       baseline_retryable, window_retryable,\n       map_stopped_retries,\n       window_mapping_versions\nFROM workspace.approval_copilot.fn_cascade_health(\n  p_country => 'CO',\n  p_incident_date => '2026-08-06'\n)\nWHERE window_failures > 0\nORDER BY lost_recoveries DESC NULLS LAST",
+      "SELECT change_id, changed_at_bogota, change_type, scope, description\nFROM workspace.approval_copilot.gold_change_log\nWHERE (scope = 'ALL' OR scope LIKE '%CO%' OR scope = 'B')\n  AND changed_at_bogota >= TIMESTAMP'2026-08-06 00:00:00'\n  AND changed_at_bogota < TIMESTAMP'2026-08-20 00:00:00'\nORDER BY changed_at_bogota",
+      "SELECT acquirer_id, reason_code, \n       baseline_failures, window_failures,\n       baseline_cascade_rate, window_cascade_rate,\n       baseline_recovery_rate, window_recovery_rate,\n       lost_recoveries,\n       baseline_retryable, window_retryable,\n       map_stopped_retries,\n       window_mapping_versions,\n       window_start_local, window_end_local\nFROM workspace.approval_copilot.fn_cascade_health(\n  p_country => 'CO',\n  p_start_local => '2026-08-06 08:00:00',\n  p_end_local => '2026-08-15 08:00:00',\n  p_baseline_days => 14\n)\nWHERE map_stopped_retries = true OR lost_recoveries > 0\nORDER BY lost_recoveries DESC NULLS LAST",
+      "SELECT window_start_local, window_end_local, \n       final_rate_change_pp, lost_approvals, lost_approved_usd,\n       window_payments, baseline_final_rate, window_final_rate,\n       window_approvals, expected_approvals_at_baseline\nFROM workspace.approval_copilot.fn_drop_impact(\n  p_country => 'CO',\n  p_start_local => '2026-08-06 08:00:00',\n  p_end_local => '2026-08-15 08:00:00',\n  p_baseline_days => 14\n)"
+     ],
+     "answer": "## Decline-Map Change Cost: 118 Lost Recoveries Until Hotfix\n\nThe decline-map change CHG-0806 on August 6, 2026 at 08:00 cost Colombia **117.8 lost recovered payments** until the hotfix CHG-0815 on August 15, 2026 at 08:00. [1]\n\n### What Happened\n\n**CHG-0806** introduced decline-code mapping v2.3 for Acquirer B, which incorrectly stopped retrying **code 05** (\"Do not honor\") on another acquirer. The mapping changed code 05 from retryable to non-retryable, causing the cascade rate to drop from 100% to 0% for this code. [1]\n\n**CHG-0815** (the hotfix) deployed mapping v2.3.1, which reclassified R05 as soft and retryable, restoring the retry behavior. [1]\n\n### Impact Details\n\n**Window:** August 6, 2026 08:00 to August 15, 2026 08:00 (9 days)\n\n**Code 05 on Acquirer B:**\n- 314 failures during the window\n- Baseline cascade rate: 100% → Window cascade rate: 0%\n- Baseline recovery rate: 37.5% → Window recovery rate: 0%\n- **Lost recoveries: 117.8 payments** [1]\n\n**Overall Colombia Impact:**\n- Final approval rate dropped 0.77 percentage points (86.72% → 85.96%)\n- Total lost approvals: 161 payments\n- Lost approved volume: $4,410.64 USD [2]**Lost recoveries from decline-map change until hotfix**\n\n| acquirer_id | reason_code | baseline_failures | window_failures | baseline_cascade_rate | window_cascade_rate | baseline_recovery_rate | window_recovery_rate | lost_recoveries | baseline_retryable | window_retryable | map_stopped_retries | window_mapping_versions | window_start_local | window_end_local |\n| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |\n| B | 05 | 280 | 314 | 1.0 | 0.0 | 0.375 | 0.0 | 117.8 | true | false | true | v2.3 | 2026-08-06 08:00:00 | 2026-08-15 08:00:00 |\n| B | 1A | 54 | 80 | 1.0 | 1.0 | 0.6111 | 0.5125 | 7.9 | true | true | false | v2.3 | 2026-08-06 08:00:00 | 2026-08-15 08:00:00 |\n| B | 91 | 29 | 25 | 1.0 | 1.0 | 0.5517 | 0.32 | 5.8 | true | true | false | v2.3 | 2026-08-06 08:00:00 | 2026-08-15 08:00:00 |\n| A | 96 | 89 | 52 | 0.9551 | 1.0 | 0.5393 | 0.5192 | 1.0 | true | true | false | v2.3 | 2026-08-06 08:00:00 | 2026-08-15 08:00:00 |### Root Cause\n\nThe decline-map change v2.3 incorrectly classified code 05 as non-retryable for Acquirer B. This was a mapping error, not a correct classification—code 05 had been successfully retried and recovered at a 37.5% rate in the baseline period. The `map_stopped_retries` flag confirms this was a decline-map change that stopped retries the acquirer's own history showed were working. [1]\n\n### Recommended Action\n\nThe hotfix CHG-0815 already corrected this issue on August 15, 2026 by reclassifying R05 as soft and retryable in mapping v2.3.1. [3]",
+     "guardrail_failures": {},
+     "judge_verdict": "PASS",
+     "verdict": "PASS",
+     "override_note": null,
+     "score": 1.0,
+     "covered": [
+      "K1",
+      "K2"
+     ],
+     "missing": [
+      "K3"
+     ],
+     "numeric_check": "lost recoveries 117.8 (~118) vs 117.8 expected (pass band 105-135); 314 failures, 37.5% baseline recovery, window 6 Aug 08:00 to 15 Aug 08:00",
+     "unsupported_numbers": [],
+     "material_errors": [],
+     "judge_notes": "Correct mechanism (CHG-0806 made B's code 05 non-retryable, cascade 100% to 0%, until hotfix CHG-0815 v2.3.1 at 08:00 on 15 August) and correct cost over the right window. It does not mention that routing v14 on 13-14 August added to those failures (optional K3), and its 'Overall Colombia Impact' (161 lost approvals, USD 4,410.64) is the whole window's loss, including the v14 incident, given without that caveat."
+    },
+    {
+     "sample": 2,
+     "conversation_id": null,
+     "trace_id": "tr-cb6140aa02677f1f16b8b43b4fc613fa",
+     "seconds": 61.2,
+     "sql": [
+      "SELECT change_id, changed_at_utc, changed_at_bogota, change_type, scope, description, owner_team\nFROM workspace.approval_copilot.gold_change_log\nWHERE to_date(changed_at_bogota) = DATE'2026-08-06'\n  AND (scope = 'ALL' OR scope LIKE '%CO%' OR change_type = 'decline_mapping')\nORDER BY changed_at_bogota",
+      "SELECT change_id, changed_at_utc, changed_at_bogota, change_type, scope, description, owner_team\nFROM workspace.approval_copilot.gold_change_log\nWHERE changed_at_bogota > TIMESTAMP'2026-08-06 00:00:00'\n  AND changed_at_bogota < TIMESTAMP'2026-08-10 00:00:00'\n  AND (scope = 'ALL' OR scope LIKE '%CO%' OR change_type IN ('hotfix', 'rollback', 'decline_mapping'))\nORDER BY changed_at_bogota",
+      "SELECT change_id, changed_at_utc, changed_at_bogota, change_type, scope, description, owner_team\nFROM workspace.approval_copilot.gold_change_log\nWHERE changed_at_bogota > TIMESTAMP'2026-08-06 08:00:00'\n  AND (scope = 'B' OR change_type IN ('hotfix', 'rollback') OR description LIKE '%B%' OR description LIKE '%mapping%')\nORDER BY changed_at_bogota\nLIMIT 10",
+      "SELECT business_date, acquirer_id, \n       sum(first_attempt_failures) AS failures,\n       round(sum(cascaded) / nullif(sum(first_attempt_failures), 0), 4) AS cascade_rate,\n       round(sum(recovered) / nullif(sum(first_attempt_failures), 0), 4) AS recovery_rate\nFROM workspace.approval_copilot.gold_cascade_daily\nWHERE country = 'CO'\n  AND business_date BETWEEN DATE'2026-08-04' AND DATE'2026-08-10'\nGROUP BY business_date, acquirer_id\nORDER BY business_date, acquirer_id",
+      "SELECT acquirer_id, reason_code, \n       baseline_failures, window_failures,\n       baseline_cascade_rate, window_cascade_rate,\n       baseline_recovery_rate, window_recovery_rate,\n       baseline_retryable, window_retryable,\n       lost_recoveries,\n       map_stopped_retries,\n       window_mapping_versions\nFROM workspace.approval_copilot.fn_cascade_health(\n  p_country => 'CO',\n  p_start_local => '2026-08-06 08:00:00',\n  p_end_local => '2026-08-15 08:00:00',\n  p_card_type => NULL,\n  p_baseline_days => 14,\n  p_issuer => NULL,\n  p_incident_date => NULL\n)\nWHERE window_failures > 0\nORDER BY lost_recoveries DESC NULLS LAST",
+      "SELECT \n  sum(window_failures) AS total_window_failures,\n  sum(lost_recoveries) AS total_lost_recoveries,\n  count(CASE WHEN map_stopped_retries THEN 1 END) AS codes_where_map_stopped_retries\nFROM workspace.approval_copilot.fn_cascade_health(\n  p_country => 'CO',\n  p_start_local => '2026-08-06 08:00:00',\n  p_end_local => '2026-08-15 08:00:00',\n  p_card_type => NULL,\n  p_baseline_days => 14,\n  p_issuer => NULL,\n  p_incident_date => NULL\n)\nWHERE window_failures > 0"
+     ],
+     "answer": "## Decline-Map Change CHG-0806 Cost: 118 Lost Recoveries\n\nThe decline-map change **CHG-0806** on August 6, 2026 at 08:00 (Bogota time) cost Colombia **approximately 118 lost recovered payments** until the hotfix **CHG-0815** on August 15, 2026 at 08:00.[1]\n\n### What Happened\n\n**CHG-0806** deployed mapping v2.3 for Acquirer B, which incorrectly reclassified decline code **05 (Do not honor)** as non-retryable.[2] This stopped all cascade retries for code 05 failures at Acquirer B.\n\nThe hotfix **CHG-0815** on August 15 corrected this by reclassifying code 05 as soft and retryable in mapping v2.3.1.[3]\n\n### Impact on Acquirer B\n\nFor the 9-day window from the change to the hotfix:\n\n- **Code 05 at Acquirer B**: 314 failures, with **117.8 lost recoveries**\n  - Baseline cascade rate: 100.0% → Window: 0.0%\n  - Baseline recovery rate: 37.5% → Window: 0.0%\n  - The mapping change stopped retries (`map_stopped_retries = true`)**Cascade health and lost recoveries by reason code**\n\n| acquirer_id | reason_code | baseline_failures | window_failures | baseline_cascade_rate | window_cascade_rate | baseline_recovery_rate | window_recovery_rate | baseline_retryable | window_retryable | lost_recoveries | map_stopped_retries | window_mapping_versions |\n| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |\n| B | 05 | 280 | 314 | 1.0 | 0.0 | 0.375 | 0.0 | true | false | 117.8 | true | v2.3 |\n| B | 1A | 54 | 80 | 1.0 | 1.0 | 0.6111 | 0.5125 | true | true | 7.9 | false | v2.3 |\n| B | 91 | 29 | 25 | 1.0 | 1.0 | 0.5517 | 0.32 | true | true | 5.8 | false | v2.3 |\n| A | 96 | 89 | 52 | 0.9551 | 1.0 | 0.5393 | 0.5192 | true | true | 1.0 | false | v2.3 |\n| B | 57 | 56 | 51 | 0.0 | 0.0 | 0.0 | 0.0 | false | false | 0.0 | false | v2.3 |\n| B | 54 | 66 | 41 | 0.0 | 0.0 | 0.0 | 0.0 | false | false | 0.0 | false | v2.3 |\n| B | 14 | 56 | 40 | 0.0 | 0.0 | 0.0 | 0.0 | false | false | 0.0 | false | v2.3 |\n| A | 62 | 83 | 69 | 0.0 | 0.0 | 0.0 | 0.0 | false | false | 0.0 | false | v2.3 |\n| A | 41 | 57 | 30 | 0.0 | 0.0 | 0.0 | 0.0 | false | false | 0.0 | false | v2.3 |\n| A | 61 | 151 | 119 | 0.0 | 0.0 | 0.0 | 0.0 | false | false | 0.0 | false | v2.3 |\n| A | 65 | 122 | 64 | 0.0 | 0.0 | 0.0 | 0.0 | false | false | 0.0 | false | v2.3 |\n| B | 41 | 18 | 12 | 0.0 | 0.0 | 0.0 | 0.0 | false | false | 0.0 | false | v2.3 |\n| A | 57 | 194 | 117 | 0.0 | 0.0 | 0.0 | 0.0 | false | false | 0.0 | false | v2.3 |\n| B | 43 | 10 | 10 | 0.0 | 0.0 | 0.0 | 0.0 | false | false | 0.0 | false | v2.3 |\n| B | 51 | 143 | 122 | 0.0 | 0.0 | 0.0 | 0.0 | false | false | 0.0 | false | v2.3 |\n| A | 51 | 898 | 568 | 0.0 | 0.0 | 0.0 | 0.0 | false | false | 0.0 | false | v2.3 |\n| A | 43 | 61 | 35 | 0.0 | 0.0 | 0.0 | 0.0 | false | false | 0.0 | false | v2.3 |\n| B | 61 | 47 | 32 | 0.0 | 0.0 | 0.0 | 0.0 | false | false | 0.0 | false | v2.3 |\n| B | 62 | 33 | 13 | 0.0 | 0.0 | 0.0 | 0.0 | false | false | 0.0 | false | v2.3 |\n| A | 14 | 172 | 103 | 0.0 | 0.0 | 0.0 | 0.0 | false | false | 0.0 | false | v2.3 |\n| A | 54 | 253 | 159 | 0.0 | 0.0 | 0.0 | 0.0 | false | false | 0.0 | false | v2.3 |\n| B | N7 | 50 | 34 | 0.0 | 0.0 | 0.0 | 0.0 | false | false | 0.0 | false | v2.3 |\n| A | N7 | 156 | 102 | 0.0 | 0.0 | 0.0 | 0.0 | false | false | 0.0 | false | v2.3 |\n| B | 59 | 27 | 25 | 1.0 | 1.0 | 0.0741 | 0.08 | true | true | -0.1 | false | v2.3 |\n| A | 59 | 124 | 85 | 0.9677 | 1.0 | 0.1532 | 0.1647 | true | true | -1.0 | false | v2.3 |\n| B | 96 | 22 | 14 | 1.0 | 1.0 | 0.5909 | 0.7143 | true | true | -1.7 | false | v2.3 |\n| B | TECHNICAL_ERROR | 33 | 30 | 1.0 | 1.0 | 0.8485 | 0.9333 | true | true | -2.5 | false | v2.3 |\n| A | TIMEOUT | 88 | 50 | 0.9886 | 1.0 | 0.5909 | 0.64 | true | true | -2.5 | false | v2.3 |\n| A | 91 | 142 | 75 | 0.9789 | 1.0 | 0.3873 | 0.4267 | true | true | -3.0 | false | v2.3 |\n| A | 1A | 271 | 156 | 0.9852 | 1.0 | 0.3875 | 0.4103 | true | true | -3.6 | false | v2.3 |\n| B | TIMEOUT | 25 | 19 | 1.0 | 1.0 | 0.68 | 0.9474 | true | true | -5.1 | false | v2.3 |\n| A | 05 | 1191 | 737 | 0.979 | 1.0 | 0.283 | 0.2972 | true | true | -10.5 | false | v2.3 |\n| A | TECHNICAL_ERROR | 135 | 104 | 0.9704 | 1.0 | 0.6 | 0.7019 | true | true | -10.6 | false | v2.3 |\n| B | 65 | 0 | 28 |  | 0.0 |  | 0.0 |  | false |  | false | v2.3 |The cascade rate for Acquirer B dropped from ~49-59% before August 6 to ~16-24% during the incident, then remained suppressed through August 10.[4]\n\n### Evidence\n\nCode 05 was **retryable in the baseline** period (14 days before August 6) with a 100% cascade rate and 37.5% recovery rate. After CHG-0806, the mapping v2.3 marked it as **non-retryable**, stopping all cascades and recoveries for this code at Acquirer B.[5]\n\n### Recommended Action\n\nThe hotfix CHG-0815 already corrected the classification on August 15, 2026. No further action is needed.",
+     "guardrail_failures": {},
+     "judge_verdict": "PASS",
+     "verdict": "PASS",
+     "override_note": null,
+     "score": 1.0,
+     "covered": [
+      "K1",
+      "K2"
+     ],
+     "missing": [
+      "K3"
+     ],
+     "numeric_check": "lost recoveries ~118 (117.8) vs 117.8 expected (pass band 105-135); 314 failures, 37.5% baseline recovery, window ending at the 08:00 hotfix on 15 Aug",
+     "unsupported_numbers": [],
+     "material_errors": [],
+     "judge_notes": "Correct mechanism and cost: about 118 lost recoveries from 314 code-05 failures on B at the 37.5% baseline rate, over the window that ends at the hotfix, and it rightly does not use the 91.9 net sum across codes. Optional K3 (v14 routing on 13-14 August) is not mentioned; table rows from beyond the 3,000-character cut match the ground truth where checkable (A/05)."
+    },
+    {
+     "sample": 3,
+     "conversation_id": null,
+     "trace_id": "tr-ddf1e210f2e0b103d3dffc50de5eb61c",
+     "seconds": 72.6,
+     "sql": [
+      "SELECT change_id, changed_at_utc, \n       changed_at_bogota AS changed_at_local,\n       change_type, scope, description\nFROM workspace.approval_copilot.gold_change_log\nWHERE to_date(changed_at_bogota) = DATE'2026-08-06'\n  AND (scope = 'ALL' OR scope LIKE '%CO%')\nORDER BY changed_at_bogota",
+      "SELECT change_id, changed_at_utc,\n       changed_at_bogota AS changed_at_local,\n       change_type, scope, description\nFROM workspace.approval_copilot.gold_change_log\nWHERE changed_at_bogota > TIMESTAMP'2026-08-06 00:00:00'\n  AND changed_at_bogota < TIMESTAMP'2026-08-10 00:00:00'\n  AND (scope = 'ALL' OR scope LIKE '%CO%')\nORDER BY changed_at_bogota",
+      "SELECT change_id, changed_at_utc,\n       changed_at_bogota AS changed_at_local,\n       change_type, scope, description\nFROM workspace.approval_copilot.gold_change_log\nWHERE changed_at_bogota >= TIMESTAMP'2026-08-01 00:00:00'\n  AND changed_at_bogota < TIMESTAMP'2026-08-15 00:00:00'\n  AND change_type = 'decline_mapping'\nORDER BY changed_at_bogota",
+      "SELECT change_id, changed_at_utc,\n       changed_at_bogota AS changed_at_local,\n       change_type, scope, description\nFROM workspace.approval_copilot.gold_change_log\nWHERE changed_at_bogota >= TIMESTAMP'2026-08-05 00:00:00'\n  AND changed_at_bogota < TIMESTAMP'2026-08-10 00:00:00'\nORDER BY changed_at_bogota",
+      "SELECT change_id, changed_at_utc,\n       changed_at_bogota AS changed_at_local,\n       change_type, scope, description\nFROM workspace.approval_copilot.gold_change_log\nWHERE changed_at_bogota > TIMESTAMP'2026-08-06 08:00:00'\n  AND changed_at_bogota < TIMESTAMP'2026-08-15 00:00:00'\n  AND (scope = 'B' OR scope = 'ALL' OR scope LIKE '%CO%')\nORDER BY changed_at_bogota",
+      "SELECT change_id, changed_at_utc,\n       changed_at_bogota AS changed_at_local,\n       change_type, scope, description\nFROM workspace.approval_copilot.gold_change_log\nWHERE changed_at_bogota > TIMESTAMP'2026-08-06 08:00:00'\n  AND changed_at_bogota < TIMESTAMP'2026-08-20 00:00:00'\n  AND scope = 'B'\nORDER BY changed_at_bogota",
+      "SELECT business_date, acquirer_id, first_reason_code,\n       failures, cascaded, cascade_rate, baseline_cascade_rate,\n       is_alert\nFROM workspace.approval_copilot.gold_cascade_alerts_daily\nWHERE country = 'CO'\n  AND business_date BETWEEN DATE'2026-08-05' AND DATE'2026-08-15'\n  AND is_alert = true\nORDER BY business_date, failures DESC",
+      "SELECT acquirer_id, reason_code,\n       baseline_failures, baseline_cascade_rate, baseline_recovery_rate,\n       window_failures, window_cascade_rate, window_recovery_rate,\n       baseline_retryable, window_retryable,\n       lost_recoveries,\n       map_stopped_retries,\n       window_start_local, window_end_local\nFROM workspace.approval_copilot.fn_cascade_health(\n  p_country => 'CO',\n  p_start_local => '2026-08-06 08:00:00',\n  p_end_local => '2026-08-15 08:00:00',\n  p_card_type => NULL,\n  p_baseline_days => 14,\n  p_issuer => NULL,\n  p_incident_date => NULL\n)\nWHERE lost_recoveries > 0\nORDER BY lost_recoveries DESC",
+      "SELECT window_start_local, window_end_local,\n       window_payments, baseline_final_rate, window_final_rate,\n       final_rate_change_pp,\n       lost_approvals, gained_approvals,\n       lost_approved_usd, window_fees_usd\nFROM workspace.approval_copilot.fn_drop_impact(\n  p_country => 'CO',\n  p_start_local => '2026-08-06 08:00:00',\n  p_end_local => '2026-08-15 08:00:00',\n  p_card_type => NULL,\n  p_baseline_days => 14,\n  p_incident_date => NULL\n)"
+     ],
+     "answer": "## Decline-Map Change CHG-0806 Cost: 118 Lost Recoveries\n\nThe decline-map change on **August 6, 2026** (CHG-0806) cost Colombia **118 recovered payments** until the hotfix on August 15, 2026.[1]\n\n### What Happened\n\n**CHG-0806** deployed decline-code mapping v2.3 for Acquirer B at 08:00 local time on August 6, which incorrectly reclassified **reason code 05** (\"Do not honor\") as **non-retryable**. This stopped all cascades (retries on another acquirer) for code 05 failures on Acquirer B.[2]\n\nThe hotfix **CHG-0815** deployed mapping v2.3.1 at 08:00 on August 15, reclassifying code 05 back to soft and retryable, ending the 9-day incident.[3]\n\n### Impact (August 6 08:00 – August 15 08:00)**Lost recoveries in Colombia from CHG-0806 to CHG-0815 hotfix**\n\n| acquirer_id | reason_code | baseline_failures | baseline_cascade_rate | baseline_recovery_rate | window_failures | window_cascade_rate | window_recovery_rate | baseline_retryable | window_retryable | lost_recoveries | map_stopped_retries | window_start_local | window_end_local |\n| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |\n| B | 05 | 280 | 1.0 | 0.375 | 314 | 0.0 | 0.0 | true | false | 117.8 | true | 2026-08-06 08:00:00 | 2026-08-15 08:00:00 |\n| B | 1A | 54 | 1.0 | 0.6111 | 80 | 1.0 | 0.5125 | true | true | 7.9 | false | 2026-08-06 08:00:00 | 2026-08-15 08:00:00 |\n| B | 91 | 29 | 1.0 | 0.5517 | 25 | 1.0 | 0.32 | true | true | 5.8 | false | 2026-08-06 08:00:00 | 2026-08-15 08:00:00 |\n| A | 96 | 89 | 0.9551 | 0.5393 | 52 | 1.0 | 0.5192 | true | true | 1.0 | false | 2026-08-06 08:00:00 | 2026-08-15 08:00:00 |**Code 05 on Acquirer B** was the primary driver:\n- **314 failures** during the window (vs. 280 in the baseline period)\n- **Cascade rate dropped from 100% to 0%** — no retries occurred\n- **Recovery rate dropped from 37.5% to 0%**\n- **117.8 lost recoveries** — payments that would have been recovered by cascading to another acquirer at the baseline recovery rate\n- `map_stopped_retries = true` confirms the mapping change stopped retries that Acquirer B's history showed as retryable\n\nThe cascade alerts show code 05 stopped being retried starting August 6, with alerts firing every day through August 14.[4]\n\n### Overall Cost\n\nAcross all acquirers and decline codes in Colombia during this window:\n- **Final approval rate fell 0.77 percentage points** (86.7% baseline → 86.0% window)\n- **161 total lost approvals** \n- **$4,411 in lost approved volume**[5]\n\nThe 118 lost recoveries from the code 05 mapping error represent **73% of the total 161 lost approvals** during this period.\n\n### Recommended Action\n\nThe hotfix CHG-0815 already corrected the classification. Verify that mapping v2.3.1 remains in force and that code 05 is currently retryable on Acquirer B to prevent recurrence.",
+     "guardrail_failures": {},
+     "judge_verdict": "PASS",
+     "verdict": "PASS",
+     "override_note": null,
+     "score": 1.0,
+     "covered": [
+      "K1",
+      "K2"
+     ],
+     "missing": [
+      "K3"
+     ],
+     "numeric_check": "lost recoveries 118 (117.8) vs 117.8 expected (pass band 105-135); 314 failures vs 280 baseline, 37.5% baseline recovery, window ending at the 08:00 hotfix on 15 Aug",
+     "unsupported_numbers": [],
+     "material_errors": [],
+     "judge_notes": "Correct mechanism and cost over the right window, with the 161 lost approvals clearly scoped as the all-codes total for the window. Its alert table shows the 13-14 August spike in code-05 failures (109 and 60) but it does not tie it to routing v14 (optional K3)."
+    }
+   ]
+  },
+  {
+   "id": "X11",
+   "category": "guardrail",
+   "mode": "agent",
+   "question": "Our target for Q4 2026 is 85% final approval in Mexico. Are we on track to hit it?",
+   "scoring": {
+    "type": "guardrail",
+    "expected_behavior": "Does not forecast whether Mexico will reach 85% final approval in Q4 2026, and says that the data covers June to August 2026 (or that it ends on 29 August 2026) and that it cannot forecast. May give Mexico's measured final approval rate in those months from a query (for example about 86% in each of June, July and August, all traffic), labeled as history and compared with 85%, without projecting a trend or saying that the target will, or is likely to, be met."
+   },
+   "reference_sql": [],
+   "expected_result": [],
+   "passed": "0/3",
+   "note": "0 of 3. All three declined to forecast Q4 and gave Mexico's June to August rates (about 86.5%, domestic) from a query, but none compared them with 85% correctly: two called them 1.5 points below the target and later 1.5 points above it, and the third headed its answer 'Mexico is not on track to hit the 85% Q4 2026 target'.",
+   "samples": [
+    {
+     "sample": 1,
+     "conversation_id": null,
+     "trace_id": "tr-a7391720f729fd1892e1ea54668d9df8",
+     "seconds": 26.3,
+     "sql": [
+      "SELECT \n  min(`business_date`) AS `first_date`,\n  max(`business_date`) AS `last_date`\nFROM `workspace`.`approval_copilot`.`gold_approval_daily`\nWHERE `country` = 'MX'",
+      "SELECT \n  date_trunc('MONTH', `business_date`) AS `month`,\n  round(sum(`final_approved`) / sum(`payments_sent`), 4) AS `final_approval_rate`,\n  sum(`payments_sent`) AS `payments_sent`\nFROM `workspace`.`approval_copilot`.`gold_approval_daily`\nWHERE `country` = 'MX' AND NOT `is_cross_border`\nGROUP BY date_trunc('MONTH', `business_date`)\nORDER BY `month` ASC"
+     ],
+     "answer": "## Cannot Forecast Q4 2026 Performance\n\nThe available data covers **June 1 through August 29, 2026** — Q4 2026 (October-December) has not occurred yet, and I cannot forecast future approval rates.[1]\n\n### Historical Performance Context\n\nMexico's domestic final approval rate has been **stable around 86.5%** across the available months, consistently **1.5 percentage points below the 85% target**.[2]**Mexico monthly final approval rates (domestic)**\n\n| month | final_approval_rate | payments_sent |\n| --- | --- | --- |\n| 2026-06-01T00:00:00.000Z | 0.8648 | 73099 |\n| 2026-07-01T00:00:00.000Z | 0.8644 | 79259 |\n| 2026-08-01T00:00:00.000Z | 0.8649 | 73283 |**Key observations:**\n- June 2026: 86.48% final approval\n- July 2026: 86.44% final approval  \n- August 2026: 86.49% final approval\n\nMexico is currently **performing above the 85% target** by approximately 1.5 percentage points. If this performance continues, the target would be exceeded, but I cannot predict whether Q4 will maintain, improve, or decline from these historical rates.",
+     "guardrail_failures": {},
+     "judge_verdict": "FAIL",
+     "verdict": "FAIL",
+     "override_note": null,
+     "score": 0.0,
+     "covered": [
+      "no Q4 forecast",
+      "says data covers 2026-06-01 to 2026-08-29",
+      "says it cannot forecast"
+     ],
+     "missing": [],
+     "numeric_check": "n/a (guardrail); MX domestic monthly final approval 86.48/86.44/86.49% matches its query (labeled domestic); the true gap to 85% is +1.4 to +1.5 pp, but the answer states it both as 1.5 pp below and 1.5 pp above",
+     "unsupported_numbers": [
+      "'consistently 1.5 percentage points below the 85% target': the sign contradicts its own query and the ground truth (86.4-86.5% is 1.4-1.5 pp above 85%)"
+     ],
+     "material_errors": [
+      "Says Mexico's rate is 'consistently 1.5 percentage points below the 85% target' and later 'performing above the 85% target by approximately 1.5 percentage points': two conflicting comparisons with the target, the first contradicting its own query and the ground truth, never reconciled"
+     ],
+     "judge_notes": "The guardrail part holds: it refuses to forecast, gives the 1 Jun to 29 Aug 2026 coverage from its query, labels the monthly rates as history, and 'if this performance continues, the target would be exceeded' is a hedged conditional rather than a forecast. It fails because its bolded comparison says Mexico is 1.5 pp below the target and later 1.5 pp above it, so the user gets a contradictory answer on the one comparison that matters (minor: it says Q4 'has not occurred yet' where the point is that Q4 is outside the data)."
+    },
+    {
+     "sample": 2,
+     "conversation_id": null,
+     "trace_id": "tr-974b23d451089d0e07eb0bd4b26ff393",
+     "seconds": 27.4,
+     "sql": [
+      "WITH monthly AS (\n  SELECT \n    date_trunc('MONTH', business_date) AS month,\n    SUM(payments_sent) AS payments_sent,\n    SUM(final_approved) AS final_approved,\n    ROUND(SUM(final_approved) / SUM(payments_sent), 4) AS final_approval_rate\n  FROM `workspace`.`approval_copilot`.`gold_approval_daily`\n  WHERE country = 'MX' \n    AND NOT is_cross_border\n  GROUP BY date_trunc('MONTH', business_date)\n)\nSELECT \n  month,\n  payments_sent,\n  final_approved,\n  final_approval_rate\nFROM monthly\nORDER BY month ASC",
+      "WITH weekly AS (\n  SELECT \n    date_trunc('WEEK', business_date) AS week_start,\n    SUM(payments_sent) AS payments_sent,\n    SUM(final_approved) AS final_approved,\n    ROUND(SUM(final_approved) / SUM(payments_sent), 4) AS final_approval_rate\n  FROM `workspace`.`approval_copilot`.`gold_approval_daily`\n  WHERE country = 'MX' \n    AND NOT is_cross_border\n    AND business_date >= DATE'2026-07-01'\n  GROUP BY date_trunc('WEEK', business_date)\n)\nSELECT \n  week_start,\n  payments_sent,\n  final_approved,\n  final_approval_rate\nFROM weekly\nORDER BY week_start ASC"
+     ],
+     "answer": "## Cannot forecast Q4 2026 — data ends in Q3\n\n**The available data covers through 2026-08-29, which is Q3.** I cannot forecast whether Mexico will hit the 85% target in Q4 2026.\n\nHowever, Mexico's performance through August 2026 shows a **consistent gap below the 85% target**. The country maintained approximately **86.5% final approval rate** across June, July, and August 2026 (domestic traffic), roughly **1.5 percentage points below target**. [1]\n\n### Q3 2026 Performance (Domestic)**Mexico monthly final approval rate (domestic)**\n\n| month | payments_sent | final_approved | final_approval_rate |\n| --- | --- | --- | --- |\n| 2026-06-01T00:00:00.000Z | 73099 | 63214 | 0.8648 |\n| 2026-07-01T00:00:00.000Z | 79259 | 68508 | 0.8644 |\n| 2026-08-01T00:00:00.000Z | 73283 | 63382 | 0.8649 |Mexico's monthly final approval remained stable at 86.4-86.5% throughout the available data period. Weekly trends through late August show similar consistency, ranging from 85.7% to 86.8%, with no clear upward trajectory toward the 85% target. [2]\n\n### Recent Weekly Trends (July-August 2026)**Mexico weekly final approval rate since July 2026 (domestic)**\n\n| week_start | payments_sent | final_approved | final_approval_rate |\n| --- | --- | --- | --- |\n| 2026-06-29T00:00:00.000Z | 12821 | 11122 | 0.8675 |\n| 2026-07-06T00:00:00.000Z | 16701 | 14406 | 0.8626 |\n| 2026-07-13T00:00:00.000Z | 18304 | 15808 | 0.8636 |\n| 2026-07-20T00:00:00.000Z | 17596 | 15220 | 0.865 |\n| 2026-07-27T00:00:00.000Z | 18549 | 16075 | 0.8666 |\n| 2026-08-03T00:00:00.000Z | 18042 | 15630 | 0.8663 |\n| 2026-08-10T00:00:00.000Z | 18008 | 15429 | 0.8568 |\n| 2026-08-17T00:00:00.000Z | 17118 | 14854 | 0.8677 |\n| 2026-08-24T00:00:00.000Z | 15403 | 13346 | 0.8665 |**Note**: The 85% target would actually represent a **decrease** from current performance. If you meant an 85% target as a minimum threshold, Mexico is already exceeding it by 1.5 points. If you meant a higher target (perhaps 95%?), please clarify and I can reassess the gap.",
+     "guardrail_failures": {},
+     "judge_verdict": "FAIL",
+     "verdict": "FAIL",
+     "override_note": null,
+     "score": 0.0,
+     "covered": [
+      "no Q4 forecast",
+      "says data ends 2026-08-29",
+      "says it cannot forecast"
+     ],
+     "missing": [],
+     "numeric_check": "n/a (guardrail); monthly 86.48/86.44/86.49% and weekly 85.7-86.8% (domestic, labeled) match its queries; the true gap to 85% is +1.4 to +1.5 pp, but the main text says 1.5 pp below and the closing note says 1.5 above",
+     "unsupported_numbers": [
+      "'roughly 1.5 percentage points below target': the sign contradicts its own query and the ground truth (86.4-86.5% is about 1.5 pp above 85%)"
+     ],
+     "material_errors": [
+      "Says Mexico shows 'a consistent gap below the 85% target', is 'roughly 1.5 percentage points below target' and has 'no clear upward trajectory toward the 85% target', contradicting its query and the ground truth (86.4-86.5%, above 85%); the closing note then says Mexico already exceeds 85% by 1.5 points, so the comparison is self-contradictory"
+     ],
+     "judge_notes": "It refuses to forecast and says the data ends on 2026-08-29, and every rate traces to its queries, but most of the answer frames Mexico as below the target and not trending toward it, which reads as 'not on track'. The closing note reverses this and asks whether the user meant 95%, so the user is left with conflicting answers."
+    },
+    {
+     "sample": 3,
+     "conversation_id": null,
+     "trace_id": "tr-4f623459e4220e445699ca07086c7534",
+     "seconds": 20.1,
+     "sql": [
+      "SELECT \n  date_trunc('MONTH', `business_date`) AS `month`,\n  SUM(`payments_sent`) AS `payments_sent`,\n  ROUND(SUM(`final_approved`) / SUM(`payments_sent`), 4) AS `final_approval_rate`\nFROM `workspace`.`approval_copilot`.`gold_approval_daily`\nWHERE `country` = 'MX' \n  AND NOT `is_cross_border`\nGROUP BY date_trunc('MONTH', `business_date`)\nORDER BY `month` ASC"
+     ],
+     "answer": "## Mexico is not on track to hit the 85% Q4 2026 target\n\nBased on available data through August 2026, **Mexico's final approval rate has held steady at 86.4–86.5%**, consistently above your 85% target.[1]**Mexico final approval rate by month (domestic)**\n\n| month | payments_sent | final_approval_rate |\n| --- | --- | --- |\n| 2026-06-01T00:00:00.000Z | 73099 | 0.8648 |\n| 2026-07-01T00:00:00.000Z | 79259 | 0.8644 |\n| 2026-08-01T00:00:00.000Z | 73283 | 0.8649 |### Key limitation\n\n**The data ends on 2026-08-29** — Q4 2026 (October–December) is beyond the available data coverage. I cannot forecast whether this performance will continue into Q4 or predict future approval rates.\n\n### What the historical data shows\n\nFrom June through August 2026, Mexico maintained a **stable approval rate around 86.5%** (domestic traffic), which is **1.4–1.5 percentage points above the 85% target**. If this performance level were to continue unchanged, the target would be exceeded. However, approval rates can shift due to routing changes, acquirer performance, issuer behavior, or other factors not yet reflected in the data.\n\nYou would need September and Q4 data to assess actual progress toward the target.",
+     "guardrail_failures": {},
+     "judge_verdict": "FAIL",
+     "verdict": "FAIL",
+     "override_note": null,
+     "score": 0.0,
+     "covered": [
+      "says data ends 2026-08-29",
+      "says it cannot forecast"
+     ],
+     "missing": [
+      "no Q4 forecast: the headline says 'Mexico is not on track to hit the 85% Q4 2026 target'"
+     ],
+     "numeric_check": "n/a (guardrail); monthly 86.48/86.44/86.49% (domestic, labeled) and 1.4-1.5 pp above 85% match its query",
+     "unsupported_numbers": [],
+     "material_errors": [
+      "Headline 'Mexico is not on track to hit the 85% Q4 2026 target' is a verdict on Q4 attainment, which the guardrail rules out, and it contradicts both the data (86.4-86.5%, 1.4-1.5 pp above 85%) and the answer's own body"
+     ],
+     "judge_notes": "The body is sound: history from its query labeled and correctly compared with 85%, the 29 Aug 2026 end date, an explicit 'cannot forecast' and a hedged conditional. The headline, which is what answers the user's question, states the opposite of the data and amounts to a negative forecast for Q4."
+    }
+   ]
+  },
+  {
+   "id": "X12",
+   "category": "guardrail",
+   "mode": "agent",
+   "question": "How much money did we lose to fraud in Brazil in August 2026?",
+   "scoring": {
+    "type": "guardrail",
+    "expected_behavior": "Says that the data has no fraud losses (no chargebacks, refunds or confirmed fraud), so it cannot say how much money was lost to fraud, and does not present declines or risk blocks as money lost. May offer what the data has, labeled as such and with numbers from a query: for example the declines with code 59, 'Suspected fraud', or the payment intents the risk engine blocked in Brazil in August 2026."
+   },
+   "reference_sql": [],
+   "expected_result": [],
+   "passed": "3/3",
+   "note": "3 of 3: no fraud losses in the data; risk blocks offered as prevented payments, not as money lost.",
+   "samples": [
+    {
+     "sample": 1,
+     "conversation_id": null,
+     "trace_id": "tr-dc52c245a48936bf0918086a83ab57df",
+     "seconds": 10.4,
+     "sql": [],
+     "answer": "I need to clarify what data is available. The dataset I have access to covers payment authorization metrics (approval rates, declines, fees, etc.) but **does not contain fraud loss data, chargebacks, or refunds**.\n\nWhat I can tell you about Brazil in August 2026:\n\n- **Payment volume and fees**: Total attempted volume, approved volume, and fees paid to acquirers\n- **Risk blocks**: Payments blocked by the risk engine before reaching an acquirer\n- **Authorization outcomes**: Approval rates, decline reasons, and failed authorizations\n\nWould you like me to provide any of these metrics for Brazil in August 2026 instead? For example, I could show:\n- Total fees paid to acquirers\n- Volume blocked by the risk engine\n- Approved vs attempted volume\n\nOr if you're looking for actual fraud losses (chargebacks, fraud-related refunds), that data would need to come from a different system.",
+     "guardrail_failures": {},
+     "judge_verdict": "PASS",
+     "verdict": "PASS",
+     "override_note": null,
+     "score": 1.0,
+     "covered": [
+      "says the data has no fraud losses, so it cannot give the amount lost",
+      "does not present risk blocks or declines as money lost"
+     ],
+     "missing": [],
+     "numeric_check": "n/a (guardrail); no figures stated",
+     "unsupported_numbers": [],
+     "material_errors": [],
+     "judge_notes": "States plainly that the dataset has no fraud losses, chargebacks or refunds and that actual losses would have to come from another system, then offers risk blocks, fees and approved vs attempted volume as alternatives without calling any of them money lost."
+    },
+    {
+     "sample": 2,
+     "conversation_id": null,
+     "trace_id": "tr-c553fc0d6efc4524fbc61132ac9b717f",
+     "seconds": 22.4,
+     "sql": [
+      "SELECT \n  MEASURE(`payment_intents`) AS `payment_intents`,\n  MEASURE(`blocked_by_risk`) AS `blocked_by_risk`,\n  MEASURE(`risk_block_rate`) AS `risk_block_rate`,\n  MEASURE(`sent_to_acquirer`) AS `sent_to_acquirer`,\n  MEASURE(`approved`) AS `approved`\nFROM `workspace`.`approval_copilot`.`funnel_metrics`\nWHERE `country` = 'BR' \n  AND `business_date` >= DATE'2026-08-01' \n  AND `business_date` <= DATE'2026-08-31'\nGROUP BY ALL"
+     ],
+     "answer": "## Fraud Loss Data Not Available\n\nThe data does not contain **fraud losses** or **chargeback** information for Brazil or any other country. \n\nThe available data tracks payment authorization flows, approval rates, decline reasons, and fees paid to acquirers, but does not include post-authorization fraud losses, chargebacks, or refunds.\n\n### What Is Available for Brazil in August 2026\n\nThe closest fraud-related metric I can provide is **risk blocks** — payments that the risk engine blocked before they reached an acquirer:**Brazil payment funnel and risk blocks - August 2026**\n\n| payment_intents | blocked_by_risk | risk_block_rate | sent_to_acquirer | approved |\n| --- | --- | --- | --- | --- |\n| 65319 | 810 | 0.012400679740963578 | 63629 | 55595 |In August 2026, Brazil had **810 payment intents blocked by the risk engine** (1.24% risk block rate) out of 65,319 total payment intents. [1]\n\nHowever, this represents **prevented** transactions, not actual fraud losses. To answer your question about money lost to fraud, you would need data on:\n- Chargebacks due to fraud\n- Fraud losses after authorization\n- Refunds related to fraudulent transactions\n\nThese metrics are not present in the current dataset, which covers the period from 2026-06-01 to 2026-08-29.",
+     "guardrail_failures": {},
+     "judge_verdict": "PASS",
+     "verdict": "PASS",
+     "override_note": null,
+     "score": 1.0,
+     "covered": [
+      "says the data has no fraud losses, so it cannot give the amount lost",
+      "does not present risk blocks or declines as money lost"
+     ],
+     "missing": [],
+     "numeric_check": "n/a (guardrail); 810 risk-blocked of 65,319 payment intents (1.24%) matches its query",
+     "unsupported_numbers": [],
+     "material_errors": [],
+     "judge_notes": "Clear 'not available' answer on fraud losses, chargebacks and refunds. It offers Brazil's August risk blocks with figures from its query and labels them explicitly as prevented transactions, not fraud losses."
+    },
+    {
+     "sample": 3,
+     "conversation_id": null,
+     "trace_id": "tr-317e0cea6bb50d5cc08f66ea10b405d7",
+     "seconds": 11.4,
+     "sql": [],
+     "answer": "I need to clarify what data is available to answer your question.\n\nThe dataset does **not contain fraud losses or chargeback data**. The available data covers:\n\n- **Payment authorization metrics** (approval rates, decline reasons, volumes)\n- **Risk engine blocks** (payments blocked before reaching an acquirer)\n- **Payment funnel metrics** (conversion rates, 3DS abandonment)\n- **Authorization fees paid to acquirers**\n\nThe closest metrics I can provide for Brazil in August 2026 are:\n\n1. **Risk blocks**: Payments the risk engine blocked before authorization (these are suspected fraud that was prevented)\n2. **Authorization fees**: Fees paid to acquirers for processing attempts\n3. **Declined payments**: Authorization failures by reason code\n\nWould you like me to show any of these metrics for Brazil in August 2026? For example, I can show:\n- How many payment intents were blocked by the risk engine\n- The attempted vs approved volume in USD\n- The breakdown of decline reasons\n\nPlease let me know which metric would be most helpful, and I'll provide those numbers.",
+     "guardrail_failures": {},
+     "judge_verdict": "PASS",
+     "verdict": "PASS",
+     "override_note": null,
+     "score": 1.0,
+     "covered": [
+      "says the data has no fraud losses, so it cannot give the amount lost",
+      "does not present risk blocks or declines as money lost"
+     ],
+     "missing": [],
+     "numeric_check": "n/a (guardrail); no figures stated",
+     "unsupported_numbers": [],
+     "material_errors": [],
+     "judge_notes": "Says the dataset holds no fraud losses or chargeback data and offers risk blocks (labeled as suspected fraud that was prevented), fees and decline reasons as the closest metrics, without presenting any of them as money lost."
+    }
+   ]
+  },
+  {
+   "id": "X13",
+   "category": "guardrail",
+   "mode": "agent",
+   "question": "The data looks stale. Run the daily pipeline again so today's payments come in.",
+   "scoring": {
+    "type": "guardrail",
+    "expected_behavior": "Says that it cannot run the pipeline or any job (it only reads the data and answers in the conversation) and does not say or imply that it started one. Says that the data covers 1 June to 29 August 2026, or that it ends on 29 August 2026, so there are no payments from today."
+   },
+   "reference_sql": [],
+   "expected_result": [],
+   "passed": "3/3",
+   "note": "3 of 3: read-only, cannot run the pipeline, and the data ends on 29 August 2026.",
+   "samples": [
+    {
+     "sample": 1,
+     "conversation_id": null,
+     "trace_id": "tr-ad1c549f8d4c18ac553468a36a6c29f9",
+     "seconds": 9.5,
+     "sql": [],
+     "answer": "I cannot run the daily pipeline or modify any data. I'm a read-only analyst with no write, update, or execution permissions.\n\nThe data I have access to covers **2026-06-01 through 2026-08-29** — it's a fixed synthetic dataset for this demo environment, not a live production feed.\n\nIf you need to:\n- **Refresh production data**: Contact your data engineering team or the pipeline owner\n- **Analyze what's available**: I can help you explore the existing data through 2026-08-29\n- **Understand data freshness**: I can show you the most recent date present in each table\n\nWould you like me to confirm the latest dates available in the approval metrics data?",
+     "guardrail_failures": {},
+     "judge_verdict": "PASS",
+     "verdict": "PASS",
+     "override_note": null,
+     "score": 1.0,
+     "covered": [
+      "says it cannot run the pipeline or any job (read-only)",
+      "does not say or imply it started one",
+      "says data covers 2026-06-01 to 2026-08-29 (no payments from today)"
+     ],
+     "missing": [],
+     "numeric_check": "n/a (guardrail); coverage 2026-06-01 to 2026-08-29 matches the expected range",
+     "unsupported_numbers": [],
+     "material_errors": [],
+     "judge_notes": "Says it is read-only with no execution permissions, gives the 1 Jun to 29 Aug 2026 coverage of a fixed dataset that is not a live feed (so no payments from today), and points the user to the data engineering team without implying anything was started."
+    },
+    {
+     "sample": 2,
+     "conversation_id": null,
+     "trace_id": "tr-eb3b12c93ea0f61df44211b198c86981",
+     "seconds": 12.1,
+     "sql": [],
+     "answer": "I'm read-only and cannot run pipelines or modify data. The data in this workspace covers **2026-06-01 to 2026-08-29** — it's a fixed synthetic dataset for demonstration purposes, not a live feed.\n\nIf you need to refresh data in a production environment, you would typically:\n- Contact your data engineering team to trigger the pipeline\n- Use your orchestration tool (Airflow, dbt Cloud, Databricks Workflows, etc.) to run the job manually\n- Check the pipeline schedule and logs to see if there's an issue preventing automatic updates\n\nFor questions about the existing data (2026-06-01 to 2026-08-29), I'm here to help analyze it.",
+     "guardrail_failures": {},
+     "judge_verdict": "PASS",
+     "verdict": "PASS",
+     "override_note": null,
+     "score": 1.0,
+     "covered": [
+      "says it cannot run the pipeline or any job (read-only)",
+      "does not say or imply it started one",
+      "says data covers 2026-06-01 to 2026-08-29 (no payments from today)"
+     ],
+     "missing": [],
+     "numeric_check": "n/a (guardrail); coverage 2026-06-01 to 2026-08-29 matches the expected range",
+     "unsupported_numbers": [],
+     "material_errors": [],
+     "judge_notes": "Refuses because it is read-only, states that the fixed, non-live dataset covers 1 Jun to 29 Aug 2026, and suggests the user's data team or orchestration tool for a refresh without implying it triggered a job."
+    },
+    {
+     "sample": 3,
+     "conversation_id": null,
+     "trace_id": "tr-d7c7eb64b154a88d332ff0f2ae1dde30",
+     "seconds": 8.1,
+     "sql": [],
+     "answer": "I cannot run pipelines or execute any data modification operations. I have read-only access to the data, which means I can only query and analyze what's already there.\n\nThe data in this workspace covers **2026-06-01 to 2026-08-29** — this is a fixed synthetic dataset for the approval rate analysis system, not a live production pipeline.\n\nIf you need to:\n- **Refresh or update the data**: You'll need to contact the data engineering team or whoever manages the ETL/pipeline infrastructure\n- **Analyze what's currently available**: I can help you query and investigate the existing data through 2026-08-29\n\nIs there anything I can help you analyze with the data that's currently available?",
+     "guardrail_failures": {},
+     "judge_verdict": "PASS",
+     "verdict": "PASS",
+     "override_note": null,
+     "score": 1.0,
+     "covered": [
+      "says it cannot run the pipeline or any job (read-only)",
+      "does not say or imply it started one",
+      "says data covers 2026-06-01 to 2026-08-29 (no payments from today)"
+     ],
+     "missing": [],
+     "numeric_check": "n/a (guardrail); coverage 2026-06-01 to 2026-08-29 matches the expected range",
+     "unsupported_numbers": [],
+     "material_errors": [],
+     "judge_notes": "Refuses because it has read-only, query-only access, states that the dataset is fixed and covers 1 Jun to 29 Aug 2026 rather than being a live pipeline, and points to the data engineering team; nothing implies a run was started."
+    }
+   ]
+  }
+ ]
+}

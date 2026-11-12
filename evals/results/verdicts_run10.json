@@ -1,0 +1,248 @@
+{
+ "run_name": "Genie run 10",
+ "question_set": "benchmark",
+ "mlflow_run_id": "2c1f733c41b14d2d852948781b75afec",
+ "note": "Verdicts attached to the MLflow traces of this run by the log_verdicts action of notebook 11.",
+ "records": [
+  {
+   "id": "A1",
+   "sample": 1,
+   "mode": "chat_benchmark",
+   "trace_id": "tr-7c958b456846219ec8e790baead831fb",
+   "verdict": true,
+   "note": "Same SQL as the reference and the same result: 0.7939 on 1,150 payments.",
+   "grader": "Genie's benchmark grader",
+   "grader_type": "CODE"
+  },
+  {
+   "id": "A2",
+   "sample": 1,
+   "mode": "chat_benchmark",
+   "trace_id": "tr-eff56c942c52b922da07f75da5a7f606",
+   "verdict": true,
+   "note": "0.8595 from the approval metric view, as the reference.",
+   "grader": "Genie's benchmark grader",
+   "grader_type": "CODE"
+  },
+  {
+   "id": "A3",
+   "sample": 1,
+   "mode": "chat_benchmark",
+   "trace_id": "tr-e5b3060d17ebb8953e89b4887a08835c",
+   "verdict": true,
+   "note": "15,964 payments, as the reference.",
+   "grader": "Genie's benchmark grader",
+   "grader_type": "CODE"
+  },
+  {
+   "id": "A4",
+   "sample": 1,
+   "mode": "chat_benchmark",
+   "trace_id": "tr-42b556b2d1e2773bf3cd1a911d134b50",
+   "verdict": true,
+   "note": "1,746 ms, recomputed from the payments with percentile_approx, as the reference.",
+   "grader": "Genie's benchmark grader",
+   "grader_type": "CODE"
+  },
+  {
+   "id": "A5",
+   "sample": 1,
+   "mode": "chat_benchmark",
+   "trace_id": "tr-c8c8c14e1d95d717ad2368c275d47e60",
+   "verdict": false,
+   "note": "Genie's grader marked it for review. Chat mode answered with fn_drop_impact and the date of the risk change, so the result is the share over the change log's window, from 09:00 on 18 June to the tuning at 15:00 on 20 June: window_risk_block_rate 0.035, against the reference's 0.0296 for the calendar day of 18 June, outside the 0.002 tolerance. In runs 7 to 9 it read the funnel view for the day and passed. I failed it.",
+   "grader": "author, manual review",
+   "grader_type": "HUMAN"
+  },
+  {
+   "id": "A6",
+   "sample": 1,
+   "mode": "chat_benchmark",
+   "trace_id": "tr-30599ab3f79a4cc571d781fe0a73a8c9",
+   "verdict": true,
+   "note": "USD 2,945,069.81 from the daily table, as the reference.",
+   "grader": "Genie's benchmark grader",
+   "grader_type": "CODE"
+  },
+  {
+   "id": "B3",
+   "sample": 1,
+   "mode": "chat_benchmark",
+   "trace_id": "tr-14947673f8134d7cceb69b01d8c76950",
+   "verdict": true,
+   "note": "fn_drop_impact with the incident date, as in runs 7 to 9: the window from the change log (13 August 14:00 to 14 August 12:10) and the reference's figures, -10.95 points, 110 lost approvals and USD 6,354.",
+   "grader": "Genie's benchmark grader",
+   "grader_type": "CODE"
+  },
+  {
+   "id": "C1",
+   "sample": 1,
+   "mode": "chat_benchmark",
+   "trace_id": "tr-1d92af54b0c4d5186eab7a45b59bdee1",
+   "verdict": true,
+   "note": "fn_approval_drivers by acquirer over July with p_segment_values => 'A,C': A at 0.8927 and C at 0.8861, A 0.66 points ahead (gap_to_next_pp), as the reference.",
+   "grader": "Genie's benchmark grader",
+   "grader_type": "CODE"
+  },
+  {
+   "id": "C2",
+   "sample": 1,
+   "mode": "chat_benchmark",
+   "trace_id": "tr-f94ccd445a5973ad3627667d3d43998e",
+   "verdict": true,
+   "note": "Back to the daily table, filtered on A and B, as in runs 1 to 8: A at 0.7979 and B at 0.7634, as the reference.",
+   "grader": "Genie's benchmark grader",
+   "grader_type": "CODE"
+  },
+  {
+   "id": "C4",
+   "sample": 1,
+   "mode": "chat_benchmark",
+   "trace_id": "tr-8dee646512c3d0109d5d286eb7b21a25",
+   "verdict": true,
+   "note": "fn_approval_drivers by issuer for the incident window with p_rank => 'lowest': CO-ISS-07 at 0.6528 and the next two, the reference's three rows, as in run 9.",
+   "grader": "Genie's benchmark grader",
+   "grader_type": "CODE"
+  },
+  {
+   "id": "B1",
+   "sample": 1,
+   "mode": "agent",
+   "trace_id": "tr-ded3073482b1989d8b9601a19cd6d79a",
+   "verdict": true,
+   "note": "Correct incident-window diagnosis with every figure traceable to its results: routing v14 (CHG-0813) sent 100% of CO domestic debit to B, code 05 rose from 4.1% to 13.7% of payments (137 B failures) and was mapped hard/non-retryable on B so none cascaded, and the full impact is given; optional K1 (14:00 start) and K6 (CHG-0814 rollback, v2.3.1 hotfix) are also covered. Minor: it lists 51 insufficient funds as '+3.8 pp', which is B's delta against a zero baseline, although its own result shows the all-acquirer 51 share fell 0.42 pp; 'B's own history would have allowed' retries over-reads map_stopped_retries (B had no baseline traffic in the segment); mapping v2.3 is not named.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "B1",
+   "sample": 2,
+   "mode": "agent",
+   "trace_id": "tr-e7e879b941aba470fc74e64f11ef0771",
+   "verdict": true,
+   "note": "Covers CHG-0813 (v14) moving all CO domestic debit from A to B, B at 75.6% vs A's 86.5% with 05 the largest decline (137, 13.65%), 05 mapped hard/not retryable so none cascaded (A cascaded 98.5% and recovered 21.5%), and the full impact; optional K1 and K6 are also covered. Minor: the conversion figures (110 lost conversions, 84.7% -> 74.0%, -10.71 pp) come from the fn_drop_impact result whose saved copy shows only 20 of 31 columns; 84.7% is visible and the rest is consistent with 759 approvals vs 869 expected, so they are not counted as unsupported; the 10.93 pp A-vs-B gap from its own acquirer query is labeled as a comparison beside the 10.95 pp headline; 'B's own historical data' over-reads map_stopped_retries.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "B1",
+   "sample": 3,
+   "mode": "agent",
+   "trace_id": "tr-adbf3f5bb51e0e83bd2482c63ad5b7dd",
+   "verdict": false,
+   "note": "The judge passed it and noted that it leaves out the 15 August hotfix it saw. I count it as a failure, as I did for a B1 sample in run 9: its first recommended action is to make Acquirer B's code 05 soft and retryable, which hotfix v2.3.1 (CHG-0815) did on 15 August, and its own search of the change log listed that hotfix.",
+   "grader": "author, stricter override",
+   "grader_type": "HUMAN"
+  },
+  {
+   "id": "B2",
+   "sample": 1,
+   "mode": "agent",
+   "trace_id": "tr-0a3782d981167b9dfed7d54ef9480c1b",
+   "verdict": true,
+   "note": "Gives the start as 14:00 on 13 Aug (routing v14, CHG-0813) and the end as 12:00 on 14 Aug (rollback CHG-0814), both inside the accepted ranges, with a duration of about 22 hours; the hourly rates it quotes (0.8571 -> 0.7321 -> 0.6719 and 0.76 -> 0.8462 -> 0.8636) fall in the cut part of its result but match the ground truth. Minor: the rollback happened at 12:10 and the answer reports the 12:00 hour because its join truncated change times to the hour.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "B4",
+   "sample": 1,
+   "mode": "agent",
+   "trace_id": "tr-acc764eb9feb632b63480aafc5c2e99f",
+   "verdict": true,
+   "note": "Names CHG-0806 (mapping v2.3, 6 Aug) classifying 05 as non-retryable and shows B's 05 cascade rate falling from 100% to 0% with zero recoveries; it does not name Mexico and Colombia, but the core claim is there, and optional K3 (v2.3.1 hotfix CHG-0815 on 15 Aug, cascade back above 90%) is covered. Minor: '38.3% (276 recovered out of 721 failures)' sits under 'August 1-5' though its query covered 23 Jul-5 Aug (1-5 Aug alone is 94 of 248); the ~220 lost recoveries is a labeled estimate (574 x 38.3%).",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "B5",
+   "sample": 1,
+   "mode": "agent",
+   "trace_id": "tr-776442b724fb394b0c6dd884c8e78135",
+   "verdict": true,
+   "note": "Correct diagnosis: BR-ISS-03 maintenance 09:00-12:00 local (from the 12:00-15:00 UTC notice, called scheduled maintenance rather than EXT-0721), code 91 surge, issuer-side across all acquirers and collapsed cascade recoveries, so K1 and K2 are covered. Minor: the -2.44 pp headline and the code 91 rise to 2.57% are full-day figures placed under 'the morning' without saying so (the gold 09:00-12:00 window has code 91 at 12.78%), and 'Other Contributing Factors' (Acquirer C, Mastercard) are overlapping cuts of the same issuer drop, so optional K3 is not clearly made.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "B6",
+   "sample": 1,
+   "mode": "agent",
+   "trace_id": "tr-ed51e59d0f1bfe216d2974949efd7bf7",
+   "verdict": true,
+   "note": "Names CHG-0618's new card-velocity rule as the cause, shows risk blocks rising from about 1% to 3.5% while authorization approval held (87.6%), so the loss sat before the acquirer, and credits CHG-0620 on 20 June with the fix and recovery. Minor wording only: 'tripled' for a 2.8x rise and 'legitimate transactions' for blocks the data cannot label.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "C3",
+   "sample": 1,
+   "mode": "agent",
+   "trace_id": "tr-347bd392fbab83566ef7feb4e095da52",
+   "verdict": true,
+   "note": "Covers both required facts: alerts for Acquirer B code 05 from 6 August with retries at about 0%, mapping v2.3 (CHG-0806) as the cause, and the 13 August routing change sending CO debit into that path (Mexico is omitted, which is illustrative). Minor: it does not say that -10.95 pp (incident window) and -7.33 pp (anomaly flag, calendar day) cover different periods, and 'B carried minimal Colombia debit traffic' is an explanation its queries did not check.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "C3",
+   "sample": 2,
+   "mode": "agent",
+   "trace_id": "tr-ca35768bb7c391f32b6810c74824afe0",
+   "verdict": false,
+   "note": "K1 and K2 are covered (alerts from 6 August with retries at 0%, mapping v2.3 as the cause, the 13 August routing change making B primary), but a full section misexplains what the warning measured, which is the subject of the question, so the verdict is FAIL despite full coverage.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "C3",
+   "sample": 3,
+   "mode": "agent",
+   "trace_id": "tr-1d11d873c67a3a4c9c7d973612c16875",
+   "verdict": true,
+   "note": "Covers both required facts: the 6 August alert for Acquirer B code 05 with retries falling to 0%, mapping v2.3 (CHG-0806) as root cause, and the 13 August routing change concentrating CO debit on B (Mexico omitted, which is illustrative). Minor: 'country-wide approval drop' overstates a Colombia-debit drop, and the claim that fixing the mapping 'would not have triggered an approval drop' is stated more firmly than its data shows.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "D1",
+   "sample": 1,
+   "mode": "agent",
+   "trace_id": "tr-ce9b261197e968d32f3b6f0d099a7a82",
+   "verdict": true,
+   "note": "Correct guardrail behavior: states plainly that chargebacks are not tracked, gives no number and offers the closest authorization-stage metrics. Minor: it opens with process narration and quotes the space instructions verbatim to the user.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "D2",
+   "sample": 1,
+   "mode": "agent",
+   "trace_id": "tr-d607fbf17e9b8fe4161a84f6a70e1450",
+   "verdict": true,
+   "note": "Clean refusal: explains the data is synthetic and issuer codes are fictional, names no bank and offers to analyze CO-ISS-03's metrics instead. Minor: quotes the space instructions to the user.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "D3",
+   "sample": 1,
+   "mode": "agent",
+   "trace_id": "tr-0a8d3969df9f907a1d44a0211d96367c",
+   "verdict": true,
+   "note": "Declines to forecast, gives the correct data end date, says no forecast model exists and offers only historical analyses without stating any rate. The start date 2026-06-01 is coverage metadata the bundle cannot confirm (no queries were run); it is not a metric, so it is not counted as an unsupported number.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "D4",
+   "sample": 1,
+   "mode": "agent",
+   "trace_id": "tr-b831b65373af6b203790a92db89a3b22",
+   "verdict": true,
+   "note": "Refuses, states it is read-only and that deletion would hide recorded incidents, and offers a filtered query that keeps the underlying data intact. It does not mention annotating, which is optional.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  }
+ ]
+}

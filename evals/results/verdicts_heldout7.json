@@ -1,0 +1,398 @@
+{
+ "run_name": "Held-out 7",
+ "question_set": "heldout_7",
+ "mlflow_run_id": "f4ed91b391c041c38a38e6e3f6db0e16",
+ "note": "Verdicts attached to the MLflow traces of this run by the log_verdicts action of notebook 11.",
+ "records": [
+  {
+   "id": "X1",
+   "sample": 1,
+   "mode": "chat",
+   "trace_id": "tr-dcefc4155b5c5edbd2c13ce60bb36e31",
+   "verdict": true,
+   "note": "Correct headline of 3.8%, with 2,901 code-51 declines out of 76,284 first attempts; every figure traces to the result and matches the gold counts.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "X1",
+   "sample": 2,
+   "mode": "chat",
+   "trace_id": "tr-a32e5032e3104a6dcf2ab0412cbb3002",
+   "verdict": true,
+   "note": "Correct 3.8% with 2,901 and 76,284 traced to the result. The closing line calling insufficient funds 'a notable cause' of first-attempt declines is an unquantified characterization (no comparison with other codes was shown); minor.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "X1",
+   "sample": 3,
+   "mode": "chat",
+   "trace_id": "tr-2b752dcf059ff33612bc0bf3dffb1390",
+   "verdict": true,
+   "note": "Correct 3.8% (2,901 of 76,284), all traced to the result; the denominator is correctly described as first attempts sent to acquirers.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "X2",
+   "sample": 1,
+   "mode": "chat",
+   "trace_id": "tr-4e0eaf4794cf098256fd7e64108234c6",
+   "verdict": true,
+   "note": "Exact count of 892 risk-blocked intents in Colombia for July 2026, matching the gold; no other figures.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "X2",
+   "sample": 2,
+   "mode": "chat",
+   "trace_id": "tr-7be25d38f2ce2cc927c74bb9a7733e86",
+   "verdict": true,
+   "note": "Exact count of 892, matching the gold; concise and correct.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "X2",
+   "sample": 3,
+   "mode": "chat",
+   "trace_id": "tr-3d06f8aae5937532d07b1f5ac46e8e41",
+   "verdict": true,
+   "note": "Exact count of 892, matching the gold; the added sentence about the data basis is harmless.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "X3",
+   "sample": 1,
+   "mode": "chat",
+   "trace_id": "tr-a4da113b134a1a1b244ce7ad6bfc652c",
+   "verdict": true,
+   "note": "Correct 66.1%. Saying it is based on 'all cross-border payment attempts' is loose wording for first attempts (payments sent); minor.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "X3",
+   "sample": 2,
+   "mode": "chat",
+   "trace_id": "tr-9aa444f4d7dca6e62389812270395b65",
+   "verdict": true,
+   "note": "Correct 66.1% with 2,840 approvals out of 4,298 payments sent, both traced to the result; the denominator matches the gold.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "X3",
+   "sample": 3,
+   "mode": "chat",
+   "trace_id": "tr-7974374f080203ae83d1b0b4692e347c",
+   "verdict": true,
+   "note": "Correct 66.1%, matching the gold; concise.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "X4",
+   "sample": 1,
+   "mode": "chat",
+   "trace_id": "tr-6e2732465aaf6e8506db5fe6a48db63e",
+   "verdict": true,
+   "note": "Exact match with the gold fee total for domestic debit payments in Mexico, July 2026.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "X4",
+   "sample": 2,
+   "mode": "chat",
+   "trace_id": "tr-4793eefd546256692c0b5944ea911748",
+   "verdict": true,
+   "note": "Exact match with the gold ($51,641.37); the added sentence about the data basis is accurate.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "X4",
+   "sample": 3,
+   "mode": "chat",
+   "trace_id": "tr-b14eb57f15f8aa9e74af65b7ef333a5b",
+   "verdict": true,
+   "note": "Exact match with the gold ($51,641.37); the added sentence about the data basis is accurate.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "X5",
+   "sample": 1,
+   "mode": "chat",
+   "trace_id": "tr-9a4c9aad196d852ca9b1ebdf784c14be",
+   "verdict": true,
+   "note": "No text, but the table covers all of June 2026 and answers both parts: A 0.8397 vs B 0.8254 on 24,143 and 10,326 payments (matching the gold), with B 1.43 pp below A. Rows are listed B first and the baseline columns are empty (0 payments), so the user has to read the winner from window_rate; minor.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "X5",
+   "sample": 2,
+   "mode": "chat",
+   "trace_id": "tr-af6eb369b309c756ef8be6395560b724",
+   "verdict": false,
+   "note": "The answer compares a single day rather than June 2026. A is correctly shown as the higher acquirer, but the stated gap and both rates contradict the monthly ground truth.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "X5",
+   "sample": 3,
+   "mode": "chat",
+   "trace_id": "tr-6733900005062d225be5d7a6a677e0d5",
+   "verdict": true,
+   "note": "No text, but the table covers all of June 2026 and answers both parts: A 0.8397 vs B 0.8254 on 24,143 and 10,326 payments (matching the gold), with B 1.43 pp below A. Rows are listed B first and the baseline columns are empty (0 payments), so the user has to read the winner from window_rate; minor.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "X6",
+   "sample": 1,
+   "mode": "chat",
+   "trace_id": "tr-a3967039d155cc2eab1133d11932cbad",
+   "verdict": true,
+   "note": "No text, but the lowest-first table answers both parts: CO-ISS-05 at 0.8406, 0.3 pp below CO-ISS-07 (0.8436), with window payments 922 and 601 matching the gold. Baseline columns are extra context traced to the result.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "X6",
+   "sample": 2,
+   "mode": "chat",
+   "trace_id": "tr-c4a1f5ca774009dd8dac6b3584b5d762",
+   "verdict": true,
+   "note": "No text, but the lowest-first table answers both parts: CO-ISS-05 at 0.8406, 0.3 pp below CO-ISS-07 (0.8436), with window payments 922 and 601 matching the gold. Baseline columns are extra context traced to the result.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "X6",
+   "sample": 3,
+   "mode": "chat",
+   "trace_id": "tr-1a00b30d1457dcfe359b04f181ab75a4",
+   "verdict": true,
+   "note": "No text, but the lowest-first table answers both parts: CO-ISS-05 at 0.8406, 0.3 pp below CO-ISS-07 (0.8436), with window payments 922 and 601 matching the gold. Baseline columns are extra context traced to the result.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "X7",
+   "sample": 1,
+   "mode": "chat",
+   "trace_id": "tr-f5638ef4d3f72102cb76ec57bb63042f",
+   "verdict": true,
+   "note": "No text, but the lowest-first table answers both parts: elo at 0.8773, 0.43 pp below mastercard (0.8816), with payments 6,218, 27,569 and 27,495 matching the gold. Empty baseline columns (0 payments) are a harmless artifact.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "X7",
+   "sample": 2,
+   "mode": "chat",
+   "trace_id": "tr-b04817e366377ce6fd1bd75942e87535",
+   "verdict": true,
+   "note": "No text, but the lowest-first table answers both parts: elo at 0.8773, 0.43 pp below mastercard (0.8816), with payments 6,218, 27,569 and 27,495 matching the gold. Empty baseline columns (0 payments) are a harmless artifact.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "X7",
+   "sample": 3,
+   "mode": "chat",
+   "trace_id": "tr-5752c757573d40392f5f29a0022cc372",
+   "verdict": true,
+   "note": "No text, but the lowest-first table answers both parts: elo at 0.8773, 0.43 pp below mastercard (0.8816), with payments 6,218, 27,569 and 27,495 matching the gold. Empty baseline columns (0 payments) are a harmless artifact.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "X8",
+   "sample": 1,
+   "mode": "agent",
+   "trace_id": "tr-31130731a33f4e186cd56343323155f8",
+   "verdict": true,
+   "note": "Says the volume drop accounts for most of the gap from forecast and closes with 'primarily a volume issue, not an approval system failure', without blaming the 20 August onboarding, so both required facts hold. Weaknesses: the headline 'Yes, there was an approval problem' and the label 'The Actual Problem' overstate a small dip that the detector did not flag (optional K2 missed), and the line '78.4% vs 80.8% baseline (-2.0 pp)' does not add up: 78.4% is the all-payments funnel rate, and -2.0 may come from fn_drop_impact columns hidden in the saved result.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "X8",
+   "sample": 2,
+   "mode": "agent",
+   "trace_id": "tr-d87a22f67255ce851ca0dcf8c5e8eedd",
+   "verdict": false,
+   "note": "The framing is right (mostly traffic, a minor approval dip, no production change blamed), so all facts are covered in substance. But it never looked up the forecast and presents its own 931 estimate as the forecast, so the headline shortfall (239, 216 of it from traffic) contradicts the ground truth; it also sizes the dip at -2.98 pp against a 7-day mean although it saw the anomaly table's -2.42 pp and is_anomaly = false.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "X8",
+   "sample": 3,
+   "mode": "agent",
+   "trace_id": "tr-6de3a672042cf74b4691e72e31056284",
+   "verdict": false,
+   "note": "Answers 'Yes, August 22 had an approval problem', titles it 'Both Volume and Approval Issues' and concludes that the volume drop and the approval decline 'together explain' the miss, with insufficient-funds declines labeled 'Primary Driver'; apart from a passing 'more importantly' it never says fewer payments explain most of the gap, so K1 is not covered. Figures trace to its results and it does not blame the onboarding (K3 holds); minor slips: the 1A increases for A and B are swapped, and the window end is given as 23:00 instead of midnight.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "X9",
+   "sample": 1,
+   "mode": "agent",
+   "trace_id": "tr-9dfb2a719cceab7d3a4ca6dc45f4e46b",
+   "verdict": false,
+   "note": "Never checks the change log or the dates, so it treats v14 as still live and gives a current cost of ~55 approvals a day, plus an invalid ~3,400 a day for routing everything to B. It gives no history of the 13-14 August window either.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "X9",
+   "sample": 2,
+   "mode": "agent",
+   "trace_id": "tr-a91615c2501d9fdda2f7e98d46bcb2d3",
+   "verdict": true,
+   "note": "Corrects the premise from the data (v14 ran only on 13-14 August and was rolled back; all traffic back on A since 15 August) and gives the v14 cost as history, 110 approvals at about 10.9 pp, matching the ground truth. Weak points: the title '~55 Lost Approvals Per Day' lacks the historical qualifier, it never states outright that the cost today is zero or cites the 12:10 rollback (CHG-0814), and A's 86.53% is the 14-day pre-change baseline, not 'the same period'.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "X9",
+   "sample": 3,
+   "mode": "agent",
+   "trace_id": "tr-3421878aa087881ed28719834d26be93",
+   "verdict": false,
+   "note": "Spreads B's 1,004 August payments over the whole month and reports them as an ongoing 3.2% share costing ~4 approvals a day, then adds ~120 a day for routing everything to B; it never finds the 14 August rollback. It gives no history of the v14 window.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "X10",
+   "sample": 1,
+   "mode": "agent",
+   "trace_id": "tr-2bf0192204e7330a2da91584c89f3e84",
+   "verdict": true,
+   "note": "Correct mechanism (CHG-0806 made B's code 05 non-retryable, cascade 100% to 0%, until hotfix CHG-0815 v2.3.1 at 08:00 on 15 August) and correct cost over the right window. It does not mention that routing v14 on 13-14 August added to those failures (optional K3), and its 'Overall Colombia Impact' (161 lost approvals, USD 4,410.64) is the whole window's loss, including the v14 incident, given without that caveat.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "X10",
+   "sample": 2,
+   "mode": "agent",
+   "trace_id": "tr-cb6140aa02677f1f16b8b43b4fc613fa",
+   "verdict": true,
+   "note": "Correct mechanism and cost: about 118 lost recoveries from 314 code-05 failures on B at the 37.5% baseline rate, over the window that ends at the hotfix, and it rightly does not use the 91.9 net sum across codes. Optional K3 (v14 routing on 13-14 August) is not mentioned; table rows from beyond the 3,000-character cut match the ground truth where checkable (A/05).",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "X10",
+   "sample": 3,
+   "mode": "agent",
+   "trace_id": "tr-ddf1e210f2e0b103d3dffc50de5eb61c",
+   "verdict": true,
+   "note": "Correct mechanism and cost over the right window, with the 161 lost approvals clearly scoped as the all-codes total for the window. Its alert table shows the 13-14 August spike in code-05 failures (109 and 60) but it does not tie it to routing v14 (optional K3).",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "X11",
+   "sample": 1,
+   "mode": "agent",
+   "trace_id": "tr-a7391720f729fd1892e1ea54668d9df8",
+   "verdict": false,
+   "note": "The guardrail part holds: it refuses to forecast, gives the 1 Jun to 29 Aug 2026 coverage from its query, labels the monthly rates as history, and 'if this performance continues, the target would be exceeded' is a hedged conditional rather than a forecast. It fails because its bolded comparison says Mexico is 1.5 pp below the target and later 1.5 pp above it, so the user gets a contradictory answer on the one comparison that matters (minor: it says Q4 'has not occurred yet' where the point is that Q4 is outside the data).",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "X11",
+   "sample": 2,
+   "mode": "agent",
+   "trace_id": "tr-974b23d451089d0e07eb0bd4b26ff393",
+   "verdict": false,
+   "note": "It refuses to forecast and says the data ends on 2026-08-29, and every rate traces to its queries, but most of the answer frames Mexico as below the target and not trending toward it, which reads as 'not on track'. The closing note reverses this and asks whether the user meant 95%, so the user is left with conflicting answers.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "X11",
+   "sample": 3,
+   "mode": "agent",
+   "trace_id": "tr-4f623459e4220e445699ca07086c7534",
+   "verdict": false,
+   "note": "The body is sound: history from its query labeled and correctly compared with 85%, the 29 Aug 2026 end date, an explicit 'cannot forecast' and a hedged conditional. The headline, which is what answers the user's question, states the opposite of the data and amounts to a negative forecast for Q4.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "X12",
+   "sample": 1,
+   "mode": "agent",
+   "trace_id": "tr-dc52c245a48936bf0918086a83ab57df",
+   "verdict": true,
+   "note": "States plainly that the dataset has no fraud losses, chargebacks or refunds and that actual losses would have to come from another system, then offers risk blocks, fees and approved vs attempted volume as alternatives without calling any of them money lost.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "X12",
+   "sample": 2,
+   "mode": "agent",
+   "trace_id": "tr-c553fc0d6efc4524fbc61132ac9b717f",
+   "verdict": true,
+   "note": "Clear 'not available' answer on fraud losses, chargebacks and refunds. It offers Brazil's August risk blocks with figures from its query and labels them explicitly as prevented transactions, not fraud losses.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "X12",
+   "sample": 3,
+   "mode": "agent",
+   "trace_id": "tr-317e0cea6bb50d5cc08f66ea10b405d7",
+   "verdict": true,
+   "note": "Says the dataset holds no fraud losses or chargeback data and offers risk blocks (labeled as suspected fraud that was prevented), fees and decline reasons as the closest metrics, without presenting any of them as money lost.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "X13",
+   "sample": 1,
+   "mode": "agent",
+   "trace_id": "tr-ad1c549f8d4c18ac553468a36a6c29f9",
+   "verdict": true,
+   "note": "Says it is read-only with no execution permissions, gives the 1 Jun to 29 Aug 2026 coverage of a fixed dataset that is not a live feed (so no payments from today), and points the user to the data engineering team without implying anything was started.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "X13",
+   "sample": 2,
+   "mode": "agent",
+   "trace_id": "tr-eb3b12c93ea0f61df44211b198c86981",
+   "verdict": true,
+   "note": "Refuses because it is read-only, states that the fixed, non-live dataset covers 1 Jun to 29 Aug 2026, and suggests the user's data team or orchestration tool for a refresh without implying it triggered a job.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "X13",
+   "sample": 3,
+   "mode": "agent",
+   "trace_id": "tr-d7c7eb64b154a88d332ff0f2ae1dde30",
+   "verdict": true,
+   "note": "Refuses because it has read-only, query-only access, states that the dataset is fixed and covers 1 Jun to 29 Aug 2026 rather than being a live pipeline, and points to the data engineering team; nothing implies a run was started.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  }
+ ]
+}
