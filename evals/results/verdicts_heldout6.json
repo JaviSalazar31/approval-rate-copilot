@@ -1,0 +1,398 @@
+{
+ "run_name": "Held-out 6",
+ "question_set": "heldout_6",
+ "mlflow_run_id": "576befff76a048909d52e409724c722d",
+ "note": "Verdicts attached to the MLflow traces of this run by the log_verdicts action of notebook 11.",
+ "records": [
+  {
+   "id": "W1",
+   "sample": 1,
+   "mode": "chat",
+   "trace_id": "tr-69f09068dc44c6c66c0d0e2539d4a167",
+   "verdict": true,
+   "note": "Exact match. The query mirrors the gold (Mexico, acquirer C, 1-31 August, no cross-border filter) and the text correctly reads 'all traffic' as domestic plus cross-border.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "W1",
+   "sample": 2,
+   "mode": "chat",
+   "trace_id": "tr-fc01d0cb9702cb9a141a55faf998da22",
+   "verdict": true,
+   "note": "Exact match over the full month with no cross-border filter, as the question asks; the text adds nothing beyond the query result.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "W1",
+   "sample": 3,
+   "mode": "chat",
+   "trace_id": "tr-9bf24a0a2aafbc8469d7d4a2b0c821d4",
+   "verdict": true,
+   "note": "Headline matches exactly. Minor: the query and the text stop at 29 August without saying why, but the total equals the full-month ground truth (30-31 August add nothing in the data), so this is a scope and wording issue, not a material error.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "W2",
+   "sample": 1,
+   "mode": "chat",
+   "trace_id": "tr-48e7cddacdb251787a7c726e8ee4a13d",
+   "verdict": false,
+   "note": "The query never isolates code 51 or divides by all first attempts, so the 100% is meaningless, and the text turns it into a false statement about the decline mix.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "W2",
+   "sample": 2,
+   "mode": "chat",
+   "trace_id": "tr-f5c38c42d66165a773a8b928614bc89e",
+   "verdict": false,
+   "note": "It swaps the denominator from all first attempts to declined first attempts, and even that ratio is computed as a tautology.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "W2",
+   "sample": 3,
+   "mode": "chat",
+   "trace_id": "tr-a46392ee55ba6059f1f459be1e20a749",
+   "verdict": false,
+   "note": "Read literally, the answer says every first attempt in Colombia in July 2026 was declined for insufficient funds, which nothing in the data supports.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "W3",
+   "sample": 1,
+   "mode": "chat",
+   "trace_id": "tr-e3f4e4dbfcabcb6c6c3ad9441443c865",
+   "verdict": true,
+   "note": "Correct rate and correct intent count (2,797, same as the ground truth); the gloss that 83.3% of intents ended in approved payments matches the gold formula.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "W3",
+   "sample": 2,
+   "mode": "chat",
+   "trace_id": "tr-0776655ae1cc9879a23b209a85e16fee",
+   "verdict": true,
+   "note": "Correct rate and correct intent count (2,797, same as the ground truth); the gloss that 83.3% of intents ended in approved payments matches the gold formula.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "W3",
+   "sample": 3,
+   "mode": "chat",
+   "trace_id": "tr-898190be7b15c87a76ea106b4b01ecd4",
+   "verdict": true,
+   "note": "Correct rate, with the 2,797 intents (matching the ground truth) given as supporting context.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "W4",
+   "sample": 1,
+   "mode": "chat",
+   "trace_id": "tr-640bbd7ef7a8d963f220e3f0978ada69",
+   "verdict": true,
+   "note": "Correct metric (approved USD over approved payments) on the right segment: Brazil, domestic, credit, July 2026. The extra NOT NULL filters leave the result unchanged.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "W4",
+   "sample": 2,
+   "mode": "chat",
+   "trace_id": "tr-67c67f2d4959caf482b817c75fa49eff",
+   "verdict": true,
+   "note": "Correct ticket, and the 42,689 approved payments it adds match both its query result and the ground truth.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "W4",
+   "sample": 3,
+   "mode": "chat",
+   "trace_id": "tr-1f0ee71555848960492324da36c698b2",
+   "verdict": true,
+   "note": "Correct ticket on the right segment and month; the text stays within the query result.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "W5",
+   "sample": 1,
+   "mode": "chat",
+   "trace_id": "tr-b7a10ac974499fc3978568a6a66013b4",
+   "verdict": true,
+   "note": "Table-only answer: MX-ISS-06 tops the 'highest' ranking with gap_to_next_pp 0.76, and its window rates and payment counts (664, 1,272, 923) match the ground truth. Minor: with no text, the user reads the winner from row order among 14-day baseline columns the question did not ask for.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "W5",
+   "sample": 2,
+   "mode": "chat",
+   "trace_id": "tr-87cf8d1f7a1944d4beee57533902bf6a",
+   "verdict": true,
+   "note": "Table-only answer: MX-ISS-06 tops the 'highest' ranking with gap_to_next_pp 0.76, and its window rates and payment counts (664, 1,272, 923) match the ground truth. Minor: with no text, the user reads the winner from row order among 14-day baseline columns the question did not ask for.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "W5",
+   "sample": 3,
+   "mode": "chat",
+   "trace_id": "tr-1a1989cfc9e75c3fbac482d6efec9cc7",
+   "verdict": true,
+   "note": "Table-only answer: MX-ISS-06 tops the 'highest' ranking with gap_to_next_pp 0.76, and its window rates and payment counts (664, 1,272, 923) match the ground truth. Minor: with no text, the user reads the winner from row order among 14-day baseline columns the question did not ask for.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "W6",
+   "sample": 1,
+   "mode": "chat",
+   "trace_id": "tr-294d3ae2b0ce5012c7c7f813323e4940",
+   "verdict": true,
+   "note": "Table-only answer: A heads the 'lowest' ranking with gap_to_next_pp 1.84, and both acquirers' window rates and payments (12,908 and 30,784) match the domestic-credit ground truth. Minor: no text, and the 14-day baseline columns are context the question did not ask for.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "W6",
+   "sample": 2,
+   "mode": "chat",
+   "trace_id": "tr-96619a299733e37b48932a89e2e09d2d",
+   "verdict": true,
+   "note": "Table-only answer: A heads the 'lowest' ranking with gap_to_next_pp 1.84, and both acquirers' window rates and payments (12,908 and 30,784) match the domestic-credit ground truth. Minor: no text, and the 14-day baseline columns are context the question did not ask for.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "W6",
+   "sample": 3,
+   "mode": "chat",
+   "trace_id": "tr-3264b535b33f925635caf89305a39b6f",
+   "verdict": true,
+   "note": "Table-only answer: A heads the 'lowest' ranking with gap_to_next_pp 1.84, and both acquirers' window rates and payments (12,908 and 30,784) match the domestic-credit ground truth. Minor: no text, and the 14-day baseline columns are context the question did not ask for.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "W7",
+   "sample": 1,
+   "mode": "chat",
+   "trace_id": "tr-4c065ff23a3495546d498b4f2d4af40d",
+   "verdict": true,
+   "note": "Table-only answer: gaming heads the 'lowest' ranking with gap_to_next_pp 1.39, and the window rates and payment counts (4,732, 12,708, 12,435) match the domestic ground truth. Minor: no text, so the user reads the answer from row order among 14-day baseline columns the question did not ask for.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "W7",
+   "sample": 2,
+   "mode": "chat",
+   "trace_id": "tr-9a3635fe49db914bda67c1f0e20c95d7",
+   "verdict": true,
+   "note": "Table-only answer: gaming heads the 'lowest' ranking with gap_to_next_pp 1.39, and the window rates and payment counts (4,732, 12,708, 12,435) match the domestic ground truth. Minor: no text, so the user reads the answer from row order among 14-day baseline columns the question did not ask for.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "W7",
+   "sample": 3,
+   "mode": "chat",
+   "trace_id": "tr-24555a2d54dbe9dc619aa9937ebea6d1",
+   "verdict": true,
+   "note": "Table-only answer: gaming heads the 'lowest' ranking with gap_to_next_pp 1.39, and the window rates and payment counts (4,732, 12,708, 12,435) match the domestic ground truth. Minor: no text, so the user reads the answer from row order among 14-day baseline columns the question did not ask for.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "W8",
+   "sample": 1,
+   "mode": "agent",
+   "trace_id": "tr-779e8f0c1482636fc7dd5a3767fb28f8",
+   "verdict": true,
+   "note": "Gives 123 lost conversions in the change-log window as the cost and explicitly sets aside the 16 approvals lost among payments sent, with the right mechanism (conversion 85.62% to 83.31%, risk blocks 1.26% to 3.50%, 119 extra) and acquirers steady. 123, 119 and the block rates sit in columns hidden in the saved result ('20 of 28 columns') and match the ground truth; calling the blocked payments 'legitimate' is an unverified characterization, minor.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "W8",
+   "sample": 2,
+   "mode": "agent",
+   "trace_id": "tr-31438a7a1b2f31ed21e16da27aa0d006",
+   "verdict": true,
+   "note": "States 123 lost conversions as the cost and says outright it is not the 16 approvals lost among payments sent, with the right mechanism (conversion -2.31 pp, 119 extra risk blocks, 1.26% to 3.50%) and acquirers steady. 123 and 119 come from columns hidden in the saved result ('20 of 25 columns') and match the ground truth; the 17-21 June daily rates (86.22% to 89.81%) are clearly context; 'blocked legitimate payments' is an unverified characterization, minor.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "W8",
+   "sample": 3,
+   "mode": "agent",
+   "trace_id": "tr-04a583516d96b9739aad0003de9c376c",
+   "verdict": false,
+   "note": "Window, conversion drop, risk-block jump and steady acquirer rates are right, and 119 is inside K1's range, but the answer mixes the 16 acquirer-side approvals into the cost. It also asserts 'lost conversions: 119 (the same as extra risk blocks)' without having queried lost conversions (ground truth 123, still inside K1's range), and 'tripled' overstates 1.26% to 3.5% (2.8x), minor.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "W9",
+   "sample": 1,
+   "mode": "agent",
+   "trace_id": "tr-9e906eb5cbe8dce5ba96dd7b350a1518",
+   "verdict": true,
+   "note": "Corrects the premise from the change log and cascade data (CHG-0815, v2.3.1, 15 Aug, 05 soft and retryable, 100% cascade since) and states no current cost; every number traces to its results. It does not mention the 6-15 Aug v2.3 period, which K1 does not require, and 'visible in the last row' points to the second-to-last row, minor.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "W9",
+   "sample": 2,
+   "mode": "agent",
+   "trace_id": "tr-f634a0d307bb1d544a53f8486da4617e",
+   "verdict": true,
+   "note": "Says the premise is outdated (CHG-0815, v2.3.1, 15 Aug 08:00 Bogota), shows retries back at 100% and gives the 6-14 Aug cost (12.4 lost recoveries/day from 34.7 failures x 35.8% baseline) from a query, clearly labeled as history. The 99.4% is called 'since then' though it includes the 2 failures before the hotfix on 15 Aug, minor.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "W9",
+   "sample": 3,
+   "mode": "agent",
+   "trace_id": "tr-332979fb9b69fd69756da8aa33c59bd2",
+   "verdict": false,
+   "note": "K1's core is there: premise corrected (CHG-0815, v2.3.1, 15 Aug 08:00 Bogota, soft and retryable), retries and recoveries back, no current cost. It fails on the history: a count for the stopped-retry period that no query of that period produced, and that hides nine days of un-retried declines.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "W10",
+   "sample": 1,
+   "mode": "agent",
+   "trace_id": "tr-5e9e77dd801bbaa30dade8011b5cd883",
+   "verdict": true,
+   "note": "Says C's new 9.4% share moved the total by only +0.02 pp and that B approving more drove the rise, with A roughly flat, and does not misread C's zero mix effect. It calls the result an improvement and uses a window that opens nine hours before the 09:00 test start it cites, which inflates the change and B's part a little without changing the conclusion.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "W10",
+   "sample": 2,
+   "mode": "agent",
+   "trace_id": "tr-ac1b9228abe9a090eefcea3234dcc7de",
+   "verdict": true,
+   "note": "Uses the exact 09:00 window and reports the gold figures; says C went from 0% to 9.5% of traffic yet added only +0.02 pp, and that B's higher approval drove the rise while A stayed flat. It calls +0.34 pp an improvement rather than saying approval barely moved, but the size it gives makes that plain.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "W10",
+   "sample": 3,
+   "mode": "agent",
+   "trace_id": "tr-3990cba07b94409d54c382efa768ba58",
+   "verdict": true,
+   "note": "Gets the core right: C carried no MX debit before and 9.4% after at about the baseline rate, adding +0.02 pp, and B drove most of the gain. Weaker points: the opening and summary credit 'A and B' although A added only +0.03 pp (flat in the ground truth), the window opens before the 09:00 test start, B's mix effect is explained wrongly, and C's +0.02 pp is called the 'traffic mix change' although its table books it as a rate effect.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "W11",
+   "sample": 1,
+   "mode": "agent",
+   "trace_id": "tr-4279b8a0e2952cd391b8a58224aed4b8",
+   "verdict": false,
+   "note": "Opens correctly (cannot forecast, data 2026-06-01 to 2026-08-29, 21 July presented as history) but then gives the user a planning expectation for next Tuesday. It also says 21 July 2026 was a Monday; it was a Tuesday, and no query supports the claim.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "W11",
+   "sample": 2,
+   "mode": "agent",
+   "trace_id": "tr-c03da49ca5e06b7fe8abdef65b40e59f",
+   "verdict": true,
+   "note": "Refuses to forecast, gives the data range, presents the 21 July loss only as history and says it cannot be applied to predict future losses. Minor slips: it dates next Tuesday as 2026-11-18, a Wednesday (next Tuesday is 2026-11-17), and calls 21 July an incident that may differ from planned maintenance, though the question treats it as a prior maintenance.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "W11",
+   "sample": 3,
+   "mode": "agent",
+   "trace_id": "tr-497c958fa9b32c7423ca13e6c1dddd0c",
+   "verdict": true,
+   "note": "Refuses to forecast, states the data range, labels the 21 July maintenance cost as history and says it is not a forecast, with no scaling to next Tuesday. Minor slip: it dates next Tuesday as 2026-11-19, a Thursday (next Tuesday is 2026-11-17).",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "W12",
+   "sample": 1,
+   "mode": "agent",
+   "trace_id": "tr-27f83d045f72577ab7ffdbc5982d99a6",
+   "verdict": false,
+   "note": "The judge passed it because it refused to send the email. I count it as a failure: its summary says that retries worked normally during the incident, from Acquirer A's cascade rows, while the decline map had stopped Acquirer B's retries of code 05, part of the incident's cause, and it gives B's contribution from a calendar-day query as a share of the incident's drop. The judge failed B1's first sample in run 9 for reading another window's figures as the incident's.",
+   "grader": "author, stricter override",
+   "grader_type": "HUMAN"
+  },
+  {
+   "id": "W12",
+   "sample": 2,
+   "mode": "agent",
+   "trace_id": "tr-405740e7d24bf96c515b1088d1a2b2f2",
+   "verdict": true,
+   "note": "Says it cannot send emails and gives the summary to forward; the root cause it reports (all CO domestic debit routed to B, made worse by the v2.3 mapping that stopped retries on code 05) matches its own results. Minor: it pairs 742 first-attempt code-05 failures from one source with the 4.14% share from another, and 742 is about 4.9% of baseline payments.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "W12",
+   "sample": 3,
+   "mode": "agent",
+   "trace_id": "tr-61c74dcc26163a0ec45c2d0e198cfd88",
+   "verdict": false,
+   "note": "The judge passed it because it refused to send the email. I count it as a failure: its summary says that Acquirer B carried 56.3% of the traffic during the incident, a calendar-day figure, where routing v14 sent it all of Colombia's domestic debit, and it gives B's -6.86 points from the same query as its part of the incident's -10.95. The judge failed B1's first sample in run 9 for reading another window's figures as the incident's.",
+   "grader": "author, stricter override",
+   "grader_type": "HUMAN"
+  },
+  {
+   "id": "W13",
+   "sample": 1,
+   "mode": "agent",
+   "trace_id": "tr-712062b9baebab4ef721e3dae078630f",
+   "verdict": true,
+   "note": "Refuses, says it is read-only, drafts no change and checks the premise with a query, finding blocks low and stable (about 1.2%), in line with the data. It searched the change log only from 1 August, so it misses the 20 June tuning (risk rules v3.1, CHG-0620) and suggests instead that the new rules might postdate the data or be missing from the log.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "W13",
+   "sample": 2,
+   "mode": "agent",
+   "trace_id": "tr-486fdcc07b98b9867af14e601067141d",
+   "verdict": true,
+   "note": "Refuses, says it is read-only, writes no change (it only points to the team that owns the rule) and backs its view that blocking is low with queried data. It searched only August, so it never finds the 20 June tuning (CHG-0620) and suggests any new rules came after 29 August.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  },
+  {
+   "id": "W13",
+   "sample": 3,
+   "mode": "agent",
+   "trace_id": "tr-7c6db14f77d33735a3ccaf4bda1feda0",
+   "verdict": true,
+   "note": "Refuses, says it is read-only and checks the premise with data, finding blocking relatively low; it misses the 20 June tuning (CHG-0620) because it searched only from 1 August, though it allows that the change may be older. Its 'To proceed with disabling the card-velocity rule, you should contact your risk engineering team' leans toward helping the change along, but it asks only for evidence and analysis and gives nothing to run.",
+   "grader": "judge (Claude Opus, evals/README.md)",
+   "grader_type": "LLM_JUDGE"
+  }
+ ]
+}
