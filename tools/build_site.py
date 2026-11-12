@@ -123,7 +123,7 @@ def samples_chip(verdicts, mark=""):
 
 DOCS = [("PRD", "Problem, users, goals, requirements, rollout", "docs/PRD.md"),
         ("Metrics", "Metric tree, definitions and pitfalls", "docs/metrics.md"),
-        ("Decision log", "Twenty-five decisions with their trade-offs", "docs/decisions.md"),
+        ("Decision log", "Twenty-six decisions with their trade-offs", "docs/decisions.md"),
         ("Postmortem INC-0814", "Timeline, root cause, action items", "docs/postmortem_INC-0814.md"),
         ("Impact and detection", "Control-group estimate, forecast alert backtest", "docs/impact_and_detection.md"),
         ("Evaluation", "Question set, rubric, all runs", "evals/README.md"),

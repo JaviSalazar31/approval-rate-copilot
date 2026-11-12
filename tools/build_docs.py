@@ -41,6 +41,8 @@ SUPPORT_TABLES = [
     "ref_merchants", "ref_issuers", "ref_acquirers", "ref_routing_rules", "ref_decline_code_map",
     "ref_change_log", "ref_fx_rates", "ref_country_tz",
 ]
+# Gold models that monitor the business; the copilot does not query them.
+MONITOR_TABLES = ["gold_change_guardrail"]
 
 
 FIRST_ACQ = "First acquirer chosen by routing (A, B or C); results are attributed to it"
@@ -186,6 +188,23 @@ COL = {
     "lower_bound": "Lower bound of the forecast's 99.9% one-sided prediction interval",
     "pct_vs_expected": "Approved payments versus the forecast, in percent",
     "z_score": "Distance from the forecast in prediction standard errors (log scale)",
+    # change guardrail (gold_change_guardrail)
+    "changed_at_local": "When the change happened, in the segment's local time; the 24 hours count from here",
+    "hours_since_change": "Hours since the change, 1 to 24; each row adds up everything from the change to the end of "
+                          "that hour",
+    "baseline_payments": "Payments sent in the segment during the 14 days before the change",
+    "rate_change_pp": "final_approval_rate minus baseline_rate, in percentage points (negative when below the baseline)",
+    "lost_approvals": "Approvals below the baseline since the change: payments_sent × baseline_rate minus "
+                      "final_approved, never negative",
+    "lost_approved_usd": "Approved amount below the baseline since the change, USD: the amount sent times the "
+                         "share of the amount approved in the previous 14 days, minus the amount approved, never "
+                         "negative",
+    "fees_saved_usd": "Acquirer fees saved since the change, USD: the approved amount at the segment's fee rate of the "
+                      "previous 14 days minus the fees paid; negative when fees rose",
+    "fires": "True when, from the change to the end of this hour, final approval is at least 2 points below the "
+             "baseline, the binomial z-score is -3.5 or lower and at least 30 payments were sent",
+    "first_fire_hours": "First hour since the change in which fires is true, for this change and segment; empty when "
+                        "it never fired",
 }
 # Columns whose meaning differs by table.
 COL_BY_TABLE = {
@@ -203,6 +222,15 @@ COL_BY_TABLE = {
     ("gold_issuer_daily", "issuer_id"): "Fictional issuer code (e.g. CO-ISS-03); INTL-ISS-* are foreign issuers. This table is daily and includes cross-border payments: to rank domestic issuers inside a window, use fn_approval_drivers (dimension 'issuer')",
     ("gold_volume_alerts_daily", "approved"): "Approved payments that day, first attempt or after a retry, cross-border included",
     ("gold_volume_alerts_daily", "is_alert"): "True when the day is below the lower bound and at least 8% under the forecast",
+    ("gold_change_guardrail", "baseline_rate"): "Final approval of the segment's payments sent in the 14 days before "
+                                                "the change",
+    ("gold_change_guardrail", "payments_sent"): "Payments sent from the change to the end of this hour",
+    ("gold_change_guardrail", "final_approved"): "Of those, payments approved on the first attempt or after a cascade",
+    ("gold_change_guardrail", "final_approval_rate"): "final_approved / payments_sent, since the change",
+    ("gold_change_guardrail", "z_score"): "Distance from the baseline in binomial standard errors, for the payments "
+                                          "sent since the change",
+    ("gold_change_guardrail", "change_type"): "release, routing, rollback, risk_rules, decline_mapping or "
+                                              "merchant_onboarding (partner notices are left out)",
     ("gold_cascade_alerts_daily", "is_alert"): "True when the cascade rate collapsed: at least 50 pp below its healthy baseline, with enough volume. To find when an alert began, query from the start of the data (2026-06-01)",
 }
 
@@ -283,8 +311,11 @@ def build_dictionary():
                  "The source formats are described in `ref_acquirers.raw_format`. On Databricks, `read_files` also "
                  "adds a `_rescued_data` column (values that did not fit the schema); the local run does not have it.\n")
     parts += [table_md(t) for t in SUPPORT_TABLES]
-    parts.append("## Monitoring table written by the job\n")
-    parts.append("Job task `volume_alerts` (notebook 07), from `gold_approval_daily`. The copilot does not query it.\n")
+    parts.append("## Monitoring tables (the copilot does not query them)\n")
+    parts.append("`gold_change_guardrail` is a dbt model, rebuilt with the rest of the gold layer. "
+                 "`gold_volume_alerts_daily` is written by the job task `volume_alerts` (notebook 07) from "
+                 "`gold_approval_daily`.\n")
+    parts += [table_md(t) for t in MONITOR_TABLES]
     parts += [table_md(name) for name, _ in JOB_TABLES]
     parts.append("## Copilot functions (Unity Catalog SQL table functions)\n")
     parts.append(functions_md())

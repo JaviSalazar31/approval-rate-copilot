@@ -39,6 +39,7 @@ MARTS = {
     "gold_funnel_daily": dict(grain=["business_date", "country", "card_type"]),
     "gold_anomalies_daily": dict(grain=["business_date", "country", "card_type"]),
     "gold_change_log": dict(grain=["change_id"]),
+    "gold_change_guardrail": dict(grain=["change_id", "country", "card_type", "is_cross_border", "hours_since_change"]),
     "gold_dq_summary": dict(grain=["source_system", "failed_rule", "raw_status", "raw_code"]),
 }
 NOT_NULL = {"business_date", "hour_local_ts", "country", "card_type", "acquirer_id", "issuer_id", "change_id",

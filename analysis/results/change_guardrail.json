@@ -1,0 +1,633 @@
+{
+ "rule": {
+  "hours": 24,
+  "baseline_days": 14,
+  "min_payments": 30,
+  "min_drop_pp": 2.0,
+  "z_threshold": -3.5,
+  "hourly_window_hours": 3
+ },
+ "runs": {
+  "seed 42 (in sample)": {
+   "changes": [
+    {
+     "change_id": "CHG-0601",
+     "change_type": "release",
+     "scope": "ALL",
+     "segments_followed": 12,
+     "fired": []
+    },
+    {
+     "change_id": "CHG-0618",
+     "change_type": "risk_rules",
+     "scope": "BR",
+     "segments_followed": 4,
+     "fired": []
+    },
+    {
+     "change_id": "CHG-0620",
+     "change_type": "risk_rules",
+     "scope": "BR",
+     "segments_followed": 4,
+     "fired": []
+    },
+    {
+     "change_id": "CHG-0702",
+     "change_type": "routing",
+     "scope": "MX",
+     "segments_followed": 4,
+     "fired": []
+    },
+    {
+     "change_id": "CHG-0728",
+     "change_type": "release",
+     "scope": "MX,CO",
+     "segments_followed": 8,
+     "fired": []
+    },
+    {
+     "change_id": "CHG-0806",
+     "change_type": "decline_mapping",
+     "scope": "B",
+     "segments_followed": 2,
+     "fired": []
+    },
+    {
+     "change_id": "CHG-0813",
+     "change_type": "routing",
+     "scope": "CO",
+     "segments_followed": 4,
+     "fired": [
+      {
+       "segment": "CO debit domestic",
+       "first_fire_hours": 2
+      }
+     ]
+    },
+    {
+     "change_id": "CHG-0814",
+     "change_type": "rollback",
+     "scope": "CO",
+     "segments_followed": 4,
+     "fired": []
+    },
+    {
+     "change_id": "CHG-0815",
+     "change_type": "decline_mapping",
+     "scope": "B",
+     "segments_followed": 3,
+     "fired": []
+    },
+    {
+     "change_id": "CHG-0820",
+     "change_type": "merchant_onboarding",
+     "scope": "MX",
+     "segments_followed": 4,
+     "fired": []
+    }
+   ],
+   "incident": {
+    "change_id": "CHG-0813",
+    "segment": "CO debit domestic",
+    "first_fire_hours": 2,
+    "at_fire": {
+     "payments_sent": 120,
+     "final_approval_rate": 0.7,
+     "baseline_rate": 0.8654,
+     "z_score": -5.31,
+     "lost_approvals": 19.9,
+     "lost_approved_usd": 1265.5,
+     "fees_saved_usd": 21.04
+    },
+    "rollback_one_hour_after_firing": {
+     "hours": 3,
+     "lost_approvals": 22.5,
+     "lost_approved_usd": 1362.25
+    },
+    "until_the_actual_rollback": {
+     "hours": 22.2,
+     "payments_sent": 1004,
+     "lost_approvals": 109.9,
+     "lost_approved_usd": 6354.2,
+     "fees_saved_usd": 174.99
+    },
+    "share_of_loss_avoided": 0.795
+   },
+   "false_alarms": {
+    "z <= -3.0": {
+     "windows": 588,
+     "fired": 6,
+     "rate": 0.0102,
+     "incident_first_fire_hours": 2
+    },
+    "z <= -3.5": {
+     "windows": 588,
+     "fired": 1,
+     "rate": 0.0017,
+     "incident_first_fire_hours": 2
+    },
+    "z <= -4.0": {
+     "windows": 588,
+     "fired": 0,
+     "rate": 0.0,
+     "incident_first_fire_hours": 2
+    }
+   },
+   "hourly_on_every_segment": {
+    "z <= -3.5": {
+     "hours_to_first_alert": {
+      "routing change (CO debit domestic)": 2.0,
+      "issuer maintenance (BR, 09:00 to 12:00)": 2.0
+     },
+     "false_alerts": 7,
+     "scored_days": 75,
+     "false_alert_examples": [
+      "BR credit domestic 2026-07-07 03:00:00",
+      "BR credit domestic 2026-07-20 04:00:00",
+      "CO credit domestic 2026-06-23 10:00:00",
+      "CO credit domestic 2026-08-05 15:00:00",
+      "MX credit domestic 2026-06-22 04:00:00",
+      "MX credit domestic 2026-08-14 13:00:00",
+      "MX credit domestic 2026-08-26 02:00:00"
+     ]
+    },
+    "z <= -4.0": {
+     "hours_to_first_alert": {
+      "routing change (CO debit domestic)": 2.0,
+      "issuer maintenance (BR, 09:00 to 12:00)": 2.0
+     },
+     "false_alerts": 2,
+     "scored_days": 75,
+     "false_alert_examples": [
+      "BR credit domestic 2026-07-07 03:00:00",
+      "MX credit domestic 2026-08-14 14:00:00"
+     ]
+    }
+   }
+  },
+  "seed 7 (out of sample)": {
+   "changes": [
+    {
+     "change_id": "CHG-0601",
+     "change_type": "release",
+     "scope": "ALL",
+     "segments_followed": 12,
+     "fired": []
+    },
+    {
+     "change_id": "CHG-0618",
+     "change_type": "risk_rules",
+     "scope": "BR",
+     "segments_followed": 4,
+     "fired": []
+    },
+    {
+     "change_id": "CHG-0620",
+     "change_type": "risk_rules",
+     "scope": "BR",
+     "segments_followed": 4,
+     "fired": []
+    },
+    {
+     "change_id": "CHG-0702",
+     "change_type": "routing",
+     "scope": "MX",
+     "segments_followed": 4,
+     "fired": []
+    },
+    {
+     "change_id": "CHG-0728",
+     "change_type": "release",
+     "scope": "MX,CO",
+     "segments_followed": 8,
+     "fired": []
+    },
+    {
+     "change_id": "CHG-0806",
+     "change_type": "decline_mapping",
+     "scope": "B",
+     "segments_followed": 2,
+     "fired": []
+    },
+    {
+     "change_id": "CHG-0813",
+     "change_type": "routing",
+     "scope": "CO",
+     "segments_followed": 4,
+     "fired": [
+      {
+       "segment": "CO debit domestic",
+       "first_fire_hours": 6
+      }
+     ]
+    },
+    {
+     "change_id": "CHG-0814",
+     "change_type": "rollback",
+     "scope": "CO",
+     "segments_followed": 4,
+     "fired": []
+    },
+    {
+     "change_id": "CHG-0815",
+     "change_type": "decline_mapping",
+     "scope": "B",
+     "segments_followed": 3,
+     "fired": []
+    },
+    {
+     "change_id": "CHG-0820",
+     "change_type": "merchant_onboarding",
+     "scope": "MX",
+     "segments_followed": 4,
+     "fired": []
+    }
+   ],
+   "incident": {
+    "change_id": "CHG-0813",
+    "segment": "CO debit domestic",
+    "first_fire_hours": 6,
+    "at_fire": {
+     "payments_sent": 406,
+     "final_approval_rate": 0.8005,
+     "baseline_rate": 0.8636,
+     "z_score": -3.7,
+     "lost_approvals": 25.6,
+     "lost_approved_usd": 1789.9,
+     "fees_saved_usd": 78.92
+    },
+    "rollback_one_hour_after_firing": {
+     "hours": 7,
+     "lost_approvals": 31.6,
+     "lost_approved_usd": 2179.23
+    },
+    "until_the_actual_rollback": {
+     "hours": 22.2,
+     "payments_sent": 1014,
+     "lost_approvals": 98.7,
+     "lost_approved_usd": 6143.62,
+     "fees_saved_usd": 192.26
+    },
+    "share_of_loss_avoided": 0.68
+   },
+   "false_alarms": {
+    "z <= -3.0": {
+     "windows": 588,
+     "fired": 7,
+     "rate": 0.0119,
+     "incident_first_fire_hours": 6
+    },
+    "z <= -3.5": {
+     "windows": 588,
+     "fired": 3,
+     "rate": 0.0051,
+     "incident_first_fire_hours": 6
+    },
+    "z <= -4.0": {
+     "windows": 588,
+     "fired": 0,
+     "rate": 0.0,
+     "incident_first_fire_hours": 7
+    }
+   },
+   "hourly_on_every_segment": {
+    "z <= -3.5": {
+     "hours_to_first_alert": {
+      "routing change (CO debit domestic)": 16.0,
+      "issuer maintenance (BR, 09:00 to 12:00)": 2.0
+     },
+     "false_alerts": 5,
+     "scored_days": 75,
+     "false_alert_examples": [
+      "BR credit domestic 2026-06-17 04:00:00",
+      "BR credit domestic 2026-07-27 02:00:00",
+      "CO credit domestic 2026-06-25 07:00:00",
+      "CO debit domestic 2026-06-28 03:00:00",
+      "MX credit domestic 2026-08-06 06:00:00"
+     ]
+    },
+    "z <= -4.0": {
+     "hours_to_first_alert": {
+      "routing change (CO debit domestic)": 19.0,
+      "issuer maintenance (BR, 09:00 to 12:00)": null
+     },
+     "false_alerts": 2,
+     "scored_days": 75,
+     "false_alert_examples": [
+      "BR credit domestic 2026-06-17 04:00:00",
+      "BR credit domestic 2026-07-27 02:00:00"
+     ]
+    }
+   }
+  },
+  "seed 11 (out of sample)": {
+   "changes": [
+    {
+     "change_id": "CHG-0601",
+     "change_type": "release",
+     "scope": "ALL",
+     "segments_followed": 12,
+     "fired": []
+    },
+    {
+     "change_id": "CHG-0618",
+     "change_type": "risk_rules",
+     "scope": "BR",
+     "segments_followed": 4,
+     "fired": []
+    },
+    {
+     "change_id": "CHG-0620",
+     "change_type": "risk_rules",
+     "scope": "BR",
+     "segments_followed": 4,
+     "fired": []
+    },
+    {
+     "change_id": "CHG-0702",
+     "change_type": "routing",
+     "scope": "MX",
+     "segments_followed": 4,
+     "fired": []
+    },
+    {
+     "change_id": "CHG-0728",
+     "change_type": "release",
+     "scope": "MX,CO",
+     "segments_followed": 8,
+     "fired": []
+    },
+    {
+     "change_id": "CHG-0806",
+     "change_type": "decline_mapping",
+     "scope": "B",
+     "segments_followed": 2,
+     "fired": []
+    },
+    {
+     "change_id": "CHG-0813",
+     "change_type": "routing",
+     "scope": "CO",
+     "segments_followed": 4,
+     "fired": [
+      {
+       "segment": "CO debit domestic",
+       "first_fire_hours": 2
+      }
+     ]
+    },
+    {
+     "change_id": "CHG-0814",
+     "change_type": "rollback",
+     "scope": "CO",
+     "segments_followed": 4,
+     "fired": []
+    },
+    {
+     "change_id": "CHG-0815",
+     "change_type": "decline_mapping",
+     "scope": "B",
+     "segments_followed": 3,
+     "fired": []
+    },
+    {
+     "change_id": "CHG-0820",
+     "change_type": "merchant_onboarding",
+     "scope": "MX",
+     "segments_followed": 4,
+     "fired": []
+    }
+   ],
+   "incident": {
+    "change_id": "CHG-0813",
+    "segment": "CO debit domestic",
+    "first_fire_hours": 2,
+    "at_fire": {
+     "payments_sent": 130,
+     "final_approval_rate": 0.7,
+     "baseline_rate": 0.8651,
+     "z_score": -5.51,
+     "lost_approvals": 21.5,
+     "lost_approved_usd": 536.04,
+     "fees_saved_usd": 18.91
+    },
+    "rollback_one_hour_after_firing": {
+     "hours": 3,
+     "lost_approvals": 27.3,
+     "lost_approved_usd": 1159.53
+    },
+    "until_the_actual_rollback": {
+     "hours": 22.2,
+     "payments_sent": 979,
+     "lost_approvals": 109.9,
+     "lost_approved_usd": 5669.07,
+     "fees_saved_usd": 171.44
+    },
+    "share_of_loss_avoided": 0.752
+   },
+   "false_alarms": {
+    "z <= -3.0": {
+     "windows": 588,
+     "fired": 7,
+     "rate": 0.0119,
+     "incident_first_fire_hours": 2
+    },
+    "z <= -3.5": {
+     "windows": 588,
+     "fired": 3,
+     "rate": 0.0051,
+     "incident_first_fire_hours": 2
+    },
+    "z <= -4.0": {
+     "windows": 588,
+     "fired": 1,
+     "rate": 0.0017,
+     "incident_first_fire_hours": 2
+    }
+   },
+   "hourly_on_every_segment": {
+    "z <= -3.5": {
+     "hours_to_first_alert": {
+      "routing change (CO debit domestic)": 2.0,
+      "issuer maintenance (BR, 09:00 to 12:00)": 3.0
+     },
+     "false_alerts": 6,
+     "scored_days": 75,
+     "false_alert_examples": [
+      "BR debit domestic 2026-06-29 17:00:00",
+      "BR debit domestic 2026-07-13 15:00:00",
+      "BR debit domestic 2026-08-16 14:00:00",
+      "MX credit domestic 2026-07-01 15:00:00",
+      "MX credit domestic 2026-08-15 02:00:00",
+      "MX debit domestic 2026-06-21 16:00:00"
+     ]
+    },
+    "z <= -4.0": {
+     "hours_to_first_alert": {
+      "routing change (CO debit domestic)": 3.0,
+      "issuer maintenance (BR, 09:00 to 12:00)": null
+     },
+     "false_alerts": 1,
+     "scored_days": 75,
+     "false_alert_examples": [
+      "MX debit domestic 2026-06-21 16:00:00"
+     ]
+    }
+   }
+  },
+  "seed 23 (out of sample)": {
+   "changes": [
+    {
+     "change_id": "CHG-0601",
+     "change_type": "release",
+     "scope": "ALL",
+     "segments_followed": 12,
+     "fired": []
+    },
+    {
+     "change_id": "CHG-0618",
+     "change_type": "risk_rules",
+     "scope": "BR",
+     "segments_followed": 4,
+     "fired": []
+    },
+    {
+     "change_id": "CHG-0620",
+     "change_type": "risk_rules",
+     "scope": "BR",
+     "segments_followed": 4,
+     "fired": []
+    },
+    {
+     "change_id": "CHG-0702",
+     "change_type": "routing",
+     "scope": "MX",
+     "segments_followed": 4,
+     "fired": []
+    },
+    {
+     "change_id": "CHG-0728",
+     "change_type": "release",
+     "scope": "MX,CO",
+     "segments_followed": 8,
+     "fired": []
+    },
+    {
+     "change_id": "CHG-0806",
+     "change_type": "decline_mapping",
+     "scope": "B",
+     "segments_followed": 2,
+     "fired": []
+    },
+    {
+     "change_id": "CHG-0813",
+     "change_type": "routing",
+     "scope": "CO",
+     "segments_followed": 4,
+     "fired": [
+      {
+       "segment": "CO debit domestic",
+       "first_fire_hours": 5
+      }
+     ]
+    },
+    {
+     "change_id": "CHG-0814",
+     "change_type": "rollback",
+     "scope": "CO",
+     "segments_followed": 4,
+     "fired": []
+    },
+    {
+     "change_id": "CHG-0815",
+     "change_type": "decline_mapping",
+     "scope": "B",
+     "segments_followed": 3,
+     "fired": []
+    },
+    {
+     "change_id": "CHG-0820",
+     "change_type": "merchant_onboarding",
+     "scope": "MX",
+     "segments_followed": 4,
+     "fired": []
+    }
+   ],
+   "incident": {
+    "change_id": "CHG-0813",
+    "segment": "CO debit domestic",
+    "first_fire_hours": 5,
+    "at_fire": {
+     "payments_sent": 341,
+     "final_approval_rate": 0.8035,
+     "baseline_rate": 0.8738,
+     "z_score": -3.91,
+     "lost_approvals": 24.0,
+     "lost_approved_usd": 1271.25,
+     "fees_saved_usd": 80.53
+    },
+    "rollback_one_hour_after_firing": {
+     "hours": 6,
+     "lost_approvals": 32.4,
+     "lost_approved_usd": 1779.99
+    },
+    "until_the_actual_rollback": {
+     "hours": 22.2,
+     "payments_sent": 1056,
+     "lost_approvals": 96.7,
+     "lost_approved_usd": 5160.44,
+     "fees_saved_usd": 233.16
+    },
+    "share_of_loss_avoided": 0.665
+   },
+   "false_alarms": {
+    "z <= -3.0": {
+     "windows": 588,
+     "fired": 11,
+     "rate": 0.0187,
+     "incident_first_fire_hours": 5
+    },
+    "z <= -3.5": {
+     "windows": 588,
+     "fired": 2,
+     "rate": 0.0034,
+     "incident_first_fire_hours": 5
+    },
+    "z <= -4.0": {
+     "windows": 588,
+     "fired": 0,
+     "rate": 0.0,
+     "incident_first_fire_hours": 6
+    }
+   },
+   "hourly_on_every_segment": {
+    "z <= -3.5": {
+     "hours_to_first_alert": {
+      "routing change (CO debit domestic)": 6.0,
+      "issuer maintenance (BR, 09:00 to 12:00)": 1.0
+     },
+     "false_alerts": 5,
+     "scored_days": 75,
+     "false_alert_examples": [
+      "BR credit domestic 2026-06-26 16:00:00",
+      "BR debit domestic 2026-08-09 12:00:00",
+      "CO credit domestic 2026-07-22 23:00:00",
+      "MX credit domestic 2026-06-16 06:00:00",
+      "MX credit domestic 2026-08-27 19:00:00"
+     ]
+    },
+    "z <= -4.0": {
+     "hours_to_first_alert": {
+      "routing change (CO debit domestic)": 7.0,
+      "issuer maintenance (BR, 09:00 to 12:00)": 1.0
+     },
+     "false_alerts": 1,
+     "scored_days": 75,
+     "false_alert_examples": [
+      "BR credit domestic 2026-06-26 16:00:00"
+     ]
+    }
+   }
+  }
+ }
+}

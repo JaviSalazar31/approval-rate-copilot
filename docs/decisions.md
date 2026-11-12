@@ -757,3 +757,48 @@ target the wrong way, and the third got the comparison right but headed its answ
 three never found the rollback behind a premise (X9), two of three misread a missed forecast (X8), one by building its
 own forecast and one by giving the drop in payments and an approval dip as joint causes, and one comparison over June
 used 1 June as an incident date (X5). R8's 90% holds on the benchmark (95%) and not on new questions (79%).
+
+---
+
+### ADR-26 · Check every production change hour by hour (the change guardrail)
+
+**Decision.** A dbt model, `gold_change_guardrail`, follows every production change for its first 24 hours in each
+segment it can affect: country, card type, domestic or cross-border, and for a change to one acquirer, the segments
+that acquirer served in the 14 days before. Each hour it adds up the payments sent since the change and compares their
+final approval with the segment's 14 days before it. It fires when the drop is at least 2 points, rests on at least 30
+payments and has a binomial z-score of −3.5 or lower, and next to the drop it reports the approved volume lost and the
+fees saved, the comparison that was missing when routing v14 was approved. Partner notices are left out, since they
+are not our changes. In production it would run every hour after a change and send the change owner a proposal to roll
+back; on this historical data it is rebuilt with the rest of the gold layer, and `analysis/change_guardrail.py` runs
+the same rule on three more datasets and on days with no change. The Genie agent does not read the table, so its
+evaluation still holds.
+
+**Why.** Routing v14 was approved on fees and caught by the next day's run: in 22 hours it cost 110 approvals and USD
+6,354 of approved volume, against about USD 180 of fees saved. Phase 3 of the PRD asked for a check on approved volume
+in the first hours after a change, and the postmortem's third action item for a guardrail at each step of a routing
+change.
+
+**Alternatives.** Hourly detection on every segment, whether or not anything changed (phase 2 of the PRD), scored on
+the last 3 hours against the 14 days before them. At a z-score of −3.5 it caught the three-hour maintenance of issuer
+BR-ISS-03 on 21 July in all four datasets, 1 to 3 hours after it began, which no daily alert sees, but it caught
+routing v14 2 to 16 hours after it began and raised 5 to 7 false alerts in each dataset's 75 scored days; at −4 it
+raised 1 or 2 and missed the maintenance in two datasets. One test a day after each change: too late for a drop that
+starts at 14:00. A sequential test such as CUSUM: more power at the same false-alarm rate, and harder to explain to
+the team that has to act on it.
+
+**Cost.** The first rule used a z-score of −3. With 24 hourly looks, that allows up to about 3% of false alarms per
+change and segment (Bonferroni), and the quiet windows showed 1.0% to 1.9%. At −3.5 the bound is about 0.6%, the quiet
+windows showed 0.2% to 0.5%, and the guardrail fired as early as at −3 in all four datasets. I changed the rule after
+seeing those results, so the three extra datasets are not a clean out-of-sample test of −3.5. At these volumes, about
+60 to 90 payments an hour in Colombian domestic debit, it needs 2 to 6 hours. It watches the approval of payments
+sent, so a risk-rule change that costs conversion through risk blocks, before anything is sent, does not move it: the
+June risk rule cut Brazil's domestic conversion by 2 to 3 points, and the guardrail did not fire on it. The datasets
+come from one generator, so they test new noise around the same planted incidents, not new kinds of change.
+
+**Result.** On the reference data it fired on routing v14 two hours after the change, at 16:00 on 13 August: 120
+payments, 70.0% approved against 86.5% (z = −5.3), with 20 approvals and USD 1,266 of approved volume lost and USD 21
+of fees saved. Rolled back an hour later, the incident would have cost about 22 approvals instead of 110, 80% less. In
+the three other datasets it fired 6, 2 and 5 hours after the change, and the loss would have fallen by 68%, 75% and
+66%. It fired on no other change in any of the four datasets (ten changes and 49 change-segments in each), and in 1,
+3, 3 and 2 of their 588 quiet 24-hour windows. The local run builds it with dbt, and `tests/test_change_guardrail.py`
+checks that the backtest's rule gives the same rows.

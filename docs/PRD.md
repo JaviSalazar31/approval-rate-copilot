@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | Author | Javier Salazar (Senior Product Owner, payments) · personal project |
-| Status | v1 built on synthetic data, evaluated offline and deployed on Databricks Free Edition (29 Oct 2026) · Genie benchmark 19/20 on the tenth run, after the last release, and on the seventh (13/20 on the first, 15/20 on the fifth and sixth, 17/20 on the eighth and ninth) · held-out questions: 11/14 on the first set, then 26/39, 35/39, 32/39, 32/39, 31/39 and 31/39 answers on the second to seventh (13 questions each, three samples each) · agent frozen at the tenth release · gold layer in dbt, metric views, evaluations tracked in MLflow, deploys and evaluations from GitHub Actions, the five functions offered over MCP, a late-data test with AUTO CDC (Nov 2026) · pilot on real data not started |
+| Status | v1 built on synthetic data, evaluated offline and deployed on Databricks Free Edition (29 Oct 2026) · Genie benchmark 19/20 on the tenth run, after the last release, and on the seventh (13/20 on the first, 15/20 on the fifth and sixth, 17/20 on the eighth and ninth) · held-out questions: 11/14 on the first set, then 26/39, 35/39, 32/39, 32/39, 31/39 and 31/39 answers on the second to seventh (13 questions each, three samples each) · agent frozen at the tenth release · a guardrail that checks every production change hour by hour · gold layer in dbt, metric views, evaluations tracked in MLflow, deploys and evaluations from GitHub Actions, the five functions offered over MCP, a late-data test with AUTO CDC (Nov 2026) · pilot on real data not started |
 | Scope | Card payments of a fictional LATAM orchestrator: Mexico, Colombia, Brazil · Acquirers A, B, C |
 
 All figures below come from the synthetic dataset in this repository (90 days, 661k payment intents).
@@ -119,7 +119,7 @@ Full definitions, formulas and pitfalls are in [metrics.md](metrics.md).
 | R10 | No cardholder data in the analytics layer | No full card numbers (PAN), expiry dates, CVV or cardholder names in bronze, silver or gold. The only card fields are a truncated number (BIN and last four) in the orchestrator feed, `bronze_orchestrator` and `silver_payment_intents`. The landing volume and bronze are pipeline internals that no one else gets a grant on; from silver on, the last four are masked for everyone outside a support group. Issuers and merchants are codes; users reach the gold tables and `silver_payments` only through read-only Unity Catalog grants | Done and enforced twice: the feed checks stop a run on any text or number value that looks like a full card number (R11), and the Unity Catalog column mask on `silver_payment_intents.card_last4` shows the digits only to `payments_support` (verified by notebook 08 on 4 November 2026). Genie evaluates data access with each user's own Unity Catalog permissions, so analysts get SELECT on the 10 copilot tables and the three metric views, and EXECUTE on the five functions, nothing else (a production step: Free Edition has one user; see the runbook, step 7) |
 | R11 | Stop the run when a feed breaks | A missing or empty file, a changed column set, values that break their format in more than 1% of a column, a repeated payment ID, an orchestrator volume outside 0.5 to 1.5 times the median of the previous 7 files, or an acquirer file that does not reconcile within 2% with the payments routed to it stops the job before the pipeline; single bad rows still go to quarantine (R1) | Done: one contract per feed in `contracts/`, checked by `checks/feed_checks.py` locally, in CI and as the job task before the pipeline. All 360 feed-days of the reference data pass, and tests cover each failure |
 | R12 | Alert on approved payments as well as on rates | A daily forecast of approved payments with weekday and payday terms flags days well below it, tested on datasets its thresholds were not set on | Done: on three more datasets from the same generator, 2 false alerts in 762 segment-days, and 81% of days cut by 20% caught, against 54% for a same-weekday mean at the same false-alert rate ([impact_and_detection.md](impact_and_detection.md)) |
-| R13 | Gold tables built and tested as code | Every gold table built by dbt, tested at its grain (unique keys, accepted values, a relationship to the issuer table, rates between 0 and 1) and reconciled with silver, locally, in CI and in the daily job, which stops on a failed test | Done: 17 models and 76 tests pass on Databricks (job run of 4 November 2026) and in CI, with the same gold totals as the pipeline's previous tables ([ADR-15](decisions.md)) |
+| R13 | Gold tables built and tested as code | Every gold table built by dbt, tested at its grain (unique keys, accepted values, a relationship to the issuer table, rates between 0 and 1) and reconciled with silver, locally, in CI and in the daily job, which stops on a failed test | Done: 17 models and 76 tests pass on Databricks (job run of 4 November 2026) and in CI, with the same gold totals as the pipeline's previous tables ([ADR-15](decisions.md)); 18 models and 83 tests since the change guardrail (ADR-26) |
 | R14 | One definition per metric for the dashboard and the copilot | Approval, volume and decline measures defined once, as ratios of sums, and read by both the dashboard and Genie | Partly done: three Unity Catalog metric views hold the approval, volume, decline and funnel measures; two of the dashboard's eleven datasets read the first two, with the same rows as before, and Genie's chat mode queries all three. The other datasets and the functions still compute their own rates. A dimension comment without its values cost one held-out question (N4); the sixth release lists the values, and the three held-out answers that filtered on them got the reference count. The funnel view came with the seventh release, after A5 had split a country's risk-block share by card type ([ADR-17](decisions.md), [ADR-21](decisions.md)) |
 | R15 | Every evaluation run and every deploy can be traced and repeated | Each evaluation run records its context, answers, SQL, latency, guardrail checks and verdicts; the workspace is deployed from the repository; the agent changes only with an evaluated release | Evaluation done: MLflow traces for Genie runs 5 to 10 and the second to seventh held-out sets (378 answers, none failing a guardrail check), with the verdicts attached ([ADR-18](decisions.md)); since 12 November the evaluation runs from GitHub Actions and the graded files are committed ([ADR-19](decisions.md)). Deploy done: on 5 November 2026 the GitHub Actions workflow bound the existing pipeline, three jobs and dashboard and changed them in place, with nothing created or deleted. The first run of the deployed daily job found a bug in the metric views notebook, fixed the same day, and the job then ran end to end ([ADR-16](decisions.md)) |
 
@@ -171,15 +171,20 @@ Full definitions, formulas and pitfalls are in [metrics.md](metrics.md).
    and not on new questions (79%), and the agent will not change again. The plan was to start the pilot only once the
    held-out sets reached R8's 90%; they did not, so a pilot would start with R8 unmet on new questions, and its log of
    wrong or missing answers would show whether real questions confirm the gap.
-10. Phase 1, pilot (4 weeks): first, 20-minute interviews with three analysts to confirm the jobs and
+10. Phase 0j, done (12 November 2026, UTC): a guardrail that follows every production change hour by hour for its
+    first 24 hours and weighs approved volume against fees saved: phase 3's check, without the ramp (ADR-26). On this
+    data it fires two hours after routing v14 went live; rolled back an hour later, the incident would have cost about
+    22 approvals instead of 110. On three more datasets it fires within six hours, and on no other change.
+11. Phase 1, pilot (4 weeks): first, 20-minute interviews with three analysts to confirm the jobs and
     today's time to diagnosis. Then three analysts on real data; measure time to diagnosis against the
     current process and keep a log of wrong or missing answers.
     - Success: median time to a cause with evidence under 15 minutes; at least 8 of 10 answers judged
       correct by the analysts; all three use it every week.
     - Stop or rethink: fewer than 6 of 10 answers correct, or the analysts redo the SQL by hand anyway.
-11. Phase 2: hourly detection and alerts to the team channel; benchmark questions grow with every incident.
-12. Phase 3: a routing-change guardrail that compares approved volume instead of fees in the first hours after a
-    change, and proposes a rollback when the drop is significant.
+12. Phase 2: hourly detection on every segment, for drops that come from outside, like the issuer maintenance of
+    21 July, with alerts to the team channel; benchmark questions grow with every incident.
+13. Phase 3: routing changes ramp from 10% to 50% to 100% of traffic, with the change guardrail judging each step
+    and its rollback proposal going to the change owner.
 
 ## 9. Open questions
 
@@ -187,6 +192,7 @@ Full definitions, formulas and pitfalls are in [metrics.md](metrics.md).
   approving acquirer (partner performance)? v1 keeps both columns and uses the first acquirer.
 - Who owns the decline-code map, and which tests gate a release?
 - Do thresholds need to differ by segment (for example, low-volume cross-border traffic)?
+- Who receives the change guardrail's rollback proposal, and who can approve the rollback out of hours?
 - How can a parameter that chat mode fills in, such as the incident date, stay out of questions that name no
   incident (A5 and held-out X5)?
 - How can the agent check the change log before it accepts a premise or recommends a fix that a later change

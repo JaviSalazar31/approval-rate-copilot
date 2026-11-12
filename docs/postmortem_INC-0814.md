@@ -99,8 +99,8 @@ answer is evaluated in the eval set (question B1); see [evals/README.md](../eval
 |---|---|---|---|
 | 1 | Regression test on decline type and retryable flag for every existing code before a map release | Prevent | Normalization team |
 | 2 | Cascade alert routed to an on-call owner, with a runbook entry | Detect | Payments operations |
-| 3 | Routing changes ramp from 10% to 50% to 100%, with an approved-volume guardrail at each step | Prevent | Routing team |
+| 3 | Routing changes ramp from 10% to 50% to 100%, with an approved-volume guardrail at each step (the guardrail is built, without the ramp: [ADR-26](decisions.md)) | Prevent | Routing team |
 | 4 | Evaluate routing changes on cost per approved dollar, not fee bps alone | Process | Payments product |
-| 5 | Hourly anomaly detection for the top segments | Detect | Data team |
+| 5 | Hourly anomaly detection for the top segments (after a change, the guardrail checks every hour; [ADR-26](decisions.md) has the backtest of hourly detection everywhere) | Detect | Data team |
 | 6 | Retry policy written against card-network reattempt rules, and checked by the map release gate | Prevent | Payments product |
 | 7 | Add this incident's questions to the copilot benchmark set (done: B1–B4, C3, C4) | Learn | Payments product |

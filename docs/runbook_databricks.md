@@ -68,11 +68,11 @@ so skip step 4b.
 
 ## 4b. Build the gold tables with dbt
 
-The dbt project in `dbt/` builds the ten gold tables and runs its 76 tests. In **Jobs & Pipelines > Create job**,
+The dbt project in `dbt/` builds the eleven gold tables and runs its 83 tests. In **Jobs & Pipelines > Create job**,
 add a task of type **dbt**: source **Workspace**, project directory: the `dbt` folder in your Git folder, command
 `dbt build`, SQL warehouse **Serverless Starter Warehouse**, catalog `workspace`, schema `approval_copilot`, and an
 environment with the dependency `dbt-databricks>=1.10,<2`. Run it (about two minutes); the run log ends with
-`PASS=93`. The job in step 10 includes this task.
+`PASS=101`. The job in step 10 includes this task.
 
 ## 5. Create the copilot functions and column descriptions
 

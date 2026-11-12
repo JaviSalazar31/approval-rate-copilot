@@ -71,6 +71,7 @@ erDiagram
 | `gold_anomalies_daily` | one row per local date × country × card type (domestic traffic) |
 | `gold_cascade_alerts_daily` | one row per local date × country × first acquirer × first-attempt reason |
 | `gold_change_log` | one row per production change |
+| `gold_change_guardrail` | one row per production change × country × card type × cross-border flag × hour since the change (1 to 24) |
 | `gold_dq_summary` | one row per source system × failed rule × raw status × raw code |
 | `gold_volume_alerts_daily` | one row per local date × country × card type (all traffic) |
 
@@ -127,6 +128,7 @@ flowchart LR
     gold_anomalies_daily
     gold_cascade_alerts_daily
     gold_change_log
+    gold_change_guardrail
     gold_dq_summary
     gold_volume_alerts_daily
   end
@@ -165,6 +167,8 @@ flowchart LR
   gold_approval_daily --> gold_anomalies_daily
   gold_cascade_daily --> gold_cascade_alerts_daily
   ref_change_log --> gold_change_log
+  gold_change_log --> gold_change_guardrail
+  silver_payments --> gold_change_guardrail
   silver_dq_quarantine --> gold_dq_summary
   gold_approval_daily --> gold_volume_alerts_daily
 ```

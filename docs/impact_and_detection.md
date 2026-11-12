@@ -1,9 +1,10 @@
 # Impact and detection analysis
 
-The copilot answers diagnostic questions fast. This page checks two of its answers with the methods I
-would use before a finance or partner review, and adds an alert for large losses the current detectors
-cannot see. Every number comes from the scripts in [`analysis/`](../analysis), run on the local pipeline
-output of the reference dataset (seed 42) and, for the backtest, on three datasets generated with other seeds.
+The copilot answers diagnostic questions fast. This page checks two of its answers with the methods I would
+use before a finance or partner review, and adds two checks the approval-rate alerts lack: a daily alert for
+large losses before the acquirer, and a guardrail that follows every production change hour by hour. Every
+number comes from the scripts in [`analysis/`](../analysis), run on the local pipeline output of the reference
+dataset (seed 42) and, for the backtests, on three datasets generated with other seeds.
 
 ## 1. Cost of routing v14 against a control group
 
@@ -116,18 +117,58 @@ out of both the false-alert count and the cuts.
   baseline (z = −7.3), so it remains the alert for authorization problems; the forecast adds cover for large
   losses before the acquirer.
 
-## 4. Reproduce
+## 4. A guardrail on every production change
+
+The alerts above run once a day. A drop that starts at 14:00 shows up the next morning, and routing v14 ran
+for 22 hours before its rollback. That incident came from a change the team made itself, so the guardrail
+watches the hours that follow each change. The dbt model `gold_change_guardrail` follows every production
+change for its first 24 hours, in each segment the change can affect, and compares the final approval of the
+payments sent since the change with the segment's 14 days before it. It fires when the drop is at least 2
+points, rests on at least 30 payments and has a binomial z-score of −3.5 or lower, and it reports the approved
+volume lost next to the fees saved. `analysis/change_guardrail.py` runs the same rule on the three datasets of
+section 3, and on quiet windows: 24 hours from 10:00 on each day with no change in the country the day before,
+that day or the day after.
+
+| | Seed 42 (reference) | Seed 7 | Seed 11 | Seed 23 |
+|---|---|---|---|---|
+| Hours from routing v14 to the alert | 2 | 6 | 2 | 5 |
+| Approvals lost if rolled back an hour after the alert | 22.5 | 31.6 | 27.3 | 32.4 |
+| Approvals lost until the actual rollback, 22 hours later | 109.9 | 98.7 | 109.9 | 96.7 |
+| Share of the loss avoided | 80% | 68% | 75% | 66% |
+| Other changes it fired on (of nine) | 0 | 0 | 0 | 0 |
+| Quiet 24-hour windows it fired on (of 588) | 1 | 3 | 3 | 2 |
+
+- On the reference data it fired at 16:00 on 13 August, two hours after the change: 120 payments, 70.0% approved
+  against a baseline of 86.5% (z = −5.3). By then the change had cost 20 approvals and USD 1,266 of approved
+  volume, and saved USD 21 of fees.
+- The first rule used −3. With 24 hourly looks per change and segment, that allows up to about 3% of false
+  alarms (Bonferroni), and the quiet windows showed 1.0% to 1.9%; at −3.5 the bound is about 0.6%, the quiet
+  windows showed 0.2% to 0.5%, and the alert came as early as at −3 in all four datasets. The rule was changed
+  after seeing these results. At −4 it fired an hour later in two datasets.
+- It watches the approval of payments sent, so it does not see risk-rule changes, which cost conversion before
+  anything is sent: the June rule cut Brazil's domestic conversion by 2 to 3 points, and the guardrail did not
+  fire.
+- The alternative, hourly detection on every segment whether or not anything changed, compares the last 3 hours
+  with the 14 days before them. At −3.5 it caught the three-hour maintenance of issuer BR-ISS-03 on 21 July in
+  all four datasets, 1 to 3 hours after it began, which the daily alerts miss, but it caught routing v14 2 to 16
+  hours after it began and raised 5 to 7 false alerts in each dataset's 75 scored days. At −4 it raised 1 or 2
+  and missed the maintenance in two datasets ([ADR-26](decisions.md)).
+
+## 5. Reproduce
 
 ```bash
 python local/run_local.py                 # pipeline output for seed 42
 python analysis/incident_impact.py        # section 1 (pandas only)
 python analysis/mix_rate_split.py         # section 2 (runs fn_approval_drivers on local Spark)
 python analysis/detector_backtest.py --seeds-dir DIR   # section 3; how to build DIR is in the script
+python analysis/change_guardrail.py --seeds-dir DIR    # section 4, on the same datasets
 ```
 
 Results: [`incident_impact.json`](../analysis/results/incident_impact.json),
 [`mix_rate_split.json`](../analysis/results/mix_rate_split.json),
-[`detector_backtest.json`](../analysis/results/detector_backtest.json).
+[`detector_backtest.json`](../analysis/results/detector_backtest.json),
+[`change_guardrail.json`](../analysis/results/change_guardrail.json).
 `tests/test_analysis.py` checks that the before/after arithmetic reproduces the `fn_drop_impact` figures
 from the evaluation (−10.95 points, 110 approvals, USD 6,354) and that every placebo estimate stays within 5
-points of zero.
+points of zero. `tests/test_change_guardrail.py` checks that the guardrail fires on routing v14 and on no other
+change, and that the backtest's rule gives the same rows as the dbt model.

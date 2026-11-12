@@ -37,6 +37,7 @@ TABLE_TAGS = {'bronze_orchestrator': {'layer': 'bronze'},
  'gold_anomalies_daily': {'layer': 'gold'},
  'gold_cascade_alerts_daily': {'layer': 'gold'},
  'gold_change_log': {'layer': 'gold'},
+ 'gold_change_guardrail': {'layer': 'gold'},
  'gold_dq_summary': {'layer': 'gold'},
  'gold_volume_alerts_daily': {'layer': 'gold'}}
 COLUMN_TAGS = {('bronze_orchestrator', 'card_bin'): {'pci': 'truncated_pan'},

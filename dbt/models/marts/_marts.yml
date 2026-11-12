@@ -548,6 +548,86 @@ models:
     description: What changed
   - name: owner_team
     description: Team that owns the change
+- name: gold_change_guardrail
+  description: 'Hour-by-hour check of every production change in its first 24 hours, in each segment it can affect: the final
+    approval of the payments sent since the change against the segment''s 14 days before it. fires marks the hours when the
+    drop is at least 2 points, has a binomial z-score of -3.5 or lower and rests on at least 30 payments; first_fire_hours
+    is the first of them. Partner notices are left out. The copilot does not query this table. Grain: one row per production
+    change × country × card type × cross-border flag × hour since the change (1 to 24).'
+  data_tests:
+  - unique_combination_of_columns:
+      arguments:
+        combination_of_columns:
+        - change_id
+        - country
+        - card_type
+        - is_cross_border
+        - hours_since_change
+  columns:
+  - name: change_id
+    description: Change identifier (CHG-* internal change, EXT-* partner notice)
+    data_tests:
+    - not_null
+  - name: change_type
+    description: release, routing, rollback, risk_rules, decline_mapping or merchant_onboarding (partner notices are left
+      out)
+  - name: scope
+    description: Country code(s), acquirer id, or ALL
+  - name: country
+    description: MX, CO or BR
+    data_tests:
+    - not_null
+    - accepted_values:
+        arguments:
+          values:
+          - MX
+          - CO
+          - BR
+  - name: card_type
+    description: credit or debit
+    data_tests:
+    - not_null
+    - accepted_values:
+        arguments:
+          values:
+          - credit
+          - debit
+  - name: is_cross_border
+    description: True when the card was issued abroad (foreign issuer)
+  - name: changed_at_local
+    description: When the change happened, in the segment's local time; the 24 hours count from here
+  - name: hours_since_change
+    description: Hours since the change, 1 to 24; each row adds up everything from the change to the end of that hour
+  - name: baseline_payments
+    description: Payments sent in the segment during the 14 days before the change
+  - name: baseline_rate
+    description: Final approval of the segment's payments sent in the 14 days before the change
+  - name: payments_sent
+    description: Payments sent from the change to the end of this hour
+    data_tests:
+    - not_null
+  - name: final_approved
+    description: Of those, payments approved on the first attempt or after a cascade
+  - name: final_approval_rate
+    description: final_approved / payments_sent, since the change
+  - name: rate_change_pp
+    description: final_approval_rate minus baseline_rate, in percentage points (negative when below the baseline)
+  - name: z_score
+    description: Distance from the baseline in binomial standard errors, for the payments sent since the change
+  - name: lost_approvals
+    description: 'Approvals below the baseline since the change: payments_sent × baseline_rate minus final_approved, never
+      negative'
+  - name: lost_approved_usd
+    description: 'Approved amount below the baseline since the change, USD: the amount sent times the share of the amount
+      approved in the previous 14 days, minus the amount approved, never negative'
+  - name: fees_saved_usd
+    description: 'Acquirer fees saved since the change, USD: the approved amount at the segment''s fee rate of the previous
+      14 days minus the fees paid; negative when fees rose'
+  - name: fires
+    description: True when, from the change to the end of this hour, final approval is at least 2 points below the baseline,
+      the binomial z-score is -3.5 or lower and at least 30 payments were sent
+  - name: first_fire_hours
+    description: First hour since the change in which fires is true, for this change and segment; empty when it never fired
 - name: gold_dq_summary
   description: 'Rows rejected by data-quality rules, by source and rule. Grain: one row per source system × failed rule ×
     raw status × raw code.'

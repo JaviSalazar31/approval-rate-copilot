@@ -198,6 +198,27 @@ def main():
            for k in ("forecast", "trailing_mean", "same_weekday")},
     )
 
+    # The change guardrail (analysis/change_guardrail.py): the reference run and the three other datasets
+    runs = json.load(open(os.path.join(res, "change_guardrail.json")))["runs"]
+    ref = runs["seed 42 (in sample)"]["incident"]
+    incidents = [v["incident"] for v in runs.values()]
+    analysis.update(
+        guardrail_hours=ref["first_fire_hours"],
+        guardrail_hours_min=min(i["first_fire_hours"] for i in incidents),
+        guardrail_hours_max=max(i["first_fire_hours"] for i in incidents),
+        guardrail_lost_at_fire=ref["at_fire"]["lost_approvals"],
+        guardrail_usd_at_fire=ref["at_fire"]["lost_approved_usd"],
+        guardrail_fees_at_fire=ref["at_fire"]["fees_saved_usd"],
+        guardrail_lost_rolled_back=ref["rollback_one_hour_after_firing"]["lost_approvals"],
+        guardrail_lost_actual=ref["until_the_actual_rollback"]["lost_approvals"],
+        guardrail_avoided=ref["share_of_loss_avoided"],
+        guardrail_avoided_min=min(i["share_of_loss_avoided"] for i in incidents),
+        guardrail_other_fires=sum(len(c["fired"]) for v in runs.values() for c in v["changes"]
+                                  if c["change_id"] != ref["change_id"]),
+        guardrail_quiet_windows=runs["seed 42 (in sample)"]["false_alarms"]["z <= -3.5"]["windows"],
+        guardrail_quiet_fired_max=max(v["false_alarms"]["z <= -3.5"]["fired"] for v in runs.values()),
+    )
+
     data = dict(headline=headline, incident=incident, pipeline=pipeline, analysis=analysis, hourly_co_debit=hourly_out,
                 cascade_b05=cascade_out, br_risk_june=risk_out)
     os.makedirs(os.path.join(ROOT, "site"), exist_ok=True)

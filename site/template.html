@@ -654,14 +654,15 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
       <div class="stage"><span class="k">Sources</span><span class="t">4 raw feeds + reference data</span><ul><li>Orchestrator log</li><li>Acquirers A, B, C: three formats</li><li>Routing rules, code map, change log</li></ul></div>
       <div class="stage"><span class="k">Bronze</span><span class="t">Files as received, after contract checks</span><ul><li>A broken feed stops the run</li><li>Streaming ingestion</li><li>Source file and load time kept</li></ul></div>
       <div class="stage"><span class="k">Silver</span><span class="t">One clean row per attempt and per payment</span><ul><li>{{pipeline.duplicates|int}} webhook duplicates removed</li><li>Codes mapped with the version in force</li><li>{{headline.quarantined|int}} rows quarantined, with the rule they failed</li></ul></div>
-      <div class="stage"><span class="k">Gold</span><span class="t">11 tables shaped for questions, 10 of them built and tested by dbt</span><ul><li>Daily and hourly approval</li><li>Declines, retries, issuers, funnel</li><li>Anomaly, retry and forecast alerts</li></ul></div>
+      <div class="stage"><span class="k">Gold</span><span class="t">12 tables shaped for questions, 11 of them built and tested by dbt</span><ul><li>Daily and hourly approval</li><li>Declines, retries, issuers, funnel</li><li>Anomaly, retry and forecast alerts, and a guardrail on every change</li></ul></div>
       <div class="stage"><span class="k">Use</span><span class="t">Dashboard and copilot</span><ul><li>AI/BI dashboard "Approval Health"</li><li>Genie agent + 5 SQL functions</li><li>3 metric views: approval and volume, declines, funnel</li></ul></div>
     </div>
     <div class="two-col" style="margin-top: 2.6rem;">
       <div class="stack">
-        <h3>Checks before the pipeline, an alert after it</h3>
+        <h3>Checks before the pipeline, alerts after it</h3>
         <p class="measure">Each raw feed has a data contract. Before the pipeline runs, a check stops the run on a missing or empty file, a changed column, values that break their format in more than 1% of a column, a repeated payment ID or a volume far from the previous week's, an acquirer file that does not reconcile with the payments routed to it, or any value that looks like a full card number. Single bad rows still go to quarantine. One Databricks job runs every step in order, and CI on GitHub Actions runs the tests, the whole pipeline and dbt on every push to main.</p>
         <p class="measure">The approval and retry alerts watch payments that reached an acquirer, so a loss before that point does not move them. A third alert forecasts approved payments with weekday and payday terms. With every method set to the same false-alert rate on the reference data, it caught {{analysis.forecast_20|pct0}} of the days cut by 20% in three more synthetic datasets, against {{analysis.same_weekday_20|pct0}} for a same-weekday mean and {{analysis.trailing_mean_20|pct0}} for a trailing 28-day mean. Those datasets share the generator's calendar, so they test new noise, not holidays or promotions. None of the planted incidents is that large, so the rate alerts remain the ones that catch them.</p>
+        <p class="measure">A guardrail checks every production change hour by hour for its first day, against the segment's 14 days before it. On the reference data it fires {{analysis.guardrail_hours|int}} hours after routing v14 went live, when {{analysis.guardrail_lost_at_fire|round0}} approvals and USD {{analysis.guardrail_usd_at_fire|round0}} of approved volume are gone against USD {{analysis.guardrail_fees_at_fire|round0}} of fees saved. Rolled back an hour later, the incident would have cost {{analysis.guardrail_lost_rolled_back|round0}} approvals instead of {{analysis.guardrail_lost_actual|round0}}. In all four datasets it fires {{analysis.guardrail_hours_min|int}} to {{analysis.guardrail_hours_max|int}} hours after that change, on no other change, and in at most {{analysis.guardrail_quiet_fired_max|int}} of {{analysis.guardrail_quiet_windows|int}} quiet 24-hour windows each.</p>
       </div>
       <div class="figure" id="fig-detection" style="margin-top: 0;">
         <div class="figure-head">
@@ -690,10 +691,10 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
     <div class="next">
       <ol>
         <li>Pilot on real data with three analysts for four weeks, after short interviews, and measure time to diagnosis against today's process, with a log of wrong or missing answers that starts from what run 10 and the seventh held-out set left open.</li>
-        <li>Add hourly detection on the busiest segments, so a drop that starts at 14:00 surfaces within hours, before the next daily run.</li>
+        <li>Ramp routing changes from 10% to 50% to 100% of traffic, with the change guardrail judging each step and its rollback proposal going to the change owner.</li>
       </ol>
       <ol start="3">
-        <li>Build a routing guardrail that ramps a change from 10% to 50% to 100% of traffic and judges each step by approved volume instead of fee savings.</li>
+        <li>Add hourly detection on every segment for drops that come from outside, like the three-hour maintenance of an issuer on 21 July, which no daily alert sees.</li>
         <li>Give every alert a named owner and a runbook entry. In the scenario, the retry alert fired nine days in a row and nobody acted.</li>
       </ol>
     </div>

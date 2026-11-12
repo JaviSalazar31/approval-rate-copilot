@@ -43,11 +43,11 @@
  },
  "pipeline": {
   "objects": 17,
-  "dbt_gold": 10,
+  "dbt_gold": 11,
   "duplicates": 1537,
   "segment_days": 540,
   "anomalies_flagged": 1,
-  "checks": 60
+  "checks": 64
  },
  "analysis": {
   "before_after_pp": -10.95,
@@ -119,7 +119,20 @@
   "same_weekday_20": 0.53937,
   "forecast_30": 1.0,
   "trailing_mean_30": 0.66404,
-  "same_weekday_30": 0.94094
+  "same_weekday_30": 0.94094,
+  "guardrail_hours": 2,
+  "guardrail_hours_min": 2,
+  "guardrail_hours_max": 6,
+  "guardrail_lost_at_fire": 19.9,
+  "guardrail_usd_at_fire": 1265.5,
+  "guardrail_fees_at_fire": 21.04,
+  "guardrail_lost_rolled_back": 22.5,
+  "guardrail_lost_actual": 109.9,
+  "guardrail_avoided": 0.795,
+  "guardrail_avoided_min": 0.665,
+  "guardrail_other_fires": 0,
+  "guardrail_quiet_windows": 588,
+  "guardrail_quiet_fired_max": 3
  },
  "hourly_co_debit": [
   {
