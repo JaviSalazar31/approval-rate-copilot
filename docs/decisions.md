@@ -700,3 +700,57 @@ error (W12), and one each on the cost of the risk change (W8), the history befor
 next maintenance (W11). The parameters fixed the rankings they were aimed at, the release broke C2, and neither
 total went up. The next release starts with the incident date as a parameter of the drivers and cascade functions,
 and a filter for named acquirers.
+
+### ADR-25 · One incident window for every function, named segments, lost and gained columns (agent v10, the last release)
+
+**Decision.** The tenth release is the last change to the agent; after it the agent stays as evaluated. Every
+function takes `p_incident_date`: with no start or end, it reads the window that `fn_drop_impact` already used, from
+the first production change of that date to the next change that affects the country. The window is written once,
+in `sql/copilot/_incident_window.sql`, which every function body includes, and it now counts the changes of an
+acquirer that serves the country, so the decline-map change of 6 August has a window of its own. The drivers,
+decline and retry functions return the window they used. `fn_approval_drivers` keeps the values named in
+`p_segment_values` ('A,B') and computes the gaps among them, and it reads text arguments without quotes or case, so
+`'''final'''` is final and 'NULL' is none. `fn_drop_impact` splits each lost figure in two, `lost_` and `gained_`,
+neither of them ever negative. The decline view's description says that it holds failed attempts only, and a new
+example divides the failures by the payments sent to get a share of all first attempts. The instructions ask the
+agent to pass the same incident date to every function and to give the incident's figures from that window only,
+never to add lost approvals to lost conversions, and never to say that a similar event would cost a similar amount.
+A call with a start and end returns the same rows as before, with the window columns added. The MCP tools take
+`incident_date` and `segments`, and `log_verdicts` now replaces a verdict whose note changed.
+
+**Why.** In run 9, two B1 answers read figures from another window as the incident's (a drivers query over 13 to 29
+August, and one that stopped at midnight on 13 August), and in the sixth held-out set two incident summaries used a
+calendar-day query (W12). C2 failed because the drivers function returned a third acquirer that the question left
+out. B6 read `lost_approved_usd` = −2,162, approved volume above the baseline, as a loss of USD 2,162, and one W8
+answer added the approvals lost at the acquirer to the lost conversions. In W2, all three answers divided the decline
+view's failures by themselves and gave 100%. Genie once passed `'''final'''` as the rate, which worked only because
+anything that is not first attempt reads as final.
+
+**Alternatives.** A separate function that returns the incident window, for the agent to call first: one more step
+to skip, and the agent already passed the date to `fn_drop_impact`. Signed lost columns with a longer description:
+the description has explained the sign since the sixth release, and B6 still misread it. A denominator in the
+decline view: a share needs the attempts of the same filters without the reason filter, which a measure over
+failures cannot hold, so the example runs the two queries instead.
+
+**Cost.** Six window columns, three gained columns, two parameters and four more lines of instructions. The window
+stops at the next change that affects the country, so a question about a change until a later fix still needs a
+start and end: for the decline-map change of 6 August in Colombia, the next change is the routing change of 13
+August, not the hotfix of 15 August. Inside a Unity Catalog function a subquery expression cannot read the
+function's arguments, so the totals of the drivers and decline functions are joins now; the first deploy of this
+release failed on that, and the second went through. Freezing the agent means that whatever the seventh held-out set
+finds goes to the open questions, not to an eleventh release.
+
+**Result.** Genie run 10, on 12 November (UTC), passed 19 of 20, as run 7, the highest on Genie (9 of 10 in chat
+mode and 10 of 10 in agent mode, the four guardrails included). C2 and B6 passed again: chat mode answered C2 from
+the daily table, filtered on the two acquirers, and B6 gave the 123 lost conversions and said that the acquirers'
+approval held. All three B1 samples opened with the incident window and its cost, and two passed; the third
+recommended the map fix that the hotfix had made, although its own search of the change log had listed the hotfix,
+and I count it as a failure. A5 failed: chat mode passed the date of the risk change for a question about one
+calendar day and returned the share over the change's window. In a seventh held-out set, 31 of 39 answers passed,
+as in the sixth, and 9 of 13 questions passed in all three samples. The share of first attempts that had failed all
+three samples of the sixth set passed all three (X1), and so did the cost of the decline-map change up to the
+hotfix (X10), where all three answers passed their own window to the hotfix. The new failures were elsewhere: all
+three answers on whether Mexico was on track for an 85% target compared its 86.5% with the target the wrong way
+(X11), two of three never found the rollback behind a premise (X9), two of three did not say that fewer payments
+explained a missed forecast (X8), and one comparison over June passed 1 June as an incident date (X5). R8's 90% holds
+on the benchmark (95%) and not on new questions (79%). The agent stays as it is.

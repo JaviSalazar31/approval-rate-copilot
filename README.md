@@ -23,22 +23,26 @@ data sits in an orchestrator log and three acquirer feeds with different formats
 SQL functions hold the diagnostic method, and a small MCP server offers them to other assistants. A dashboard and
 three alerts complete it: one for approval drops, one for retries that stop working and one for approved payments
 that fall well below forecast. | | **Evidence** | A 20-question benchmark (16 questions with ground-truth SQL and 4
-guardrails) and six held-out sets of 79 questions in all, with every answer and verdict published. Offline, with a
+guardrails) and seven held-out sets of 92 questions in all, with every answer and verdict published. Offline, with a
 Claude model in the copilot's place and a separate model as judge (LLM-as-a-judge), the design scored 18/20 on the
 first of six runs and 20/20 on each of the last three. The deployed Genie agent scored 13/20 on its first run, then
 14, 15 and 17/20 as the method moved from text instructions into functions and example queries, and 15/20 on the
 fifth run, after the gold layer moved to dbt and the metric views were added, and again on the sixth. The seventh
 release had the functions return what the agent used to work out on its own, and the seventh run scored 19/20, the
 first above the PRD's 90% bar. On held-out questions, committed to the repository before each run, it scored 11/14
-asked once, then 26, 35, 32, 32 and 31 of 39 answers on five sets of 13 new questions asked three times each. The
-fourth set found a guardrail gap: asked what a repeat of the incident would cost next month, all three answers
+asked once, then 26, 35, 32, 32, 31 and 31 of 39 answers on six sets of 13 new questions asked three times each.
+The fourth set found a guardrail gap: asked what a repeat of the incident would cost next month, all three answers
 projected a number. The eighth release added rules as text for what that set found, and the eighth run scored
 17/20: two agent-mode answers failed in new ways, and chat mode's direct function calls did not follow the new
 ranking rule. On a new what-if in the fifth set, one of three answers gave a number. The ninth release put the
 ranking and the rate in the drivers function's parameters, which chat mode fills in, and added a premise check: C4
 passed for the first time and all nine answers to the sixth set's rankings passed, but C2, a comparison of two
 named acquirers that had passed in every run, failed once chat mode answered it with the same function, and the
-ninth run also scored 17/20. Since the fifth run, each answer is an MLflow trace with its SQL, its guardrail checks
+ninth run also scored 17/20. The tenth and last release gave every function the incident date, gave the drivers
+function a filter for named values and split the impact function's losses from its gains: B1, B6 and C2 passed,
+and the tenth run scored 19/20, as the seventh, but chat mode then passed the incident date where no incident was
+named and failed A5. On the seventh set, 31 of 39 answers passed, as on the sixth, with new failures in agent mode.
+Since the fifth run, each answer is an MLflow trace with its SQL, its guardrail checks
 and, when it was asked through Genie's APIs, its latency. The [evaluation write-up](evals/README.md) lists each
 failure with its cause and, where there is one, the fix. | | **Analysis** | A difference-in-differences estimate
 against Colombian credit puts the cost of the routing change at 12.2 points of approval (95% CI 9.4 to 15.2), in
@@ -69,10 +73,10 @@ fixes the second held-out set pointed to, was deployed and evaluated from GitHub
 third held-out set, and a small MCP server began offering the five functions to other assistants, tested over the
 protocol on the deployed functions. Later that day the seventh release was deployed and evaluated the same way, on
 the benchmark and a fourth held-out set, and a separate job tested late, out-of-order status events with AUTO CDC
-in a schema of its own. Then the eighth and ninth releases were deployed and evaluated the same way, on the
-benchmark and on a fifth and a sixth held-out set. The next work starts with what run 9 and the sixth set found:
-answers that read figures from another window as the incident's, and a comparison of two named acquirers that the
-drivers function answers with all three. The [runbook](docs/runbook_databricks.md) explains how to deploy it
+in a schema of its own. Then the eighth, ninth and tenth releases were deployed and evaluated the same way, on the
+benchmark and on a fifth, a sixth and a seventh held-out set. The tenth is the last release: the agent stays as
+evaluated, and what the seventh set found stays open in the [evaluation write-up](evals/README.md). The next step in
+the PRD is a pilot on real data. The [runbook](docs/runbook_databricks.md) explains how to deploy it
 yourself. |
 
 ---
@@ -217,7 +221,7 @@ To publish the page with GitHub Pages:
 |---|---|
 | [PRD](docs/PRD.md) | Problem, users, goals and non-goals, solution, requirements with acceptance criteria, risks, rollout with success and stop criteria |
 | [Metrics](docs/metrics.md) | Metric tree, definitions and choices, pitfalls, detection rules and their backtest |
-| [Decision log](docs/decisions.md) | Twenty-four decisions with alternatives and trade-offs, including retry rules of the card networks |
+| [Decision log](docs/decisions.md) | Twenty-five decisions with alternatives and trade-offs, including retry rules of the card networks |
 | [Impact and detection](docs/impact_and_detection.md) | Difference-in-differences for the incident, mix/rate split, forecast alert and its backtest |
 | [Postmortem INC-0814](docs/postmortem_INC-0814.md) | Timeline, impact, root cause, detection gaps, action items |
 | [Genie agent setup](docs/genie_space_setup.md) | Instructions, trusted functions, example SQL, benchmarks |
@@ -246,8 +250,9 @@ and three time-zone conventions.
 - The data is synthetic, and its parameters are illustrative assumptions, not market statistics. A pilot on real
   data is the next step.
 - The benchmark questions drove the fixes. The deployed Genie agent went from 13 of 20 on its first run to 17 on
-  the fourth, 15 on the fifth and sixth, 19 on the seventh and 17 on the eighth and ninth. On held-out questions it
-  scored 11 of 14, then 26, 35, 32, 32 and 31 of 39 answers on five sets of 13 questions asked three times each.
+  the fourth, 15 on the fifth and sixth, 19 on the seventh, 17 on the eighth and ninth, and 19 on the tenth. On
+  held-out questions it scored 11 of 14, then 26, 35, 32, 32, 31 and 31 of 39 answers on six sets of 13 questions
+  asked three times each.
   Because the questions differ, these are not before-and-after measures. The second set lost most of its points in
   chat mode, which the sixth release addressed, and the third lost four answers in agent mode, which the seventh
   addressed. The fourth set lost seven: all three answers to a what-if about next month gave a forecast (U13), two
@@ -257,8 +262,11 @@ and three time-zone conventions.
   premise about the decline map (V13), one what-if answer that gave a number (V11) and one count over the calendar
   days (V9). The sixth lost eight: all three answers on a share of first attempts (W2), two incident summaries that
   took figures from other windows (W12), and one answer each on the cost of a risk change (W8), the history before
-  a fix (W9) and a what-if (W11). On the benchmark, the main diagnosis (B1) passed two of three samples in runs 4,
-  5, 7 and 8 and none in runs 6 and 9.
+  a fix (W9) and a what-if (W11). The seventh lost eight too: all three answers that compared Mexico's approval
+  with a Q4 target the wrong way (X11), two that accepted a false premise about the routing (X9), two that did not
+  say that fewer payments explained a missed forecast (X8) and one comparison that read a date as an incident (X5).
+  On the benchmark, the main diagnosis (B1) passed two of three samples in runs 4, 5, 7, 8 and 10 and none in runs 6
+  and 9.
 - The offline evaluation puts a Claude model in Genie's place, with the same context. It tests the design
   (instructions, tables, functions) and says nothing about Genie's own model, and it overstated Genie: 20 of 20
   offline against 13 on the first Genie run.

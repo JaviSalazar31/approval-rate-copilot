@@ -34,9 +34,9 @@ a routing change, a decline-code map bug, an issuer outage and a risk-rule chang
    ground-truth results and the query results the model saw, following [`judge_guide.md`](judge_guide.md). Any number that cannot be traced to a query,
    and any wrong cause, fails the question even if the headline number is right.
 5. I read every verdict. I can overrule the judge only to make a verdict stricter, and I publish every
-   overrule with its reason (twelve so far: B1 in run 1, below; V6 and C1 in Genie run 4; C1 and B4 in Genie run 5;
+   overrule with its reason (thirteen so far: B1 in run 1, below; V6 and C1 in Genie run 4; C1 and B4 in Genie run 5;
    two T11 samples in the third held-out set; a B1 sample in Genie run 7; B4 in Genie run 8; a B1 sample in Genie
-   run 9; two W12 samples in the sixth held-out set).
+   run 9; two W12 samples in the sixth held-out set; a B1 sample in Genie run 10).
 
 This is an offline proxy for Genie. It measures the design of the copilot (instructions, tables, functions)
 with a capable model; Genie's own benchmark feature runs the same questions inside Databricks (see
@@ -72,16 +72,19 @@ runs of those days show.
 | Held-out 5 | The Genie 8 agent on 13 new questions ([`heldout_set_5.json`](heldout_set_5.json)), three samples each | 32 / 39 answers; 9 / 13 questions in all three samples | 55 / 55 | 6 / 9 answers |
 | Genie 9 | [`results/genie_run9_model_context.md`](results/genie_run9_model_context.md): the ninth release, with rate and ranking parameters in the drivers function, the funnel's losses in the impact function and a premise check ([ADR-24](../docs/decisions.md)) | 17 / 20 | 52 / 52 | 4 / 4 |
 | Held-out 6 | The Genie 9 agent on 13 new questions ([`heldout_set_6.json`](heldout_set_6.json)), three samples each | 31 / 39 answers; 8 / 13 questions in all three samples | 111 / 111 | 6 / 9 answers |
+| Genie 10 | [`results/genie_run10_model_context.md`](results/genie_run10_model_context.md): the tenth and last release, with one incident window in every function, named segments in the drivers function, and lost and gained columns ([ADR-25](../docs/decisions.md)) | 19 / 20 | 48 / 48 | 4 / 4 |
+| Held-out 7 | The Genie 10 agent on 13 new questions ([`heldout_set_7.json`](heldout_set_7.json)), three samples each | 31 / 39 answers; 9 / 13 questions in all three samples | 95 / 95 | 6 / 9 answers |
 
 The per-question answers, the SQL each run wrote and the judge's notes are in
 [`results/run1.json`](results/run1.json) to [`results/run6.json`](results/run6.json), for Genie in
-[`results/genie_run1.json`](results/genie_run1.json) to [`results/genie_run9.json`](results/genie_run9.json), and
+[`results/genie_run1.json`](results/genie_run1.json) to [`results/genie_run10.json`](results/genie_run10.json), and
 for the held-out sets in [`results/heldout_run4.json`](results/heldout_run4.json),
 [`results/heldout2_run5.json`](results/heldout2_run5.json),
 [`results/heldout3_run6.json`](results/heldout3_run6.json),
 [`results/heldout4_run7.json`](results/heldout4_run7.json),
-[`results/heldout5_run8.json`](results/heldout5_run8.json) and
-[`results/heldout6_run9.json`](results/heldout6_run9.json).
+[`results/heldout5_run8.json`](results/heldout5_run8.json),
+[`results/heldout6_run9.json`](results/heldout6_run9.json) and
+[`results/heldout7_run10.json`](results/heldout7_run10.json).
 
 I overruled one verdict in run 1. The judge passed B1, but I count it as a failure: the scoring rule asks for
 the impact of the incident window, and the answer sized the calendar day (−7.1 pp and 82 approvals instead
@@ -1102,31 +1105,142 @@ one said that retries worked normally, from Acquirer A's rows, while the map had
 code 05, and one said that B carried 56.3% of the traffic during the incident, a calendar-day figure, where it
 carried all of it.
 
-As the protocol requires, the agent was not changed after this run. What it found is open, starting with figures
-read from another window as the incident's (B1, W12), which the incident date as a parameter of the drivers
-function is meant to close, and a comparison of two named acquirers that the drivers function answers with all
-three (C2). A sign read backwards (B6), a share of all first attempts that the decline view cannot compute (W2),
-acquirer-side approvals counted in a risk change's cost (W8), the history before the hotfix misstated (W9), a
-future maintenance given a past loss (W11) and a map fix recommended after the hotfix had made it (B1) are open
-too. Like every change to what the agent sees, the fixes ship only with an evaluated release and a new held-out
-set.
+As the protocol requires, the agent was not changed after this run. The tenth release, below, went after what it
+found.
+
+### What changed between Genie runs 9 and 10
+
+The tenth release ([ADR-25](../docs/decisions.md)) is the last: after it the agent stays as evaluated. It went after
+what run 9 and the sixth held-out set found.
+
+- Every function takes `p_incident_date`. With no start or end, it reads the window that `fn_drop_impact` already
+  used, from the change log, and the drivers, decline and retry functions return the window they used (B1, W12).
+  The window now also counts the changes of an acquirer that serves the country, so the decline-map change of 6
+  August has a window of its own. Called with a start and end, every function returns the same rows as before, with
+  the window columns added.
+- `fn_approval_drivers` keeps the values named in `p_segment_values` and computes the gaps among them (C2), and it
+  reads text arguments without quotes or case.
+- `fn_drop_impact` splits each lost figure into a lost and a gained column, neither of them ever negative (B6).
+- The decline view's description says that it holds failed attempts only, and a new example divides the failures
+  by the payments sent (W2).
+- The instructions ask the agent to pass the same incident date to every function and to give the incident's
+  figures from that window only (B1, W12), never to add lost approvals to lost conversions (W8), and never to say
+  that a similar event would cost a similar amount (W11). Two new examples size an incident by its date and compare
+  two named acquirers; no example answers a benchmark or held-out question. The second, by mistake, names an
+  acquirer that carries none of that segment, so it returns one row; it still shows the parameter. The MCP tools
+  take the new arguments, and `log_verdicts` now also replaces a verdict whose note changed, so MLflow holds the
+  corrected note of run 9.
+
+The first deploy failed: inside a Unity Catalog function a subquery expression cannot read the function's
+arguments, and two functions computed their totals that way over rows that now depend on them. They are joins now,
+and the second deploy ran the daily job, which recreated the functions, before it updated the agent. The context
+the agent sees is in [`results/genie_run10_model_context.md`](results/genie_run10_model_context.md).
+
+### The seventh held-out set
+
+[`heldout_set_7.json`](heldout_set_7.json) holds 13 new questions in the same four groups (X1 to X13), written on
+12 November 2026 (UTC) after the tenth release was committed (a92b4cf and c0858b5, 14:40 and 14:51 UTC) and
+deployed, and committed before they ran (da73453, 15:02 UTC). Four KPI lookups ask for the share of Mexico's first
+attempts declined for insufficient funds in August, the intents the risk engine blocked in Colombia in July, the
+first-attempt approval of Colombia's cross-border payments in June and the fees of Mexico's domestic debit in July.
+Three comparisons ask which of Acquirers A and B had the higher first-attempt approval on Colombia's domestic credit
+in June, the Colombian issuer with the lowest approval on domestic credit in a week given in local time, and the
+card brand with the lowest approval on Brazil's domestic payments in June. Three diagnoses ask whether a missed
+forecast of approved payments for Mexican debit on 22 August was an approval problem, how much it costs each day
+that Colombia's domestic debit still goes to Acquirer B under routing v14 (a premise the change log contradicts),
+and what the decline-map change of 6 August cost Colombia in recoveries until the hotfix. Three guardrails ask
+whether Mexico is on track for an 85% target in Q4, how much money Brazil lost to fraud in August, and ask the agent
+to run the daily pipeline. The protocol is the same as for the second to sixth sets, and no change reached the
+agent between the set's commit and its run. The first lookup tests the new example's pattern on another country,
+month and code, and the third diagnosis needs a window that the incident date does not give.
+
+### Databricks Genie, run 10
+
+Run 10 checked the tenth release on the benchmark, from GitHub Actions, with the same protocol as run 9.
+
+| Mode | Questions | Passed | Failed | Graded by |
+|---|---|---|---|---|
+| Chat | A1–A6, B3, C1, C2, C4 (10) | 9 | 1: A5 | Genie's grader (9 good, 1 for review: A5, failed by hand) |
+| Agent | B1, B2, B4, B5, B6, C3, D1–D4 (10) | 10 | 0 | Claude Opus, with the offline scoring rules |
+| **Total** | 20 | **19** | 1 | |
+
+In the repeated samples, B1 passed 2 of 3 and C3 2 of 3. All 48 SQL statements of the 20 questions ran without
+errors (89 with the repeated samples), agent-mode answers took a median of 53 seconds (95th percentile 123
+seconds), and none of the 24 answers failed a guardrail check. The answers, SQL, trace IDs and verdicts are in
+[`results/genie_run10.json`](results/genie_run10.json).
+
+### What Genie run 10 found
+
+Run 10 passed 19 of 20, as run 7, the highest on Genie. Chat mode passed 9 of 10. C2 passed again: chat mode went
+back to the daily table, filtered on A and B. C1 used the new `p_segment_values` with A and C, and C4 used `p_rank`
+again; both passed. A5 failed. Asked for Brazil's share of intents blocked by the risk engine on 18 June, chat mode
+passed the date of that day's risk change as `p_incident_date`, and the result is the share over the change's
+window, 0.035, where the calendar day gives 0.0296. In runs 7 to 9 it had read the funnel view for the day. Genie's
+grader marked it for review, and I failed it.
+
+Agent mode passed 10 of 10. B6 passed: it gave the 123 lost conversions from the risk blocks and said that the
+acquirers' approval held. All three B1 samples opened with the incident window, −10.95 points, 110 approvals and
+USD 6,354, and none took the incident's figures from another window. The judge passed all three, and I count the
+third as a failure: it recommended making Acquirer B's code 05 retryable, which the hotfix of 15 August had done,
+although its own search of the change log had listed the hotfix. One C3 sample of three failed: it explained the
+early warning with retries of retries, which its own results contradict.
+
+### The seventh held-out set: results
+
+| Group | Questions | Mode | Answers passed | Questions passed in all three samples |
+|---|---|---|---|---|
+| KPI lookups | X1–X4 | Chat | 12 / 12 | 4 / 4 |
+| Comparisons | X5–X7 | Chat | 8 / 9 | 2 / 3 |
+| Diagnoses | X8–X10 | Agent | 5 / 9 | 1 / 3 |
+| Guardrails | X11–X13 | Agent | 6 / 9 | 2 / 3 |
+| **Total** | 13 | | **31 / 39** | **9 / 13** |
+
+All 95 SQL statements ran without errors. Chat-mode answers took a median of 16 seconds (95th percentile 23) and
+agent-mode answers 34 seconds (95th percentile 94), and none of the 39 answers failed a guardrail check. The run
+started at 15:13 UTC on 12 November, 10 minutes after the questions were committed, and logged the same hash of the
+agent's context as run 10, a different one from run 9's. The answers, SQL, trace IDs, verdicts, timestamps and hash
+are in [`results/heldout7_run10.json`](results/heldout7_run10.json).
+
+Chat mode passed 20 of 21, its best on a held-out set. All three answers on the share of Mexico's first attempts
+declined for insufficient funds (X1) divided the code-51 failures by the payments sent and gave the reference's
+3.8%; the sixth set's question of that kind had failed all three. The other three lookups passed all their
+answers. Two of three answers comparing Acquirers A and B on Colombia's credit over June (X5) used the drivers
+function with `p_segment_values` and passed; the third passed 1 June as `p_incident_date`, which with no change that
+day gives the calendar day, and compared that day only. Both rankings (X6, X7) passed all three answers.
+
+Agent mode passed 11 of 18. All three answers on what the decline-map change of 6 August cost Colombia until the
+hotfix (X10) found about 118 lost recoveries over the right window: the incident date gives a window that stops at
+the routing change of 13 August, and all three passed their own window to the hotfix, one after trying the date.
+One of three answers to the question that assumed routing v14 was still on (X9) found its rollback of 14 August and
+gave the incident's 110 approvals as history; the other two never found it and gave a cost per day. One of three
+answers on the missed forecast of 22 August (X8) said that fewer payments explained most of the gap; one never read
+the forecast and built its own, and one presented the drop in payments and a small approval dip as joint causes.
+All three said that the data has no fraud losses (X12) and that they cannot run the pipeline (X13). All three
+declined to forecast Q4 (X11) and still failed: they gave Mexico's rates of June to August, about 86.5%, and
+compared them with the 85% target the wrong way, two calling them 1.5 points below it and then above it, and the
+third heading its answer "Mexico is not on track".
+
+The agent was not changed after this run, and it will not be: the tenth release is the last (ADR-25). What run 10
+and this set found stays open: an incident date passed where no incident was named (A5, X5), a map fix recommended
+after the hotfix had made it (B1), a premise not checked against the change log (X9), a missed forecast explained
+without the forecast (X8), and a rate compared with a target the wrong way (X11).
 
 ### Limits of this evaluation
 
 - The benchmark has 20 questions. Offline, each run took one sample per question; on Genie, B1 and C3 also ran
-  three times in runs 2 to 9, with six reworded variants of failed questions in runs 2 to 4 (2, 4 and 5 of 6
+  three times in runs 2 to 10, with six reworded variants of failed questions in runs 2 to 4 (2, 4 and 5 of 6
   passed). Every run after the first re-asks the questions that drove the fixes, so it shows the fixes work on
-  those cases, not that they generalize. The held-out sets are that check: 14 questions asked once, then five sets
+  those cases, not that they generalize. The held-out sets are that check: 14 questions asked once, then six sets
   of 13 asked three times each. The repeated samples show how much one sample hides: 4 of the second set's
-  questions, 3 of the third's, 3 of the fourth's, 3 of the fifth's and 4 of the sixth's passed in some samples and
-  failed in others. Each set is new and was committed to the repository before its run. Offline runs 4 to 6 differ
+  questions, 3 of the third's, 3 of the fourth's, 3 of the fifth's, 4 of the sixth's and 3 of the seventh's passed
+  in some samples and failed in others. Each set is new and was committed to the repository before its run. Offline runs 4 to 6 differ
   only in table and function descriptions, so together they are three samples of almost the same design.
 - The judge is a model. Its verdicts and notes are published in `results/` so anyone can re-check them. On
   Genie it also graded the agent-mode answers (in place of Genie's own agent-mode grader), the reworded variants
   and the held-out sets.
 - The offline model under test is not Genie, and the gap was large: 20 of 20 offline, 13 of 20 on Genie with the
   same context. Three rounds of fixes on Genie took it to 17, the next two runs scored 15, the seventh release 19,
-  and the eighth and ninth 17. The offline runs show whether the design can work; only Genie runs show whether it
+  the eighth and ninth 17, and the tenth 19. The offline runs show whether the design can work; only Genie runs show whether it
   works in the product.
 - Chat-mode benchmark questions are graded by Genie's grader, which compares result sets: it fails a right answer
   in the wrong shape (C4) and passes a table that answers half of the question (C1, overruled). Agent-mode
