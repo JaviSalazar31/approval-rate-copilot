@@ -1144,6 +1144,7 @@ set.
 | `heldout_set_4.json` | 13 more held-out questions, written after the seventh release and committed before they ran; each runs three times |
 | `heldout_set_5.json` | 13 more held-out questions, written after the eighth release and committed before they ran; each runs three times |
 | `heldout_set_6.json` | 13 more held-out questions, written after the ninth release and committed before they ran; each runs three times |
+| `heldout_set_7.json` | 13 more held-out questions, written after the tenth release and committed before they ran; each runs three times |
 | `results/verdicts_*.json` | The graded files of Genie runs 6 to 9 and the third to sixth held-out sets: one verdict per trace, as the evaluation workflow attached them to MLflow |
 | `judge_guide.md` | The grading rules the judge follows, with what counts as a material error |
 | `genie_eval.py` | Asks Genie the questions and logs each answer to MLflow as a trace (built into notebook 11) |
