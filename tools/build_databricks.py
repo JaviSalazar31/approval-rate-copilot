@@ -183,9 +183,13 @@ FUNCTIONS = [
                  "window_rate, with pp_below_next (how far each value is below the next one); NULL returns all six "
                  "dimensions. Each row is one segment: its own contribution is total_effect_pp, and the window's "
                  "whole change is final_rate_change_pp in fn_drop_impact. To name the lowest value, keep it and the "
-                 "next two (ORDER BY window_rate LIMIT 3). It is built to diagnose a window against its baseline: "
-                 "to rank or compare segments over whole days or months, query the daily tables or the metric "
-                 "views instead, as in the examples. Domestic payments only.",
+                 "next two (ORDER BY window_rate LIMIT 3). window_rate and baseline_rate are final approval rates "
+                 "(first attempt or retry); for first-attempt approval use first_attempt_approved or "
+                 "approval_metrics. A segment with no baseline traffic is valued at the whole baseline rate, so "
+                 "traffic that moved onto it shows in its rate_effect_pp, not in mix_effect_pp: compare "
+                 "baseline_share and window_share to see whether traffic moved. It is built to diagnose a window "
+                 "against its baseline: to rank or compare segments over whole days or months, query the daily "
+                 "tables or the metric views instead, as in the examples. Domestic payments only.",
          params=[("p_country", "STRING", None, "Country code: MX, CO or BR"),
                  ("p_start_local", "STRING", None, "Window start, local time of the country, as 'YYYY-MM-DD HH:MM:SS'"),
                  ("p_end_local", "STRING", None, "Window end (exclusive), local time, as 'YYYY-MM-DD HH:MM:SS'"),

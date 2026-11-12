@@ -22,7 +22,7 @@ CREATE OR REPLACE FUNCTION fn_approval_drivers(
   p_dimension STRING DEFAULT NULL COMMENT 'acquirer, issuer, card_brand, three_ds_authenticated, merchant_segment or routing_rule_version; NULL for all six'
 )
 RETURNS TABLE (dimension STRING, segment_value STRING, baseline_payments BIGINT, window_payments BIGINT, baseline_share DOUBLE, window_share DOUBLE, baseline_rate DOUBLE, window_rate DOUBLE, rate_effect_pp DOUBLE, mix_effect_pp DOUBLE, total_effect_pp DOUBLE, pp_below_next DOUBLE)
-COMMENT 'Explains a change in final approval for a country (and card type) between a baseline and an incident window, usually hours or a few days: contribution of each acquirer, issuer, card brand, 3DS, merchant segment and routing version, split into rate effect and mix effect, in percentage points. Pass p_dimension to get only the rows of one dimension, ordered from the lowest window_rate, with pp_below_next (how far each value is below the next one); NULL returns all six dimensions. Each row is one segment: its own contribution is total_effect_pp, and the window\'s whole change is final_rate_change_pp in fn_drop_impact. To name the lowest value, keep it and the next two (ORDER BY window_rate LIMIT 3). It is built to diagnose a window against its baseline: to rank or compare segments over whole days or months, query the daily tables or the metric views instead, as in the examples. Domestic payments only.'
+COMMENT 'Explains a change in final approval for a country (and card type) between a baseline and an incident window, usually hours or a few days: contribution of each acquirer, issuer, card brand, 3DS, merchant segment and routing version, split into rate effect and mix effect, in percentage points. Pass p_dimension to get only the rows of one dimension, ordered from the lowest window_rate, with pp_below_next (how far each value is below the next one); NULL returns all six dimensions. Each row is one segment: its own contribution is total_effect_pp, and the window\'s whole change is final_rate_change_pp in fn_drop_impact. To name the lowest value, keep it and the next two (ORDER BY window_rate LIMIT 3). window_rate and baseline_rate are final approval rates (first attempt or retry); for first-attempt approval use first_attempt_approved or approval_metrics. A segment with no baseline traffic is valued at the whole baseline rate, so traffic that moved onto it shows in its rate_effect_pp, not in mix_effect_pp: compare baseline_share and window_share to see whether traffic moved. It is built to diagnose a window against its baseline: to rank or compare segments over whole days or months, query the daily tables or the metric views instead, as in the examples. Domestic payments only.'
 RETURN
 -- Explains a change in final approval between a baseline period and a window.
 -- For each dimension value, splits its contribution into:
@@ -32,6 +32,8 @@ RETURN
 -- fn_drop_impact returns as final_rate_change_pp. No row carries that total: each row is one segment.
 -- p_dimension keeps one dimension (NULL keeps all six); rows come ordered from the lowest window rate.
 -- pp_below_next: how far each value's window rate sits below the next higher value of the same dimension.
+-- The rates are final approval rates. A segment with no baseline traffic is valued at the whole baseline rate,
+-- so traffic that moved onto it shows in its rate effect: baseline_share and window_share show the move.
 WITH scope AS (
   SELECT *
   FROM workspace.approval_copilot.silver_payments

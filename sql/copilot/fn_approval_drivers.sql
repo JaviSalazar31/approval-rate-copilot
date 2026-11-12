@@ -6,6 +6,8 @@
 -- fn_drop_impact returns as final_rate_change_pp. No row carries that total: each row is one segment.
 -- p_dimension keeps one dimension (NULL keeps all six); rows come ordered from the lowest window rate.
 -- pp_below_next: how far each value's window rate sits below the next higher value of the same dimension.
+-- The rates are final approval rates. A segment with no baseline traffic is valued at the whole baseline rate,
+-- so traffic that moved onto it shows in its rate effect: baseline_share and window_share show the move.
 WITH scope AS (
   SELECT *
   FROM {schema}silver_payments
