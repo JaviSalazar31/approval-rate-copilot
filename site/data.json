@@ -133,7 +133,8 @@
   "guardrail_other_fires": 0,
   "guardrail_quiet_windows": 588,
   "guardrail_quiet_fired_max": 3,
-  "guardrail_map_pp": -2.3015
+  "guardrail_map_pp": -2.3015,
+  "guardrail_map_retry_pp": -0.8465
  },
  "hourly_co_debit": [
   {

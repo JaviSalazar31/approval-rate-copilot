@@ -603,7 +603,8 @@ models:
   - name: hour_complete
     description: True when the data reaches the end of this hour; the guardrail fires only on complete hours
   - name: baseline_days
-    description: 'Days of data in the baseline: 14, or fewer when the change came less than 14 days after the data starts'
+    description: 'Days of data in the baseline, from its first payment to the change: 14, slightly fewer in a sparse segment,
+      and fewer when the change came less than 14 days after the data starts'
   - name: baseline_payments
     description: Payments sent in the segment during the 14 days before the change
   - name: baseline_rate

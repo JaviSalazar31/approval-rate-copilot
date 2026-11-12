@@ -790,20 +790,24 @@ for a drop that starts at 14:00. A sequential test such as CUSUM: more power at 
 to explain to the team that has to act on it.
 
 **Cost.** The first rule used a z-score of −3. With 24 hourly looks, that allows up to about 3% of false alarms per
-change and segment (Bonferroni, under the normal approximation), and the quiet windows showed 1.0% to 1.9%. At −3.5
-the bound is about 0.6%, the quiet windows showed 0.2% to 0.5%, and the guardrail fired as early as at −3 in all four
-datasets. I changed the rule after seeing those results, so the three extra datasets are not a clean out-of-sample
-test of −3.5. At 55 to 85 payments an hour, the afternoon volume of Colombian domestic debit, it needed 2 to 6 hours
-to catch routing v14; cross-border segments send about 25 to 75 payments a day, so there only a drop of about 18
-points or more over a whole day can fire it. It watches the approval of payments sent, so a risk-rule change, which
-costs conversion through risk blocks before anything is sent, does not move it: the June risk rules cut Brazil's
-conversion 3.3 points below its 14 days before on 19 June, and the guardrail did not fire. It also missed a change
-that did lower approval: the decline-map change of 6 August cost Mexican domestic debit 2.3 points over its first day
-in the reference data, short of the threshold (lowest z-score −2.4), and the retry alert flagged it in its first daily
-run. The 14 days before a change can hold an earlier one: the rollback's baseline for Colombian domestic debit
-includes the incident's 22 hours (85.9%, against 86.5% before routing v14), and the release of 3 June has only about 2
-days of data behind it. The datasets come from one generator, so they test new noise around the same planted incidents
-and no new kinds of change.
+change and segment (Bonferroni, under the normal approximation), and the domestic quiet windows showed 1.7% to 2.4%.
+At −3.5 the bound is about 0.6%, but the domestic quiet windows, where 8 of the 9 false alarms happened, showed 0.3%
+to 1.0% (0.7% pooled), at or above the bound, so the binomial model looks optimistic on this data. The guardrail fired
+as early at −3.5 as at −3 in all four datasets. I changed the rule after seeing those results, so the three extra
+datasets are not a clean out-of-sample test of −3.5. At 55 to 85 payments an hour, the afternoon volume of Colombian
+domestic debit, it needed 2 to 6 hours to catch routing v14. Cross-border segments send about 25 to 75 payments a day,
+so there it takes a drop of 18 to 24 points over a whole day to fire, and Brazilian cross-border debit, at about 24
+payments a day, rarely reaches the 30-payment minimum. It watches the approval of payments sent, so a risk-rule
+change, which costs conversion through risk blocks before anything is sent, does not move it: on 19 June, Brazil's
+conversion under the new risk rules was 3.3 points below the 14 days before the first rule, and the guardrail did not
+fire. Nor did it fire on the decline-map change of 6 August, the only other change that lowered approval. Over the
+first day, Mexican domestic debit ran 2.3 points under its baseline in the reference data, but the retries the change
+switched off explain only about 0.8 points of that (1.0 at most in the four datasets), under the rule's 2-point floor;
+part of the rest is declines that the old map had sent to quarantine and that now count. The retry alert flagged it in
+its first daily run. The 14 days before a change can hold an earlier one: the rollback's baseline for Colombian
+domestic debit includes the incident's 22 hours (85.9%, against 86.5% before routing v14), and the release of 3 June
+has only about 2 days of data behind it. The datasets come from one generator, so they test new noise around the same
+planted incidents and no new kinds of change.
 
 **Result.** On the reference data it fired on routing v14 two hours after the change, at 16:00 Bogotá time on 13
 August: 120 payments, 70.0% approved against 86.5% (z = −5.3), with 20 approvals and USD 1,265 of approved volume lost

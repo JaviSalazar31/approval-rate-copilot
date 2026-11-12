@@ -49,7 +49,8 @@ SENSITIVITY = [-3.0, -3.5, -4.0]
 LOCAL_TIME = {"MX": "changed_at_mexico_city", "CO": "changed_at_bogota", "BR": "changed_at_sao_paulo"}
 SEGMENT = ["country", "card_type", "is_cross_border"]
 COLS = ["created_ts_utc", "created_ts_local", "country", "card_type", "is_cross_border", "sent_to_acquirer",
-        "final_approved", "amount_usd", "approved_usd", "fee_usd", "first_acquirer_id"]
+        "final_approved", "amount_usd", "approved_usd", "fee_usd", "first_acquirer_id", "first_iso_code",
+        "is_cascaded", "recovered_by_cascade"]
 # The incident the guardrail is meant to catch, the rollback that ended it, the change it misses and the notice it skips.
 INCIDENT, ROLLBACK, MAP_CHANGE, NOTICE = "CHG-0813", "CHG-0814", "CHG-0806", "EXT-0721"
 # Hourly detection on every segment (the alternative): window, thresholds, and the planted incidents it can see.
@@ -235,6 +236,21 @@ def hourly_everywhere(sent: pd.DataFrame, z_threshold: float) -> dict:
                 false_alert_examples=[f"{seg_name(s)} {t}" for s, t in false[:8]])
 
 
+def switched_off_retries(seg: pd.DataFrame, t0: pd.Timestamp) -> tuple[float, float]:
+    """What the map change cost a segment in its first 24 hours through the retries it switched off: Acquirer B's
+    "do not honor" (05) declines that were not retried, at the share of those declines that a retry recovered in the
+    14 days before. Returns the approvals and the points of final approval of the payments sent in those 24 hours."""
+    b05 = seg[(seg["first_acquirer_id"] == "B") & (seg["first_iso_code"] == "05")]
+    before = b05[(b05["created_ts_utc"] >= t0 - pd.Timedelta(days=BASELINE_DAYS)) & (b05["created_ts_utc"] < t0)]
+    window = (seg["created_ts_utc"] >= t0) & (seg["created_ts_utc"] < t0 + pd.Timedelta(hours=HOURS))
+    after = b05[window.loc[b05.index]]
+    if before.empty or not window.any():
+        return 0.0, 0.0
+    not_retried = int((~after["is_cascaded"].fillna(False).astype(bool)).sum())
+    lost = not_retried * float(before["recovered_by_cascade"].fillna(False).astype(float).mean())
+    return lost, lost / int(window.sum()) * 100
+
+
 def evaluate(sent: pd.DataFrame, changes: pd.DataFrame) -> dict:
     table = guardrail_table(sent, changes)
     groups = {k: v.reset_index(drop=True) for k, v in sent.groupby(SEGMENT)}
@@ -264,15 +280,19 @@ def evaluate(sent: pd.DataFrame, changes: pd.DataFrame) -> dict:
                                                 lost_approved_usd=rolled["lost_approved_usd"]),
             until_the_actual_rollback=whole,
             share_of_loss_avoided=1 - rolled["lost_approvals"] / whole["lost_approvals"])
-    # The decline-map change of 6 August (Acquirer B), which the retry alert caught: what the guardrail saw.
+    # The decline-map change of 6 August (Acquirer B), which the retry alert caught: what the guardrail saw, and how much
+    # of the drop the retries it switched off explain (the rest is noise and declines the old map had quarantined).
     t_map = pd.Timestamp(by_id.loc[MAP_CHANGE, "changed_at_utc"])
     for ch, s, _ in [m for m in monitored(changes, sent) if m[0]["change_id"] == MAP_CHANGE]:
         fm = follow(groups[s], t_map, ends[s[0]])
         last = at_hour(fm, HOURS)
+        retries_lost, retries_pp = switched_off_retries(groups[s], t_map)
         result["map_change"].append(dict(segment=seg_name(s), rate_change_pp=(last["final_approval_rate"]
                                                                               - last["baseline_rate"]) * 100,
                                          lost_approvals=last["lost_approvals"], z_score_at_24h=last["z_score"],
-                                         lowest_z_score=float(fm["z"].min()), fired=fm["first_fire_hours"]))
+                                         lowest_z_score=float(fm["z"].min()), fired=fm["first_fire_hours"],
+                                         lost_to_switched_off_retries=retries_lost,
+                                         switched_off_retries_pp=-retries_pp))
     # The partner notice of 21 July, which the guardrail leaves out: the same rule followed from the notice.
     t_notice = pd.Timestamp(by_id.loc[NOTICE, "changed_at_utc"])
     for s in [k for k in groups if k[0] == "BR" and not k[2]]:

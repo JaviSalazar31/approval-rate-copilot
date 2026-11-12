@@ -139,6 +139,7 @@ before, that day or the day after.
 | Share of the loss avoided | 80% | 68% | 75% | 67% |
 | Other changes it fired on (of nine) | 0 | 0 | 0 | 0 |
 | Lowest z-score on the decline-map change of 6 August | −2.4 | −2.4 | −0.9 | −1.8 |
+| Approval points the switched-off retries cost Mexican domestic debit on that change's first day | 0.8 | 0.9 | 0.9 | 1.0 |
 | Quiet 24-hour windows it fired on (of 588) | 1 | 3 | 3 | 2 |
 | Domestic quiet windows it fired on (of 294) | 1 | 2 | 3 | 2 |
 
@@ -148,17 +149,21 @@ before, that day or the day after.
   guardrail counts USD 175 of fees saved; the postmortem's about USD 180 prices the same volume at Acquirer
   A's fee.
 - The first rule used −3. With 24 hourly looks per change and segment, that allows up to about 3% of false
-  alarms (Bonferroni, under the normal approximation), and the quiet windows showed 1.0% to 1.9%; at −3.5 the
-  bound is about 0.6%, the quiet windows showed 0.2% to 0.5%, and the alert came as early as at −3 in all four
-  datasets. I changed the rule after seeing these results, so the three datasets are not a clean test of −3.5.
-  At −4 it fired an hour later in two datasets.
-- It missed the only other change that lowered approval: the decline-map change of 6 August cost Mexican
-  domestic debit 2.3 points over its first day in the reference data, short of the threshold. The retry alert
-  flagged it in its first daily run.
+  alarms (Bonferroni, under the normal approximation), and the domestic quiet windows showed 1.7% to 2.4%. At
+  −3.5 the bound is about 0.6%, but the domestic quiet windows, where 8 of the 9 false alarms happened, showed
+  0.3% to 1.0% (0.7% pooled), at or above the bound, so the binomial model looks optimistic on this data. The
+  alert came as early at −3.5 as at −3 in all four datasets. I changed the rule after seeing these results, so
+  the three datasets are not a clean test of −3.5. At −4 it fired an hour later in two datasets.
+- It did not fire on the decline-map change of 6 August, the only other change that lowered approval. Over the
+  first day, Mexican domestic debit ran 2.3 points under its baseline in the reference data (0.1 to 2.3 in the
+  four datasets), but the retries the change switched off explain only about 0.8 points of that (1.0 at most),
+  under the rule's 2-point floor; part of the rest is declines that the old map had sent to quarantine and
+  that now count. The retry alert flagged it in its first daily run.
 - It watches the approval of payments sent, so it does not see risk-rule changes, which cost conversion before
-  anything is sent: the June risk rules cut Brazil's conversion 3.3 points below its 14 days before on 19
-  June, and the guardrail did not fire. Cross-border segments send about 25 to 75 payments a day, so there
-  only a drop of about 18 points or more over a whole day can fire it.
+  anything is sent: on 19 June, Brazil's conversion under the new risk rules was 3.3 points below the 14 days
+  before the first rule, and the guardrail did not fire. Cross-border segments send about 25 to 75 payments a
+  day, so there it takes a drop of 18 to 24 points over a whole day to fire, and Brazilian cross-border debit,
+  at about 24 payments a day, rarely reaches the 30-payment minimum.
 - A baseline can hold an earlier change: the rollback's baseline for Colombian domestic debit includes the
   incident's 22 hours (85.9%, against 86.5% before routing v14). The release of 3 June has only about 2 days
   of data behind it. Only an hour the data has fully reached can fire, and in this data every hour has.

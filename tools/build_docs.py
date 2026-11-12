@@ -193,8 +193,8 @@ COL = {
     "hours_since_change": "Hours since the change, 1 to 24, counted in UTC; each row adds up everything from the "
                           "change to the end of that hour",
     "hour_complete": "True when the data reaches the end of this hour; the guardrail fires only on complete hours",
-    "baseline_days": "Days of data in the baseline: 14, or fewer when the change came less than 14 days after the "
-                     "data starts",
+    "baseline_days": "Days of data in the baseline, from its first payment to the change: 14, slightly fewer in a "
+                     "sparse segment, and fewer when the change came less than 14 days after the data starts",
     "baseline_payments": "Payments sent in the segment during the 14 days before the change",
     "rate_change_pp": "final_approval_rate minus baseline_rate, in percentage points (negative when below the baseline)",
     "lost_approvals": "Approvals below the baseline since the change: payments_sent × baseline_rate minus "

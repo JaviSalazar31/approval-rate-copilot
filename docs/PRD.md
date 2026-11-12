@@ -175,9 +175,9 @@ Full definitions, formulas and pitfalls are in [metrics.md](metrics.md).
     production change hour by hour for its first 24 hours and weighs approved volume against fees saved (ADR-26); the
     hourly run, the rollback proposal and the ramp are not built. On this data it fired two hours after routing v14
     went live; rolled back an hour after the alert, the incident would have cost about 22 approvals instead of 110. On
-    three more datasets it fired within six hours and on no other change. It missed the smaller drop of the
-    decline-map change of 6 August and does not see payments lost to risk blocks, and its threshold was set after
-    these runs.
+    three more datasets it fired within six hours and on no other change. It stayed silent on the decline-map change
+    of 6 August, whose effect fell under its 2-point floor, and does not see payments lost to risk blocks; its
+    threshold was set after these runs.
 11. Phase 1, pilot (4 weeks): first, 20-minute interviews with three analysts to confirm the jobs and
     today's time to diagnosis. Then three analysts on real data; measure time to diagnosis against the
     current process and keep a log of wrong or missing answers.

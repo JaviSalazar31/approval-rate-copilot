@@ -524,7 +524,7 @@ Hour-by-hour check of every production change in its first 24 hours, in each seg
 | `changed_at_local` | timestamp | When the change happened, in the segment's local time; the 24 hours count from here |
 | `hours_since_change` | int | Hours since the change, 1 to 24, counted in UTC; each row adds up everything from the change to the end of that hour |
 | `hour_complete` | boolean | True when the data reaches the end of this hour; the guardrail fires only on complete hours |
-| `baseline_days` | double | Days of data in the baseline: 14, or fewer when the change came less than 14 days after the data starts |
+| `baseline_days` | double | Days of data in the baseline, from its first payment to the change: 14, slightly fewer in a sparse segment, and fewer when the change came less than 14 days after the data starts |
 | `baseline_payments` | bigint | Payments sent in the segment during the 14 days before the change |
 | `baseline_rate` | double | Final approval of the segment's payments sent in the 14 days before the change |
 | `payments_sent` | bigint | Payments sent from the change to the end of this hour |

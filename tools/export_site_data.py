@@ -221,7 +221,8 @@ def main():
     # The decline-map change of 6 August, which the guardrail missed: its larger drop in the reference data
     worst_map = min(runs["seed 42 (in sample)"]["map_change"], key=lambda s: s["rate_change_pp"])
     assert worst_map["segment"] == "MX debit domestic", worst_map  # the page names this segment
-    analysis.update(guardrail_map_pp=worst_map["rate_change_pp"])
+    analysis.update(guardrail_map_pp=worst_map["rate_change_pp"],
+                    guardrail_map_retry_pp=worst_map["switched_off_retries_pp"])
 
     data = dict(headline=headline, incident=incident, pipeline=pipeline, analysis=analysis, hourly_co_debit=hourly_out,
                 cascade_b05=cascade_out, br_risk_june=risk_out)
