@@ -1,16 +1,18 @@
 # Runs the evaluation job (notebook 11) against the deployed Genie agent and keeps what it wrote as a workflow
 # artifact: the answers file of an "ask" run, or the summary of a "log_verdicts" run, which attaches a graded file's
-# verdicts to the run's MLflow traces. The protocol is in evals/README.md. Uses the same two repository secrets as
-# the deploy (DATABRICKS_HOST and DATABRICKS_TOKEN) and runs only by hand.
+# verdicts to the run's MLflow traces. "fetch" only reads back the answers file of an earlier run, without asking
+# again. The answers file also goes to the log, gzipped and base64-encoded between two markers, for readers that
+# cannot reach artifact storage. The protocol is in evals/README.md. Uses the same two repository secrets as the
+# deploy (DATABRICKS_HOST and DATABRICKS_TOKEN) and runs only by hand.
 name: Evaluate the Genie agent
 
 on:
   workflow_dispatch:
     inputs:
       action:
-        description: ask runs a question set; log_verdicts attaches the verdicts of a graded file
+        description: ask runs a question set; log_verdicts attaches the verdicts of a graded file; fetch reads back an earlier run's answers
         type: choice
-        options: [ask, log_verdicts]
+        options: [ask, log_verdicts, fetch]
         default: ask
       question_set:
         description: Question set to ask
@@ -57,6 +59,7 @@ jobs:
           databricks fs cp "$GRADED_FILE" "dbfs:$EVALS/graded/$(basename "$GRADED_FILE")" --overwrite
 
       - name: Run the evaluation job
+        if: inputs.action != 'fetch'
         run: |
           job_id=$(databricks jobs list --name approval_copilot_eval --output json | jq -r '.[0].job_id')
           graded=""
@@ -72,11 +75,15 @@ jobs:
           test "$(jq -r '.state.result_state' run.json)" = SUCCESS
 
       - name: Download the answers
-        if: inputs.action == 'ask'
+        if: inputs.action != 'log_verdicts'
         run: |
           file="$(printf '%s' "$RUN_NAME" | sed 's/[^A-Za-z0-9_-]\+/_/g').json"
+          mkdir -p out
           databricks fs cp "dbfs:$EVALS/runs/$file" "out/$file"
           ls -l out
+          echo "BEGIN $file $(sha256sum "out/$file" | cut -d' ' -f1)"
+          gzip -9 -c "out/$file" | base64 -w 120
+          echo "END $file"
 
       - uses: actions/upload-artifact@v4
         if: always()
