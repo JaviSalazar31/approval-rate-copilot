@@ -1,0 +1,3 @@
+# The MCP server: the MCP Python SDK, and the Databricks SDK for the Databricks backend
+mcp==2.3.0
+databricks-sdk==0.165.0

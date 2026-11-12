@@ -35,7 +35,7 @@ jobs:
           java-version: "17"
 
       - name: Install dependencies
-        run: pip install -r requirements.txt pytest
+        run: pip install -r requirements.txt -r mcp_server/requirements.txt pytest
 
       - name: Unit tests (no Spark)
         run: python -m pytest -q tests/test_feed_checks.py tests/test_volume_forecast.py tests/test_guardrails.py tests/test_genie_eval.py

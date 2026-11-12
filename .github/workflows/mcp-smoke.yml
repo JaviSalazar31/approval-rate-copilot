@@ -1,0 +1,38 @@
+# Starts the MCP server (mcp_server/) with the Databricks backend and calls its tools over stdio, as an MCP client
+# would, on the functions deployed in Unity Catalog. Runs by hand, with the deploy's two repository secrets.
+name: MCP server on Databricks
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: databricks/setup-cli@8de769ec2543ee05e456ee2121350efc7efc4bda  # v1.22.1: installs Databricks CLI 1.22.1
+
+      - name: Install the server
+        run: pip install -r mcp_server/requirements.txt
+
+      - name: Find the SQL warehouse
+        run: |
+          id=$(databricks warehouses list --output json \
+            | jq -r '.[] | select(.name == "Serverless Starter Warehouse") | .id' | head -n 1)
+          test -n "$id"
+          echo "DATABRICKS_WAREHOUSE_ID=$id" >> "$GITHUB_ENV"
+
+      - name: Call the tools over stdio
+        run: python mcp_server/smoke_test.py
