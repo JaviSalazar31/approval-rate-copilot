@@ -607,3 +607,46 @@ reversed it after the settlement, and kept PAY-CDC-05, which the acquirer voided
 late settlement between its approval and its reversal, the voided payment left the current table with its history
 closed, and the copilot's gold table did not change (1,501 rows, 558,150 final approvals and USD 39,055,555.01 of
 approved volume before and after).
+
+---
+
+### ADR-23 · Answer the fourth set's misreadings with rules and examples (agent v8)
+
+**Decision.** The eighth release answers what Genie run 7 and the fourth held-out set found with text and example
+queries; no function returns anything new. The rule against forecasts covers a question about what would happen if
+something were done or repeated, even when it asks only for a number: the agent says that the data covers 1 June to
+29 August 2026, scales no measured figure to another period and gives what was measured as history. The definitions
+and the description of `fn_approval_drivers` say that it measures final approval, so a first-attempt ranking reads
+`first_attempt_approved`. A ranking orders its rows and keeps three in the query itself, also when they come from a
+function. A total comes from the query, never from rows added up in the text, and a baseline is the 14 days before
+the window, never a shorter average. Before it says whether traffic moved between segments, the agent compares the
+shares, because traffic that moves onto a segment with no baseline shows in that segment's rate effect, and its mix
+effect stays near zero. Two new example queries rank acquirers on first-attempt approval and issuers inside a
+window, on segments and periods that no evaluation question uses.
+
+**Why.** In the fourth held-out set, all three answers to a what-if about next month scaled the 22-hour incident up
+to a month (U13), two of three answers to a first-attempt ranking used the drivers function's final rate (U5), one
+gave a total that its own rows did not add up to (U2), and one measured a drop against a three-day average (U8). In
+run 7, one B1 sample read a zero mix effect as unchanged traffic, and C4 returned all eight issuers. Each was a
+misreading of data the agent already had.
+
+**Alternatives.** A rate parameter and a row limit in `fn_approval_drivers`: a change to a function that the MCP
+server, its tests and the docs describe, made for two questions, so I tried the instructions first. Keeping chat
+mode away from the function: it answers questions about a window in local time, which the daily tables cannot.
+
+**Cost.** More text for the agent to read, and on Genie text has held less well than a function's output (ADR-12).
+
+**Result.** Genie run 8, on 12 November (UTC), passed 17 of 20 (9 of 10 in chat mode and 8 of 10 in agent mode, the
+four guardrails included), against 19 in run 7. Two agent-mode answers failed in new ways. B4 recommended restoring
+the retry of code 05 for Acquirer B, although its own results showed hotfix v2.3.1 cascading those declines from 15
+August; the judge passed it, and I count it as a failure. B6 gave the impact function's 16 lost approvals, which
+count the acquirer stage, as the cost of risk blocks that stopped about 120 intents before they got there. On a
+fifth held-out set, 13 new questions asked three times each, the agent got 32 of 39 answers right, as on the
+fourth, and 9 questions passed in all three samples. The rules held where the agent writes its own query and text:
+all three answers on whether the traffic moved compared the shares (V8), all three totals came from one row of the
+query (V2), and two of three answers to a what-if gave no number (V11), against none of three in the fourth set.
+They did not reach chat mode's direct function calls: C4 ran the same SQL as in runs 4 to 7, `fn_approval_drivers`
+with named parameters and no ORDER BY or LIMIT, and all three first-attempt rankings returned its final rate again
+(V5). Two answers to a request to make code 05 retryable for Acquirer B also treated it as still not retryable
+(V13), the premise B4 accepted. The next release has to put the rate and the row limit in the function's
+parameters, and have the agent check the change log before it accepts a premise or recommends a fix.

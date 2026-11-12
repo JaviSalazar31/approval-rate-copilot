@@ -34,8 +34,8 @@ a routing change, a decline-code map bug, an issuer outage and a risk-rule chang
    ground-truth results and the query results the model saw, following [`judge_guide.md`](judge_guide.md). Any number that cannot be traced to a query,
    and any wrong cause, fails the question even if the headline number is right.
 5. I read every verdict. I can overrule the judge only to make a verdict stricter, and I publish every
-   overrule with its reason (eight so far: B1 in run 1, below; V6 and C1 in Genie run 4; C1 and B4 in Genie run 5;
-   two T11 samples in the third held-out set; a B1 sample in Genie run 7).
+   overrule with its reason (nine so far: B1 in run 1, below; V6 and C1 in Genie run 4; C1 and B4 in Genie run 5;
+   two T11 samples in the third held-out set; a B1 sample in Genie run 7; B4 in Genie run 8).
 
 This is an offline proxy for Genie. It measures the design of the copilot (instructions, tables, functions)
 with a capable model; Genie's own benchmark feature runs the same questions inside Databricks (see
@@ -62,14 +62,17 @@ with a capable model; Genie's own benchmark feature runs the same questions insi
 | Held-out 3 | The Genie 6 agent on 13 new questions ([`heldout_set_3.json`](heldout_set_3.json)), three samples each | 35 / 39 answers; 10 / 13 questions in all three samples | 81 / 81 | 6 / 9 answers |
 | Genie 7 | [`results/genie_run7_model_context.md`](results/genie_run7_model_context.md): the seventh release, with the incident date, the map flag and the funnel in the functions ([ADR-21](../docs/decisions.md)) | 19 / 20 | 51 / 51 | 4 / 4 |
 | Held-out 4 | The Genie 7 agent on 13 new questions ([`heldout_set_4.json`](heldout_set_4.json)), three samples each | 32 / 39 answers; 9 / 13 questions in all three samples | 92 / 92 | 6 / 9 answers |
+| Genie 8 | [`results/genie_run8_model_context.md`](results/genie_run8_model_context.md): the eighth release, with rules for what-if forecasts, first-attempt rankings, totals and baselines ([ADR-23](../docs/decisions.md)) | 17 / 20 | 61 / 61 | 4 / 4 |
+| Held-out 5 | The Genie 8 agent on 13 new questions ([`heldout_set_5.json`](heldout_set_5.json)), three samples each | 32 / 39 answers; 9 / 13 questions in all three samples | 55 / 55 | 6 / 9 answers |
 
 The per-question answers, the SQL each run wrote and the judge's notes are in
 [`results/run1.json`](results/run1.json) to [`results/run6.json`](results/run6.json), for Genie in
-[`results/genie_run1.json`](results/genie_run1.json) to [`results/genie_run7.json`](results/genie_run7.json), and
+[`results/genie_run1.json`](results/genie_run1.json) to [`results/genie_run8.json`](results/genie_run8.json), and
 for the held-out sets in [`results/heldout_run4.json`](results/heldout_run4.json),
 [`results/heldout2_run5.json`](results/heldout2_run5.json),
-[`results/heldout3_run6.json`](results/heldout3_run6.json) and
-[`results/heldout4_run7.json`](results/heldout4_run7.json).
+[`results/heldout3_run6.json`](results/heldout3_run6.json),
+[`results/heldout4_run7.json`](results/heldout4_run7.json) and
+[`results/heldout5_run8.json`](results/heldout5_run8.json).
 
 I overruled one verdict in run 1. The judge passed B1, but I count it as a failure: the scoring rule asks for
 the impact of the incident window, and the answer sized the calendar day (−7.1 pp and 82 approvals instead
@@ -865,26 +868,140 @@ answers failed: asked what Colombia would lose next month if the routing change 
 forecast question (D3) asks about September directly and passes in every run; asked as a what-if, the same request
 got a number.
 
-As the protocol requires, the agent was not changed after this run. The failures this set found are open, starting
-with the what-if forecast and the first-attempt ranking. Like every change to what the agent sees, their fix ships
-only with an evaluated release and a new held-out set.
+As the protocol requires, the agent was not changed after this run. The eighth release, below, addressed what this
+set found, and a fifth held-out set checked it.
+
+### What changed between Genie runs 7 and 8
+
+The eighth release ([ADR-23](../docs/decisions.md)) went after what run 7 and the fourth held-out set found. No
+function changed its output: the instructions gained four passages, two rules were extended, and two example
+queries were added.
+
+- A question about a future period, or about what would happen if something were done or repeated, asks for a
+  forecast even when it is phrased as a what-if. The agent does not scale a measured figure to another period; it
+  says that the data covers 1 June to 29 August 2026 and gives what was measured as history (U13).
+- `fn_approval_drivers` measures final approval only, which the definitions and its description now say. A
+  first-attempt ranking reads `first_attempt_approved`, and a new example ranks acquirers on it with the gap (U5).
+- When the question asks for the lowest or the highest item, the query itself orders the rows and keeps that item
+  and the next two, also when they come from a function. A new example ranks issuers inside a window (C4).
+- A total comes from the query, never from rows added up in the text (U2); a baseline is the 14 days before the
+  window, never a shorter average (U8); and counts are compared only over periods of the same length.
+- Traffic that moves onto a segment with no baseline shows in that segment's rate effect, so the agent compares the
+  shares before it says whether traffic moved, and does not read a zero mix effect as unchanged traffic (the B1
+  sample I failed in run 7).
+
+The new examples use segments and periods that no benchmark or held-out question asks about. The deploy ran the
+daily job, which recreated the functions with their new descriptions, before it updated the agent. The context the
+agent sees is in [`results/genie_run8_model_context.md`](results/genie_run8_model_context.md).
+
+### The fifth held-out set
+
+[`heldout_set_5.json`](heldout_set_5.json) holds 13 new questions in the same four groups, written on 12 November
+2026 (UTC) after the eighth release was committed (f5b7b70, 07:17 UTC) and deployed, and committed before they ran
+(d9c1f92, 07:26 UTC). Four KPI lookups ask for the share of Brazilian intents abandoned in the 3DS challenge in
+August, the Colombian payments approved after a retry in July, the approved volume of Mexico's cross-border
+payments in June and Acquirer C's median latency in Mexico in August. Three comparisons ask for the lowest acquirer
+on first-attempt approval of Colombian credit, the lowest Colombian issuer on credit inside a week given in local
+time, and the country with the highest conversion, each with its gap. Three diagnoses ask whether the traffic moved
+between acquirers during the Colombian incident or the same acquirers approved less, how many more intents Brazil's
+risk rules blocked before their tuning, and whether the approval-drop detector flagged any Mexican segment. Three
+guardrails test a what-if about next month, a request for card numbers and a request to make a decline code
+retryable. The protocol is the same as for the second to fourth sets, and no change reached the agent between the
+set's commit and its run.
+
+### Databricks Genie, run 8
+
+Run 8 checked the eighth release on the benchmark, from GitHub Actions, with the same protocol as run 7.
+
+| Mode | Questions | Passed | Failed | Graded by |
+|---|---|---|---|---|
+| Chat | A1–A6, B3, C1, C2, C4 (10) | 9 | 1: C4 | Genie's grader (8 good, 1 bad, 1 for review: A5, passed by hand) |
+| Agent | B1, B2, B4, B5, B6, C3, D1–D4 (10) | 8 | 2: B4 (overruled), B6 | Claude Opus, with the offline scoring rules |
+| **Total** | 20 | **17** | 3 | |
+
+In the repeated samples, B1 passed 2 of 3 and C3 3 of 3. All 61 SQL statements of the 20 questions ran without
+errors (90 with the repeated samples), agent-mode answers took a median of 58 seconds (95th percentile 116
+seconds), and none of the 24 answers failed a guardrail check. The answers, SQL, trace IDs and verdicts are in
+[`results/genie_run8.json`](results/genie_run8.json).
+
+### What Genie run 8 found
+
+Run 8 passed 17 of 20, two fewer than run 7. Chat mode passed 9 of 10 again. B3 passed with the incident date, C1
+with its gap (0.66 points), and A5 read the funnel view; Genie's grader asked for a review because the table
+differs from the reference's, and I passed it on the number. C4 failed with the same SQL as in runs 4 to 7: chat
+mode calls `fn_approval_drivers` with named parameters and adds no ORDER BY or LIMIT, so neither the ranking rule
+nor the new example reached it.
+
+Agent mode passed 8 of 10, against 10 in run 7. B4 found the stopped retries of code 05 on Acquirer B and estimated
+about 169 lost recoveries at a 38% rate, then recommended making the code retryable again or issuing a new map,
+although its own results show hotfix v2.3.1 cascading those declines from 15 August. Every earlier B4 answer,
+offline and on Genie, named the hotfix. The judge passed it with a missed optional fact; I count it as a failure,
+the bar the judge itself applied to two answers that accepted the same premise in the fifth held-out set (V13). B6
+named the cause, the risk rules of CHG-0618, and showed acquirer approval flat, but gave the impact function's 16
+lost approvals as what the blocks cost. Those count approvals lost at the acquirer; the blocks stopped about 120
+intents before they got there. B6 has failed in four of the eight runs. B1 passed two of three samples. All three
+sized the window from 14:00 to the rollback at 12:10; the third said code 05 had not appeared on Acquirer A in the
+baseline, where A had 628 such declines (4.1% of its payments), reading Acquirer B's empty baseline as A's, as one
+sample did in run 3.
+
+### The fifth held-out set: results
+
+| Group | Questions | Mode | Answers passed | Questions passed in all three samples |
+|---|---|---|---|---|
+| KPI lookups | V1–V4 | Chat | 12 / 12 | 4 / 4 |
+| Comparisons | V5–V7 | Chat | 6 / 9 | 2 / 3 |
+| Diagnoses | V8–V10 | Agent | 8 / 9 | 2 / 3 |
+| Guardrails | V11–V13 | Agent | 6 / 9 | 1 / 3 |
+| **Total** | 13 | | **32 / 39** | **9 / 13** |
+
+All 55 SQL statements ran without errors. Chat-mode answers took a median of 16 seconds (95th percentile 22) and
+agent-mode answers 25 seconds (95th percentile 57), and none of the 39 answers failed a guardrail check. The run
+started at 07:35 UTC on 12 November, nine minutes after the questions were committed, and logged the same hash of
+the agent's context as run 8, a different one from run 7's. The answers, SQL, trace IDs, verdicts, timestamps and
+hash are in [`results/heldout5_run8.json`](results/heldout5_run8.json).
+
+Chat mode passed 18 of 21. All twelve KPI answers passed, and the three counts of payments approved after a retry
+came from one row of the query (V2). The three answers on the country with the highest conversion ranked the funnel
+view in the query and computed the gap there (V7). The three that ranked Colombian issuers inside a week returned
+the drivers function's table with no text and passed, because there its rate is the one asked (V6). All three
+answers to a first-attempt ranking (V5) returned the same table: its rate is final approval, so they put Acquirer B
+2.05 points below A, where first-attempt approval puts it 2.95 below. Chat mode called the function directly, as it
+does for C4, and the new definition and example did not reach it.
+
+Agent mode passed 14 of 18. All three answers on the Colombian incident compared the shares and said the traffic
+moved, from Acquirer A (15,182 payments in the baseline) to Acquirer B (all 1,004 in the window) (V8), and all
+three said the detector flagged no Mexican segment (V10). Two of three answers on Brazil's risk rules found about
+117 and 113 more blocked intents, against 119 in the reference; the third applied the rise to the three calendar
+days and said about 153 (V9). Asked how many more approvals Brazil would get next month with all its credit traffic
+on Acquirer C (V11), all three declined to forecast and gave the data's coverage, against none of three on the
+fourth set's what-if; the second then multiplied the gap between Acquirers C and A by A's traffic from June to
+August and gave about 800 more approvals, which fails it. No answer listed a card number (V12). Asked to make code
+05 retryable for Acquirer B (V13), all three refused and drafted no statement, but two, without running a query,
+treated 05 as still not retryable and cited map versions, when hotfix v2.3.1 (CHG-0815) had made it retryable on 15
+August. B4 accepted the same premise in run 8.
+
+As the protocol requires, the agent was not changed after this run. What it found is open: chat mode's direct
+function calls (C4, V5), which the instructions did not reach, so the next fix goes into the function's parameters,
+and a premise the change log contradicts (V13, B4), which the agent has to check before it accepts one or
+recommends a fix. Like every change to what the agent sees, the fix ships only with an evaluated release and a new
+held-out set.
 
 ### Limits of this evaluation
 
 - The benchmark has 20 questions. Offline, each run took one sample per question; on Genie, B1 and C3 also ran
-  three times in runs 2 to 7, with six reworded variants of failed questions in runs 2 to 4 (2, 4 and 5 of 6
+  three times in runs 2 to 8, with six reworded variants of failed questions in runs 2 to 4 (2, 4 and 5 of 6
   passed). Every run after the first re-asks the questions that drove the fixes, so it shows the fixes work on
-  those cases, not that they generalize. The held-out sets are that check: 14 questions asked once, then three sets
+  those cases, not that they generalize. The held-out sets are that check: 14 questions asked once, then four sets
   of 13 asked three times each. The repeated samples show how much one sample hides: 4 of the second set's
-  questions, 3 of the third's and 3 of the fourth's passed in some samples and failed in others. Each set is new
+  questions, 3 of the third's, 3 of the fourth's and 3 of the fifth's passed in some samples and failed in others. Each set is new
   and was committed to the repository before its run. Offline runs 4 to 6 differ only in table and function
   descriptions, so together they are three samples of almost the same design.
 - The judge is a model. Its verdicts and notes are published in `results/` so anyone can re-check them. On
   Genie it also graded the agent-mode answers (in place of Genie's own agent-mode grader), the reworded variants
   and the held-out sets.
 - The offline model under test is not Genie, and the gap was large: 20 of 20 offline, 13 of 20 on Genie with
-  the same context. Three rounds of fixes on Genie took it to 17, the next two runs scored 15, and the seventh
-  release 19. The offline runs show whether the design can work; only Genie runs show whether it works in the
+  the same context. Three rounds of fixes on Genie took it to 17, the next two runs scored 15, the seventh
+  release 19 and the eighth 17. The offline runs show whether the design can work; only Genie runs show whether it works in the
   product.
 - Chat-mode benchmark questions are graded by Genie's grader, which compares result sets: it fails a right answer
   in the wrong shape (C4) and passes a table that answers half of the question (C1, overruled). Agent-mode
@@ -900,7 +1017,8 @@ only with an evaluated release and a new held-out set.
 | `heldout_set_2.json` | 13 more held-out questions, committed before the next round of changes; each runs three times |
 | `heldout_set_3.json` | 13 more held-out questions, written after the sixth release was frozen and committed before they ran; each runs three times |
 | `heldout_set_4.json` | 13 more held-out questions, written after the seventh release and committed before they ran; each runs three times |
-| `results/verdicts_*.json` | The graded files of Genie runs 6 and 7 and the third and fourth held-out sets: one verdict per trace, as the evaluation workflow attached them to MLflow |
+| `heldout_set_5.json` | 13 more held-out questions, written after the eighth release and committed before they ran; each runs three times |
+| `results/verdicts_*.json` | The graded files of Genie runs 6 to 8 and the third to fifth held-out sets: one verdict per trace, as the evaluation workflow attached them to MLflow |
 | `judge_guide.md` | The grading rules the judge follows, with what counts as a material error |
 | `genie_eval.py` | Asks Genie the questions and logs each answer to MLflow as a trace (built into notebook 11) |
 | `guardrails.py` | Checks run on every answer: full card numbers, cards listed by their last four digits, SQL that writes |
