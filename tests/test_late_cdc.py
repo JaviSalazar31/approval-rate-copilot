@@ -10,6 +10,7 @@ import os
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 NOTEBOOK = os.path.join(ROOT, "databricks", "notebooks", "12_late_cdc_feed.py")
+CHECK = os.path.join(ROOT, "databricks", "notebooks", "13_late_cdc_check.py")
 PIPELINE = os.path.join(ROOT, "databricks", "pipeline", "late_cdc_test.sql")
 
 
@@ -47,6 +48,12 @@ def test_every_case_is_in_the_feed():
     assert [e[0] for e in late_older] == ["PAY-CDC-02"]
     assert any(e[5] == "DELETE" for e in evts) and {e[6] for e in evts} == {1, 2}
     assert len({(e[0], e[4]) for e in evts}) == len(evts), "one event per payment and sequence number"
+
+
+def test_the_check_reads_the_scd_columns_through_an_alias():
+    # pyspark's Row refuses attribute names that start with "__" (r.__START_AT raises), which failed the first run
+    tree = ast.parse(open(CHECK, encoding="utf-8").read())
+    assert not [n.attr for n in ast.walk(tree) if isinstance(n, ast.Attribute) and n.attr.startswith("__")]
 
 
 def test_the_pipeline_stays_in_its_own_schema():

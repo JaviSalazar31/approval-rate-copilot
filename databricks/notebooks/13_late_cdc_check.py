@@ -38,8 +38,10 @@ wrong = by_arrival.exceptAll(expected.select("payment_id", "status")).collect()
 check("keeping the last event to arrive would have been wrong", len(wrong) > 0,
       ", ".join(f"{r.payment_id} -> {r.status}" for r in wrong))
 
-late = {r.status: (r.__START_AT, r.__END_AT) for r in sql(
-    f"SELECT status, `__START_AT`, `__END_AT` FROM {S}.payment_status_history WHERE payment_id = 'PAY-CDC-02'").collect()}
+# a Row refuses attribute names that start with "__", so the SCD columns get an alias
+late = {r.status: (r.start_at, r.end_at) for r in sql(
+    f"SELECT status, `__START_AT` AS start_at, `__END_AT` AS end_at FROM {S}.payment_status_history "
+    "WHERE payment_id = 'PAY-CDC-02'").collect()}
 check("history places the late SETTLED between APPROVED and REVERSED",
       late == {"APPROVED": (1, 2), "SETTLED": (2, 3), "REVERSED": (3, None)}, str(late))
 deleted = sql(f"SELECT `__END_AT` FROM {S}.payment_status_history WHERE payment_id = 'PAY-CDC-05'").collect()
