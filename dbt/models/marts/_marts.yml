@@ -202,11 +202,13 @@ models:
   - name: canonical_status
     description: 'Normalized outcome: DECLINED_SOFT, DECLINED_HARD, TECHNICAL_ERROR or TIMEOUT'
   - name: reason_code
-    description: ISO 8583 response code (e.g. 05, 51, 91, 1A) or TECHNICAL_ERROR / TIMEOUT
+    description: Normalized ISO 8583 response code ('05', '14', '1A', '41', '43', '51', '54', '57', '59', '61', '62', '65',
+      '91', '96', 'N7') or 'TECHNICAL_ERROR' / 'TIMEOUT'
   - name: reason
-    description: Reason in plain words (e.g. Do not honor, Insufficient funds)
+    description: Reason in plain words, capitalized as stored (e.g. 'Do not honor', 'Insufficient funds'); filter on reason_code
+      when you can
   - name: decline_type
-    description: 'How the normalization map classified the reason: soft, hard or technical'
+    description: 'How the normalization map classified the reason: ''soft'', ''hard'' or ''technical'''
     data_tests:
     - accepted_values:
         arguments:
@@ -215,7 +217,7 @@ models:
           - hard
           - technical
   - name: retryable
-    description: Whether the map allowed retrying on another acquirer
+    description: 'Boolean: whether the map allowed retrying on another acquirer'
   - name: mapping_version
     description: Version of the decline-code map active at the time (v2.2, v2.3, v2.3.1)
   - name: attempts

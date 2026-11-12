@@ -81,10 +81,10 @@ COL = {
     # decline reasons
     "attempt_seq": "1 = first attempt, 2 = cascade retry",
     "canonical_status": "Normalized outcome: DECLINED_SOFT, DECLINED_HARD, TECHNICAL_ERROR or TIMEOUT",
-    "reason_code": "ISO 8583 response code (e.g. 05, 51, 91, 1A) or TECHNICAL_ERROR / TIMEOUT",
-    "reason": "Reason in plain words (e.g. Do not honor, Insufficient funds)",
-    "decline_type": "How the normalization map classified the reason: soft, hard or technical",
-    "retryable": "Whether the map allowed retrying on another acquirer",
+    "reason_code": "Normalized ISO 8583 response code ('05', '14', '1A', '41', '43', '51', '54', '57', '59', '61', '62', '65', '91', '96', 'N7') or 'TECHNICAL_ERROR' / 'TIMEOUT'",
+    "reason": "Reason in plain words, capitalized as stored (e.g. 'Do not honor', 'Insufficient funds'); filter on reason_code when you can",
+    "decline_type": "How the normalization map classified the reason: 'soft', 'hard' or 'technical'",
+    "retryable": "Boolean: whether the map allowed retrying on another acquirer",
     "mapping_version": "Version of the decline-code map active at the time (v2.2, v2.3, v2.3.1)",
     "attempts": "Number of failed attempts",
     # cascade

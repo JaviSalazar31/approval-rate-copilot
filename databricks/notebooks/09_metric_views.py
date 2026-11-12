@@ -26,16 +26,16 @@ dimensions:
     comment: First day of the local calendar month
   - name: country
     expr: country
-    comment: MX, CO or BR
+    comment: "Country code: 'MX', 'CO' or 'BR'"
   - name: card_type
     expr: card_type
-    comment: credit or debit
+    comment: "'credit' or 'debit'"
   - name: first_acquirer
     expr: acquirer_id
-    comment: First acquirer chosen by routing (A, B or C); results are attributed to it
+    comment: "First acquirer chosen by routing: 'A', 'B' or 'C'. Results are attributed to it"
   - name: is_cross_border
     expr: is_cross_border
-    comment: True when the card was issued abroad. Domestic traffic is the default for comparisons
+    comment: "Boolean: true when the card was issued abroad, false for domestic payments. Compare approval rates between segments on domestic traffic unless asked; counts and volumes cover both unless the question says domestic or cross-border"
 measures:
   - name: payments_sent
     expr: SUM(payments_sent)
@@ -81,31 +81,31 @@ dimensions:
     comment: Local calendar date of the attempt (country time zone)
   - name: country
     expr: country
-    comment: MX, CO or BR
+    comment: "Country code: 'MX', 'CO' or 'BR'"
   - name: card_type
     expr: card_type
-    comment: credit or debit
+    comment: "'credit' or 'debit'"
   - name: acquirer
     expr: acquirer_id
-    comment: Acquirer that processed the attempt (A, B or C)
+    comment: "Acquirer that processed the attempt: 'A', 'B' or 'C'"
   - name: attempt
     expr: CASE WHEN attempt_seq = 1 THEN 'first attempt' ELSE 'retry' END
-    comment: First attempt, or the retry on a second acquirer
+    comment: "'first attempt' for the first authorization, 'retry' for the retry on a second acquirer"
   - name: reason_code
     expr: reason_code
-    comment: ISO 8583 response code after normalization, or the canonical status for technical failures
+    comment: "Normalized ISO 8583 response code ('05', '14', '1A', '41', '43', '51', '54', '57', '59', '61', '62', '65', '91', '96', 'N7') or the canonical status of a technical failure ('TECHNICAL_ERROR', 'TIMEOUT'). '05' is do not honor, '51' insufficient funds"
   - name: reason
     expr: reason
-    comment: Reason in plain words
+    comment: "Reason in plain words, capitalized exactly as stored: 'Do not honor', 'Insufficient funds', 'Additional authentication required (3DS)', 'Expired card', 'Transaction not permitted to cardholder', 'Invalid card number', 'Exceeds amount limit', 'Suspected fraud', 'CVV2 mismatch', 'Issuer or switch unavailable', 'Technical Error', 'Restricted card', 'Exceeds frequency limit', 'System malfunction', 'Timeout', 'Stolen card', 'Lost card'. Filtering on reason_code is safer"
   - name: decline_type
     expr: decline_type
-    comment: soft, hard or technical, as the map classified the code at that time
+    comment: "'soft', 'hard' or 'technical', as the map classified the code at that time"
   - name: retryable
     expr: retryable
-    comment: Whether the map allowed a retry on another acquirer
+    comment: "Boolean: true when the map allowed a retry on another acquirer, false when it did not"
   - name: mapping_version
     expr: mapping_version
-    comment: Version of the decline-code map in force (v2.2, v2.3, v2.3.1)
+    comment: "Version of the decline-code map in force: 'v2.2', 'v2.3' or 'v2.3.1'"
 measures:
   - name: failed_attempts
     expr: SUM(attempts)

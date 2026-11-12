@@ -1,0 +1,86 @@
+# Runs the evaluation job (notebook 11) against the deployed Genie agent and keeps what it wrote as a workflow
+# artifact: the answers file of an "ask" run, or the summary of a "log_verdicts" run, which attaches a graded file's
+# verdicts to the run's MLflow traces. The protocol is in evals/README.md. Uses the same two repository secrets as
+# the deploy (DATABRICKS_HOST and DATABRICKS_TOKEN) and runs only by hand.
+name: Evaluate the Genie agent
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: ask runs a question set; log_verdicts attaches the verdicts of a graded file
+        type: choice
+        options: [ask, log_verdicts]
+        default: ask
+      question_set:
+        description: Question set to ask
+        type: choice
+        options: [benchmark, heldout_2, heldout_3]
+        default: benchmark
+      run_name:
+        description: Run name; an ask run writes evals/runs/<run name>.json in the volume
+        type: string
+        required: true
+      graded_file:
+        description: For log_verdicts, the graded file in the repository (for example evals/graded/graded_run6.json)
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: evaluate-genie
+  cancel-in-progress: false
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    env:
+      DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+      EVALS: /Volumes/workspace/approval_copilot/landing/evals
+      ACTION: ${{ inputs.action }}
+      QUESTION_SET: ${{ inputs.question_set }}
+      RUN_NAME: ${{ inputs.run_name }}
+      GRADED_FILE: ${{ inputs.graded_file }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: databricks/setup-cli@8de769ec2543ee05e456ee2121350efc7efc4bda  # v1.22.1: installs Databricks CLI 1.22.1
+
+      - name: Upload the graded file
+        if: inputs.action == 'log_verdicts'
+        run: |
+          test -f "$GRADED_FILE"
+          databricks fs cp "$GRADED_FILE" "dbfs:$EVALS/graded/$(basename "$GRADED_FILE")" --overwrite
+
+      - name: Run the evaluation job
+        run: |
+          job_id=$(databricks jobs list --name approval_copilot_eval --output json | jq -r '.[0].job_id')
+          graded=""
+          if [ "$ACTION" = log_verdicts ]; then graded="$EVALS/graded/$(basename "$GRADED_FILE")"; fi
+          body=$(jq -n --argjson id "$job_id" --arg a "$ACTION" --arg q "$QUESTION_SET" --arg r "$RUN_NAME" \
+            --arg g "$graded" '{job_id: $id, job_parameters: {action: $a, question_set: $q, run_name: $r, graded_path: $g}}')
+          databricks jobs run-now --json "$body" --timeout 2h --output json > run.json
+          jq '{run_id, run_page_url, result: .state.result_state, start_time, end_time}' run.json
+          mkdir -p out
+          databricks jobs get-run-output "$(jq -r '.tasks[0].run_id' run.json)" --output json \
+            | jq '.notebook_output' > out/notebook_output.json
+          cat out/notebook_output.json
+          test "$(jq -r '.state.result_state' run.json)" = SUCCESS
+
+      - name: Download the answers
+        if: inputs.action == 'ask'
+        run: |
+          file="$(printf '%s' "$RUN_NAME" | sed 's/[^A-Za-z0-9_-]\+/_/g').json"
+          databricks fs cp "dbfs:$EVALS/runs/$file" "out/$file"
+          ls -l out
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: evaluation-${{ github.run_id }}
+          path: out/
+          if-no-files-found: ignore

@@ -176,12 +176,14 @@ def build_generator_notebook():
 
 FUNCTIONS = [
     dict(name="fn_approval_drivers",
-         comment="Explains a change in final approval for a country (and card type) between a baseline and a window: "
-                 "contribution of each acquirer, issuer, card brand, 3DS, merchant segment and routing version, "
-                 "split into rate effect and mix effect, in percentage points. Pass p_dimension to get only the "
-                 "rows of one dimension, ordered from the lowest window_rate (for example the issuers with the "
-                 "lowest approval in a window); NULL returns all six dimensions. For whole days or months, compare "
-                 "segments with the daily tables instead. Domestic payments only.",
+         comment="Explains a change in final approval for a country (and card type) between a baseline and an "
+                 "incident window, usually hours or a few days: contribution of each acquirer, issuer, card brand, "
+                 "3DS, merchant segment and routing version, split into rate effect and mix effect, in percentage "
+                 "points. Pass p_dimension to get only the rows of one dimension, ordered from the lowest "
+                 "window_rate, with pp_below_next (how far each value is below the next one); NULL returns all six "
+                 "dimensions. It is built to diagnose a window against its baseline: to rank or compare segments "
+                 "over whole days or months, query the daily tables or the metric views instead, as in the "
+                 "examples. Domestic payments only.",
          params=[("p_country", "STRING", None, "Country code: MX, CO or BR"),
                  ("p_start_local", "STRING", None, "Window start, local time of the country, as 'YYYY-MM-DD HH:MM:SS'"),
                  ("p_end_local", "STRING", None, "Window end (exclusive), local time, as 'YYYY-MM-DD HH:MM:SS'"),
@@ -191,7 +193,8 @@ FUNCTIONS = [
                                                    "merchant_segment or routing_rule_version; NULL for all six")],
          returns="dimension STRING, segment_value STRING, baseline_payments BIGINT, window_payments BIGINT, "
                  "baseline_share DOUBLE, window_share DOUBLE, baseline_rate DOUBLE, window_rate DOUBLE, "
-                 "rate_effect_pp DOUBLE, mix_effect_pp DOUBLE, total_effect_pp DOUBLE, total_change_pp DOUBLE"),
+                 "rate_effect_pp DOUBLE, mix_effect_pp DOUBLE, total_effect_pp DOUBLE, total_change_pp DOUBLE, "
+                 "pp_below_next DOUBLE"),
     dict(name="fn_decline_shift",
          comment="First-attempt failure reasons per acquirer as % of the segment's payments, baseline vs window, to "
                  "see which decline codes grew during a drop. When traffic moved from one acquirer to another, "
@@ -210,7 +213,9 @@ FUNCTIONS = [
          comment="For failed first attempts: share retried on another acquirer (cascade), share recovered, how "
                  "the normalization map classified each reason (soft/hard) and whether it allowed a retry "
                  "(retryable), in baseline vs window. A code the map does not allow to retry is never cascaded. "
-                 "Domestic payments only.",
+                 "lost_recoveries is the number of recoveries the window missed at the baseline recovery rate of "
+                 "the same acquirer and code: it sizes what stopped retries cost, which is not the segment's whole "
+                 "drop. Domestic payments only.",
          params=[("p_country", "STRING", None, "Country code: MX, CO or BR"),
                  ("p_start_local", "STRING", None, "Window start, local time, as 'YYYY-MM-DD HH:MM:SS'"),
                  ("p_end_local", "STRING", None, "Window end (exclusive), local time, as 'YYYY-MM-DD HH:MM:SS'"),
@@ -219,7 +224,8 @@ FUNCTIONS = [
          returns="acquirer_id STRING, reason_code STRING, baseline_failures BIGINT, baseline_cascade_rate DOUBLE, "
                  "baseline_recovery_rate DOUBLE, baseline_mapped_as STRING, window_failures BIGINT, "
                  "window_cascade_rate DOUBLE, window_recovery_rate DOUBLE, window_mapped_as STRING, "
-                 "window_mapping_versions STRING, baseline_retryable STRING, window_retryable STRING"),
+                 "window_mapping_versions STRING, baseline_retryable STRING, window_retryable STRING, "
+                 "lost_recoveries DOUBLE"),
     dict(name="fn_changes_near",
          comment="Production changes (routing, risk, mapping, releases, partner notices) that affect a country, "
                  "from N hours before a window to M hours after it, with hours relative to the window start. "
@@ -236,7 +242,10 @@ FUNCTIONS = [
          comment="Size of an approval drop versus the baseline rate: lost approvals, lost approved volume (USD) "
                  "and fees paid in the window. Pass the window of the drop, from the change or hour it started "
                  "to the change or hour it ended, not a calendar day: normal hours in the window understate "
-                 "the drop. Domestic payments only.",
+                 "the drop. lost_approvals and lost_approved_usd are expected minus actual at the baseline rates: "
+                 "positive means the window approved less than its baseline predicts, negative means it approved "
+                 "more. The two can differ in sign, because one counts payments and the other weighs them by "
+                 "amount. Domestic payments only.",
          params=[("p_country", "STRING", None, "Country code: MX, CO or BR"),
                  ("p_start_local", "STRING", None, "Window start, local time, as 'YYYY-MM-DD HH:MM:SS'"),
                  ("p_end_local", "STRING", None, "Window end (exclusive), local time, as 'YYYY-MM-DD HH:MM:SS'"),

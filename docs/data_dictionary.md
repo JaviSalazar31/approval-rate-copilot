@@ -62,10 +62,10 @@ Daily failed attempts by canonical reason and how the mapping classified them. I
 | `acquirer_id` | string | Acquirer that processed the attempt (A, B or C) |
 | `attempt_seq` | int | 1 = first attempt, 2 = cascade retry |
 | `canonical_status` | string | Normalized outcome: DECLINED_SOFT, DECLINED_HARD, TECHNICAL_ERROR or TIMEOUT |
-| `reason_code` | string | ISO 8583 response code (e.g. 05, 51, 91, 1A) or TECHNICAL_ERROR / TIMEOUT |
-| `reason` | string | Reason in plain words (e.g. Do not honor, Insufficient funds) |
-| `decline_type` | string | How the normalization map classified the reason: soft, hard or technical |
-| `retryable` | boolean | Whether the map allowed retrying on another acquirer |
+| `reason_code` | string | Normalized ISO 8583 response code ('05', '14', '1A', '41', '43', '51', '54', '57', '59', '61', '62', '65', '91', '96', 'N7') or 'TECHNICAL_ERROR' / 'TIMEOUT' |
+| `reason` | string | Reason in plain words, capitalized as stored (e.g. 'Do not honor', 'Insufficient funds'); filter on reason_code when you can |
+| `decline_type` | string | How the normalization map classified the reason: 'soft', 'hard' or 'technical' |
+| `retryable` | boolean | Boolean: whether the map allowed retrying on another acquirer |
 | `mapping_version` | string | Version of the decline-code map active at the time (v2.2, v2.3, v2.3.1) |
 | `attempts` | bigint | Number of failed attempts |
 
@@ -236,10 +236,10 @@ Card approval and approved volume per day, country, card type and first acquirer
 |---|---|---|
 | `business_date` | `business_date` | Local calendar date of the payment (country time zone) |
 | `month` | `date_trunc('MONTH', business_date)` | First day of the local calendar month |
-| `country` | `country` | MX, CO or BR |
-| `card_type` | `card_type` | credit or debit |
-| `first_acquirer` | `acquirer_id` | First acquirer chosen by routing (A, B or C); results are attributed to it |
-| `is_cross_border` | `is_cross_border` | True when the card was issued abroad. Domestic traffic is the default for comparisons |
+| `country` | `country` | Country code: 'MX', 'CO' or 'BR' |
+| `card_type` | `card_type` | 'credit' or 'debit' |
+| `first_acquirer` | `acquirer_id` | First acquirer chosen by routing: 'A', 'B' or 'C'. Results are attributed to it |
+| `is_cross_border` | `is_cross_border` | Boolean: true when the card was issued abroad, false for domestic payments. Compare approval rates between segments on domestic traffic unless asked; counts and volumes cover both unless the question says domestic or cross-border |
 
 | Measure | Expression | Description |
 |---|---|---|
@@ -259,15 +259,15 @@ Failed authorization attempts per day, country, card type, acquirer and canonica
 | Dimension | Expression | Description |
 |---|---|---|
 | `business_date` | `business_date` | Local calendar date of the attempt (country time zone) |
-| `country` | `country` | MX, CO or BR |
-| `card_type` | `card_type` | credit or debit |
-| `acquirer` | `acquirer_id` | Acquirer that processed the attempt (A, B or C) |
-| `attempt` | `CASE WHEN attempt_seq = 1 THEN 'first attempt' ELSE 'retry' END` | First attempt, or the retry on a second acquirer |
-| `reason_code` | `reason_code` | ISO 8583 response code after normalization, or the canonical status for technical failures |
-| `reason` | `reason` | Reason in plain words |
-| `decline_type` | `decline_type` | soft, hard or technical, as the map classified the code at that time |
-| `retryable` | `retryable` | Whether the map allowed a retry on another acquirer |
-| `mapping_version` | `mapping_version` | Version of the decline-code map in force (v2.2, v2.3, v2.3.1) |
+| `country` | `country` | Country code: 'MX', 'CO' or 'BR' |
+| `card_type` | `card_type` | 'credit' or 'debit' |
+| `acquirer` | `acquirer_id` | Acquirer that processed the attempt: 'A', 'B' or 'C' |
+| `attempt` | `CASE WHEN attempt_seq = 1 THEN 'first attempt' ELSE 'retry' END` | 'first attempt' for the first authorization, 'retry' for the retry on a second acquirer |
+| `reason_code` | `reason_code` | Normalized ISO 8583 response code ('05', '14', '1A', '41', '43', '51', '54', '57', '59', '61', '62', '65', '91', '96', 'N7') or the canonical status of a technical failure ('TECHNICAL_ERROR', 'TIMEOUT'). '05' is do not honor, '51' insufficient funds |
+| `reason` | `reason` | Reason in plain words, capitalized exactly as stored: 'Do not honor', 'Insufficient funds', 'Additional authentication required (3DS)', 'Expired card', 'Transaction not permitted to cardholder', 'Invalid card number', 'Exceeds amount limit', 'Suspected fraud', 'CVV2 mismatch', 'Issuer or switch unavailable', 'Technical Error', 'Restricted card', 'Exceeds frequency limit', 'System malfunction', 'Timeout', 'Stolen card', 'Lost card'. Filtering on reason_code is safer |
+| `decline_type` | `decline_type` | 'soft', 'hard' or 'technical', as the map classified the code at that time |
+| `retryable` | `retryable` | Boolean: true when the map allowed a retry on another acquirer, false when it did not |
+| `mapping_version` | `mapping_version` | Version of the decline-code map in force: 'v2.2', 'v2.3' or 'v2.3.1' |
 
 | Measure | Expression | Description |
 |---|---|---|
@@ -330,9 +330,9 @@ Authorization attempts that pass the data-quality rules. Grain: one row per auth
 | `mapping_version` | string | Version of the decline-code map active at the time (v2.2, v2.3, v2.3.1) |
 | `canonical_status` | string | Normalized outcome: APPROVED, REVERSED, DECLINED_SOFT, DECLINED_HARD, TECHNICAL_ERROR or TIMEOUT |
 | `iso_code` | string | ISO 8583 response code after normalization |
-| `reason` | string | Reason in plain words (e.g. Do not honor, Insufficient funds) |
-| `decline_type` | string | How the normalization map classified the reason: soft, hard or technical |
-| `retryable` | boolean | Whether the map allowed retrying on another acquirer |
+| `reason` | string | Reason in plain words, capitalized as stored (e.g. 'Do not honor', 'Insufficient funds'); filter on reason_code when you can |
+| `decline_type` | string | How the normalization map classified the reason: 'soft', 'hard' or 'technical' |
+| `retryable` | boolean | Boolean: whether the map allowed retrying on another acquirer |
 | `is_authorized` | boolean | True for APPROVED and REVERSED (the issuer approved the authorization) |
 
 ### `silver_dq_quarantine`
@@ -362,9 +362,9 @@ Attempts rejected by the data-quality rules, with the rule they failed. Grain: o
 | `mapping_version` | string | Version of the decline-code map active at the time (v2.2, v2.3, v2.3.1) |
 | `canonical_status` | string | Normalized outcome (empty when the code was not in the map) |
 | `iso_code` | string | ISO 8583 response code after normalization |
-| `reason` | string | Reason in plain words (e.g. Do not honor, Insufficient funds) |
-| `decline_type` | string | How the normalization map classified the reason: soft, hard or technical |
-| `retryable` | boolean | Whether the map allowed retrying on another acquirer |
+| `reason` | string | Reason in plain words, capitalized as stored (e.g. 'Do not honor', 'Insufficient funds'); filter on reason_code when you can |
+| `decline_type` | string | How the normalization map classified the reason: 'soft', 'hard' or 'technical' |
+| `retryable` | boolean | Boolean: whether the map allowed retrying on another acquirer |
 | `is_authorized` | boolean | True for APPROVED and REVERSED (the issuer approved the authorization) |
 | `failed_rule` | string | Data-quality rule the row failed |
 
@@ -446,10 +446,10 @@ Versioned map from raw acquirer status/code to canonical status, decline type an
 | `raw_status` | string | Status exactly as sent by the source system |
 | `raw_code` | string | Response code exactly as sent by the source system |
 | `iso_code` | string | ISO 8583 response code after normalization |
-| `reason` | string | Reason in plain words (e.g. Do not honor, Insufficient funds) |
+| `reason` | string | Reason in plain words, capitalized as stored (e.g. 'Do not honor', 'Insufficient funds'); filter on reason_code when you can |
 | `canonical_status` | string | APPROVED, REVERSED, DECLINED_SOFT, DECLINED_HARD, TECHNICAL_ERROR, TIMEOUT, BLOCKED_BY_RISK or ABANDONED |
 | `decline_type` | string | none, soft, hard or technical |
-| `retryable` | boolean | Whether the map allowed retrying on another acquirer |
+| `retryable` | boolean | Boolean: whether the map allowed retrying on another acquirer |
 
 ### `ref_change_log`
 
@@ -507,9 +507,9 @@ Daily approved payments per country and card type against a forecast with weekda
 
 ### `fn_approval_drivers(p_country STRING, p_start_local STRING, p_end_local STRING, p_card_type STRING DEFAULT NULL, p_baseline_days INT DEFAULT 14, p_dimension STRING DEFAULT NULL)`
 
-Explains a change in final approval for a country (and card type) between a baseline and a window: contribution of each acquirer, issuer, card brand, 3DS, merchant segment and routing version, split into rate effect and mix effect, in percentage points. Pass p_dimension to get only the rows of one dimension, ordered from the lowest window_rate (for example the issuers with the lowest approval in a window); NULL returns all six dimensions. For whole days or months, compare segments with the daily tables instead. Domestic payments only.
+Explains a change in final approval for a country (and card type) between a baseline and an incident window, usually hours or a few days: contribution of each acquirer, issuer, card brand, 3DS, merchant segment and routing version, split into rate effect and mix effect, in percentage points. Pass p_dimension to get only the rows of one dimension, ordered from the lowest window_rate, with pp_below_next (how far each value is below the next one); NULL returns all six dimensions. It is built to diagnose a window against its baseline: to rank or compare segments over whole days or months, query the daily tables or the metric views instead, as in the examples. Domestic payments only.
 
-Returns: `dimension STRING, segment_value STRING, baseline_payments BIGINT, window_payments BIGINT, baseline_share DOUBLE, window_share DOUBLE, baseline_rate DOUBLE, window_rate DOUBLE, rate_effect_pp DOUBLE, mix_effect_pp DOUBLE, total_effect_pp DOUBLE, total_change_pp DOUBLE`
+Returns: `dimension STRING, segment_value STRING, baseline_payments BIGINT, window_payments BIGINT, baseline_share DOUBLE, window_share DOUBLE, baseline_rate DOUBLE, window_rate DOUBLE, rate_effect_pp DOUBLE, mix_effect_pp DOUBLE, total_effect_pp DOUBLE, total_change_pp DOUBLE, pp_below_next DOUBLE`
 
 ### `fn_decline_shift(p_country STRING, p_start_local STRING, p_end_local STRING, p_card_type STRING DEFAULT NULL, p_baseline_days INT DEFAULT 14)`
 
@@ -519,9 +519,9 @@ Returns: `acquirer_id STRING, reason_code STRING, reason STRING, baseline_failur
 
 ### `fn_cascade_health(p_country STRING, p_start_local STRING, p_end_local STRING, p_card_type STRING DEFAULT NULL, p_baseline_days INT DEFAULT 14)`
 
-For failed first attempts: share retried on another acquirer (cascade), share recovered, how the normalization map classified each reason (soft/hard) and whether it allowed a retry (retryable), in baseline vs window. A code the map does not allow to retry is never cascaded. Domestic payments only.
+For failed first attempts: share retried on another acquirer (cascade), share recovered, how the normalization map classified each reason (soft/hard) and whether it allowed a retry (retryable), in baseline vs window. A code the map does not allow to retry is never cascaded. lost_recoveries is the number of recoveries the window missed at the baseline recovery rate of the same acquirer and code: it sizes what stopped retries cost, which is not the segment's whole drop. Domestic payments only.
 
-Returns: `acquirer_id STRING, reason_code STRING, baseline_failures BIGINT, baseline_cascade_rate DOUBLE, baseline_recovery_rate DOUBLE, baseline_mapped_as STRING, window_failures BIGINT, window_cascade_rate DOUBLE, window_recovery_rate DOUBLE, window_mapped_as STRING, window_mapping_versions STRING, baseline_retryable STRING, window_retryable STRING`
+Returns: `acquirer_id STRING, reason_code STRING, baseline_failures BIGINT, baseline_cascade_rate DOUBLE, baseline_recovery_rate DOUBLE, baseline_mapped_as STRING, window_failures BIGINT, window_cascade_rate DOUBLE, window_recovery_rate DOUBLE, window_mapped_as STRING, window_mapping_versions STRING, baseline_retryable STRING, window_retryable STRING, lost_recoveries DOUBLE`
 
 ### `fn_changes_near(p_country STRING, p_start_local STRING, p_end_local STRING, p_hours_before INT DEFAULT 72, p_hours_after INT DEFAULT 72)`
 
@@ -531,6 +531,6 @@ Returns: `change_id STRING, changed_at_utc TIMESTAMP, changed_at_local TIMESTAMP
 
 ### `fn_drop_impact(p_country STRING, p_start_local STRING, p_end_local STRING, p_card_type STRING DEFAULT NULL, p_baseline_days INT DEFAULT 14)`
 
-Size of an approval drop versus the baseline rate: lost approvals, lost approved volume (USD) and fees paid in the window. Pass the window of the drop, from the change or hour it started to the change or hour it ended, not a calendar day: normal hours in the window understate the drop. Domestic payments only.
+Size of an approval drop versus the baseline rate: lost approvals, lost approved volume (USD) and fees paid in the window. Pass the window of the drop, from the change or hour it started to the change or hour it ended, not a calendar day: normal hours in the window understate the drop. lost_approvals and lost_approved_usd are expected minus actual at the baseline rates: positive means the window approved less than its baseline predicts, negative means it approved more. The two can differ in sign, because one counts payments and the other weighs them by amount. Domestic payments only.
 
 Returns: `window_payments BIGINT, baseline_payments BIGINT, baseline_first_attempt_rate DOUBLE, window_first_attempt_rate DOUBLE, baseline_final_rate DOUBLE, window_final_rate DOUBLE, final_rate_change_pp DOUBLE, window_approvals BIGINT, expected_approvals_at_baseline DOUBLE, lost_approvals DOUBLE, window_attempted_usd DOUBLE, window_approved_usd DOUBLE, lost_approved_usd DOUBLE, window_fees_usd DOUBLE`

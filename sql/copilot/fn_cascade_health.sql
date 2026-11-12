@@ -1,5 +1,6 @@
 -- Did failed first attempts get retried on another acquirer, and did the retries work?
 -- Shows how the normalization map classified each reason in each period, and whether it allowed a retry.
+-- lost_recoveries: recoveries the window missed at the baseline recovery rate of the same acquirer and code.
 WITH scope AS (
   SELECT *
   FROM {schema}silver_payments
@@ -7,7 +8,7 @@ WITH scope AS (
     AND NOT is_cross_border
     AND NOT first_attempt_approved
     AND country = ${p_country}
-    AND (${p_card_type} IS NULL OR card_type = ${p_card_type})
+    AND (${p_card_type} IS NULL OR upper(trim(${p_card_type})) IN ('NULL', '') OR card_type = ${p_card_type})
 ),
 win AS (
   SELECT * FROM scope
@@ -49,6 +50,8 @@ SELECT
   w.mapped_as AS window_mapped_as,
   w.mapping_versions AS window_mapping_versions,
   b.retryable AS baseline_retryable,
-  w.retryable AS window_retryable
+  w.retryable AS window_retryable,
+  CASE WHEN b.failures > 0
+       THEN round(coalesce(w.failures, 0) * b.recovered / b.failures - coalesce(w.recovered, 0), 1) END AS lost_recoveries
 FROM cw w
 FULL OUTER JOIN cb b ON w.acquirer_id = b.acquirer_id AND w.reason_code = b.reason_code

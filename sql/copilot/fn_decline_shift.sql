@@ -8,7 +8,7 @@ WITH scope AS (
   WHERE sent_to_acquirer
     AND NOT is_cross_border
     AND country = ${p_country}
-    AND (${p_card_type} IS NULL OR card_type = ${p_card_type})
+    AND (${p_card_type} IS NULL OR upper(trim(${p_card_type})) IN ('NULL', '') OR card_type = ${p_card_type})
 ),
 win AS (
   SELECT * FROM scope

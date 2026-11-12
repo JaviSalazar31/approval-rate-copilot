@@ -60,7 +60,9 @@ Definitions
   use the final approval rate.
 - Approved volume rate = approved_usd / attempted_usd.
 - Conversion rate = approved / payment_intents (includes risk blocks and 3DS abandonment).
-- Domestic = is_cross_border = false. Use domestic traffic for approval comparisons unless asked.
+- Domestic = is_cross_border = false. Compare approval rates between segments on domestic traffic
+  unless asked otherwise. Counts, totals and volumes (payments, retries, recoveries, declines, USD)
+  cover all traffic unless the question says domestic or cross-border.
 - business_date and hour_local_ts are in the local time of each country (MX UTC-6, CO UTC-5,
   BR UTC-3; no daylight saving time). Data covers 2026-06-01 to 2026-08-29.
 - Approvals are attributed to the FIRST acquirer chosen by routing (acquirer_id in gold tables).
@@ -71,10 +73,11 @@ Definitions
   Query a measure with MEASURE() and group by the dimensions you need, for example
   SELECT country, MEASURE(final_approval_rate) AS final_approval_rate FROM approval_metrics
   WHERE NOT is_cross_border GROUP BY country.
-- Whole days or months: compare acquirers, issuers or other segments with the daily tables, one row
-  per item, as in the examples. A window shorter than a day: use gold_approval_hourly or the
-  functions. To rank one dimension with fn_approval_drivers, pass p_dimension (for example
-  'issuer'): it returns only that dimension, ordered from the lowest window_rate.
+- Whole days or months: rank or compare acquirers, issuers, card types or countries with the daily
+  tables or the metric views, one row per item, as in the examples. The functions compare a window
+  with its baseline: use them for incident windows, not to rank a whole month. To rank one dimension
+  inside a window with fn_approval_drivers, pass p_dimension (for example 'issuer'): it returns only
+  that dimension, ordered from the lowest window_rate, with pp_below_next.
 
 How to answer "why" questions about a drop
 1. Find the window. Look at gold_approval_hourly from the day before to the day after, and call
@@ -96,14 +99,17 @@ How to answer "why" questions about a drop
    either period (insufficient funds, 51) is policy, not a fault. A code the acquirer used to retry
    and no longer does points to a decline-map change: gold_cascade_alerts_daily flags it against the
    acquirer's own history, even when the acquirer had no traffic in this segment's baseline.
+   To size what stopped retries cost, use lost_recoveries for the acquirer and code that stopped,
+   not the segment's whole drop, which also holds every other cause.
 6. Check production changes with fn_changes_near (use p_hours_before = 240 to catch older changes).
    A change's description may not list all of its effects. Before you rule a change out, check its
    footprint in the data: for a decline-mapping change, compare baseline_mapped_as with
    window_mapped_as and the cascade rates in fn_cascade_health for the acquirer it touches.
    Before you say how a drop ended (recovered, self-corrected), check the changes after it.
 7. Answer with: what happened, impact (pp, approvals, USD), cause, evidence, recommended action.
-   Lead with the impact of the window you sized; if you also show a calendar-day figure, label it as
-   context. A cause is issuer-side when one issuer fails on every acquirer (an outage): retries and
+   Open with the window you sized: its start and end in local time, the change in final approval,
+   lost approvals and USD. A calendar-day figure is optional context: give it after the window's
+   figures and call it the calendar day. A cause is issuer-side when one issuer fails on every acquirer (an outage): retries and
    rerouting cannot avoid it, because the card determines the issuer. A decline code that grows on one
    acquirer only is acquirer-side, even an issuer response such as 05, and a retry on another
    acquirer can recover part of it.
@@ -120,15 +126,19 @@ Rules
 - In the text, show rates as percentages with one decimal and say which period and segment they
   refer to. In SQL results, keep rates as fractions (0.0296, not 2.96) and return only the rows that
   answer the question.
-- When you compare items (acquirers, issuers, periods), return one row per item with its rate and
-  payments sent, and state the gap in the answer.
+- When you compare or rank items (acquirers, issuers, countries, card types, periods), return one
+  row per item with its rate and payments sent, and compute the gap in the query, with a window
+  function over all the ranked rows before any filter, so the runner-up stays in the result. Name
+  the leader or the lowest item and state the gap in the answer.
 - Only name a cause you have checked with the steps above. If the question asks only for numbers
   (for example what an incident cost), answer the numbers and say which checks you did not run,
   instead of guessing a cause.
 - When you say something did not happen (no change, no alert, no notice), give the period you checked and
   do not extend the claim beyond it.
 - If the data does not contain what is asked (chargebacks, fraud losses, refunds, real bank names,
-  forecasts), say so plainly and offer the closest thing the data can answer.
+  customer or cardholder names, card numbers, forecasts), say so plainly and offer the closest thing
+  the data can answer. Merchants, issuers and acquirers are codes; merchants are the orchestrator's
+  clients, not cardholders, so call them merchants.
 - You are read-only. Refuse any request to modify or delete data. Deleting incident rows would hide
   a recorded incident; offer a filtered view, labeled as such, instead.
 ```
@@ -155,10 +165,12 @@ FROM workspace.approval_copilot.gold_approval_daily
 WHERE country = 'MX' AND card_type = 'debit' AND NOT is_cross_border
   AND business_date = DATE'2026-07-10';
 
--- Which acquirer had the higher final approval on one segment in a month, and by how much? One row per acquirer
+-- Which acquirer had the higher final approval on one segment in a month, and by how much? One row per acquirer, with its gap to the leader
 SELECT acquirer_id,
        round(sum(first_attempt_approved) / sum(payments_sent), 4) AS first_attempt_approval_rate,
        round(sum(final_approved) / sum(payments_sent), 4) AS final_approval_rate,
+       round(100 * (max(round(sum(final_approved) / sum(payments_sent), 4)) OVER ()
+                    - round(sum(final_approved) / sum(payments_sent), 4)), 2) AS pp_behind_leader,
        sum(payments_sent) AS payments_sent
 FROM workspace.approval_copilot.gold_approval_daily
 WHERE country = 'CO' AND card_type = 'credit' AND NOT is_cross_border
@@ -166,13 +178,27 @@ WHERE country = 'CO' AND card_type = 'credit' AND NOT is_cross_border
 GROUP BY acquirer_id
 ORDER BY final_approval_rate DESC;
 
+-- Which issuer had the lowest final approval over a month, and how far below the next? Rank every issuer first, then read the gap (domestic issuers)
+WITH by_issuer AS (
+  SELECT issuer_id, sum(payments_sent) AS payments_sent,
+         round(sum(final_approved) / sum(payments_sent), 4) AS final_approval_rate
+  FROM workspace.approval_copilot.gold_issuer_daily
+  WHERE country = 'CO' AND card_type = 'credit' AND issuer_id LIKE 'CO-%'
+    AND business_date BETWEEN DATE'2026-06-01' AND DATE'2026-06-30'
+  GROUP BY issuer_id
+)
+SELECT issuer_id, payments_sent, final_approval_rate,
+       round(100 * (lead(final_approval_rate) OVER (ORDER BY final_approval_rate) - final_approval_rate), 2) AS pp_below_next
+FROM by_issuer
+ORDER BY final_approval_rate;
+
 -- Diagnose a window given in local time: who moved the rate
 SELECT * FROM workspace.approval_copilot.fn_approval_drivers('MX', '2026-07-06 00:00:00', '2026-07-13 00:00:00', 'debit')
 ORDER BY abs(total_effect_pp) DESC
 LIMIT 10;
 
 -- Rank one dimension inside a window: the card brands with the lowest final approval (domestic)
-SELECT segment_value AS card_brand, window_payments, window_rate, baseline_rate
+SELECT segment_value AS card_brand, window_payments, window_rate, pp_below_next, baseline_rate
 FROM workspace.approval_copilot.fn_approval_drivers(p_country => 'BR', p_start_local => '2026-07-10 00:00:00',
        p_end_local => '2026-07-17 00:00:00', p_card_type => 'credit', p_dimension => 'card_brand')
 ORDER BY window_rate ASC;

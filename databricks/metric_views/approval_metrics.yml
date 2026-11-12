@@ -13,16 +13,16 @@ dimensions:
     comment: First day of the local calendar month
   - name: country
     expr: country
-    comment: MX, CO or BR
+    comment: "Country code: 'MX', 'CO' or 'BR'"
   - name: card_type
     expr: card_type
-    comment: credit or debit
+    comment: "'credit' or 'debit'"
   - name: first_acquirer
     expr: acquirer_id
-    comment: First acquirer chosen by routing (A, B or C); results are attributed to it
+    comment: "First acquirer chosen by routing: 'A', 'B' or 'C'. Results are attributed to it"
   - name: is_cross_border
     expr: is_cross_border
-    comment: True when the card was issued abroad. Domestic traffic is the default for comparisons
+    comment: "Boolean: true when the card was issued abroad, false for domestic payments. Compare approval rates between segments on domestic traffic unless asked; counts and volumes cover both unless the question says domestic or cross-border"
 measures:
   - name: payments_sent
     expr: SUM(payments_sent)

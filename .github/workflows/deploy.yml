@@ -1,7 +1,8 @@
 # Databricks Asset Bundle (databricks.yml): the pipeline, the three jobs and the dashboard. A push to main that
 # touches them validates the bundle against the workspace; a deploy runs by hand (Run workflow), so nothing reaches
 # the workspace by accident. The Genie agent changes only when a deploy asks for it (update_agent), because a change
-# to what the agent sees needs a new evaluation first (docs/decisions.md, ADR-16).
+# to what the agent sees needs a new evaluation first (docs/decisions.md, ADR-16). The daily job (run_daily_job)
+# recreates the copilot functions, column descriptions and metric views from the deployed files.
 # Needs two repository secrets: DATABRICKS_HOST (the workspace URL) and DATABRICKS_TOKEN (a personal access token).
 name: Deploy to Databricks
 
@@ -16,6 +17,10 @@ on:
     inputs:
       bind_existing:
         description: Bind the existing pipeline, jobs and dashboard to the bundle before deploying (once)
+        type: boolean
+        default: false
+      run_daily_job:
+        description: Run the daily job after the deploy, so the copilot functions, column descriptions and metric views match the repository
         type: boolean
         default: false
       update_agent:
@@ -77,6 +82,10 @@ jobs:
       - name: Deploy
         if: steps.configured.outputs.ok == 'true' && github.event_name == 'workflow_dispatch'
         run: databricks bundle deploy -t prod
+
+      - name: Run the daily job
+        if: steps.configured.outputs.ok == 'true' && github.event_name == 'workflow_dispatch' && inputs.run_daily_job
+        run: databricks bundle run approval_copilot_daily -t prod
 
       - name: Update the Genie agent
         if: steps.configured.outputs.ok == 'true' && github.event_name == 'workflow_dispatch' && inputs.update_agent

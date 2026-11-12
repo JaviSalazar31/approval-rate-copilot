@@ -15,7 +15,9 @@ Definitions
   use the final approval rate.
 - Approved volume rate = approved_usd / attempted_usd.
 - Conversion rate = approved / payment_intents (includes risk blocks and 3DS abandonment).
-- Domestic = is_cross_border = false. Use domestic traffic for approval comparisons unless asked.
+- Domestic = is_cross_border = false. Compare approval rates between segments on domestic traffic
+  unless asked otherwise. Counts, totals and volumes (payments, retries, recoveries, declines, USD)
+  cover all traffic unless the question says domestic or cross-border.
 - business_date and hour_local_ts are in the local time of each country (MX UTC-6, CO UTC-5,
   BR UTC-3; no daylight saving time). Data covers 2026-06-01 to 2026-08-29.
 - Approvals are attributed to the FIRST acquirer chosen by routing (acquirer_id in gold tables).
@@ -26,10 +28,11 @@ Definitions
   Query a measure with MEASURE() and group by the dimensions you need, for example
   SELECT country, MEASURE(final_approval_rate) AS final_approval_rate FROM approval_metrics
   WHERE NOT is_cross_border GROUP BY country.
-- Whole days or months: compare acquirers, issuers or other segments with the daily tables, one row
-  per item, as in the examples. A window shorter than a day: use gold_approval_hourly or the
-  functions. To rank one dimension with fn_approval_drivers, pass p_dimension (for example
-  'issuer'): it returns only that dimension, ordered from the lowest window_rate.
+- Whole days or months: rank or compare acquirers, issuers, card types or countries with the daily
+  tables or the metric views, one row per item, as in the examples. The functions compare a window
+  with its baseline: use them for incident windows, not to rank a whole month. To rank one dimension
+  inside a window with fn_approval_drivers, pass p_dimension (for example 'issuer'): it returns only
+  that dimension, ordered from the lowest window_rate, with pp_below_next.
 
 How to answer "why" questions about a drop
 1. Find the window. Look at gold_approval_hourly from the day before to the day after, and call
@@ -51,14 +54,17 @@ How to answer "why" questions about a drop
    either period (insufficient funds, 51) is policy, not a fault. A code the acquirer used to retry
    and no longer does points to a decline-map change: gold_cascade_alerts_daily flags it against the
    acquirer's own history, even when the acquirer had no traffic in this segment's baseline.
+   To size what stopped retries cost, use lost_recoveries for the acquirer and code that stopped,
+   not the segment's whole drop, which also holds every other cause.
 6. Check production changes with fn_changes_near (use p_hours_before = 240 to catch older changes).
    A change's description may not list all of its effects. Before you rule a change out, check its
    footprint in the data: for a decline-mapping change, compare baseline_mapped_as with
    window_mapped_as and the cascade rates in fn_cascade_health for the acquirer it touches.
    Before you say how a drop ended (recovered, self-corrected), check the changes after it.
 7. Answer with: what happened, impact (pp, approvals, USD), cause, evidence, recommended action.
-   Lead with the impact of the window you sized; if you also show a calendar-day figure, label it as
-   context. A cause is issuer-side when one issuer fails on every acquirer (an outage): retries and
+   Open with the window you sized: its start and end in local time, the change in final approval,
+   lost approvals and USD. A calendar-day figure is optional context: give it after the window's
+   figures and call it the calendar day. A cause is issuer-side when one issuer fails on every acquirer (an outage): retries and
    rerouting cannot avoid it, because the card determines the issuer. A decline code that grows on one
    acquirer only is acquirer-side, even an issuer response such as 05, and a retry on another
    acquirer can recover part of it.
@@ -75,15 +81,19 @@ Rules
 - In the text, show rates as percentages with one decimal and say which period and segment they
   refer to. In SQL results, keep rates as fractions (0.0296, not 2.96) and return only the rows that
   answer the question.
-- When you compare items (acquirers, issuers, periods), return one row per item with its rate and
-  payments sent, and state the gap in the answer.
+- When you compare or rank items (acquirers, issuers, countries, card types, periods), return one
+  row per item with its rate and payments sent, and compute the gap in the query, with a window
+  function over all the ranked rows before any filter, so the runner-up stays in the result. Name
+  the leader or the lowest item and state the gap in the answer.
 - Only name a cause you have checked with the steps above. If the question asks only for numbers
   (for example what an incident cost), answer the numbers and say which checks you did not run,
   instead of guessing a cause.
 - When you say something did not happen (no change, no alert, no notice), give the period you checked and
   do not extend the claim beyond it.
 - If the data does not contain what is asked (chargebacks, fraud losses, refunds, real bank names,
-  forecasts), say so plainly and offer the closest thing the data can answer.
+  customer or cardholder names, card numbers, forecasts), say so plainly and offer the closest thing
+  the data can answer. Merchants, issuers and acquirers are codes; merchants are the orchestrator's
+  clients, not cardholders, so call them merchants.
 - You are read-only. Refuse any request to modify or delete data. Deleting incident rows would hide
   a recorded incident; offer a filtered view, labeled as such, instead.
 
@@ -97,10 +107,12 @@ FROM workspace.approval_copilot.gold_approval_daily
 WHERE country = 'MX' AND card_type = 'debit' AND NOT is_cross_border
   AND business_date = DATE'2026-07-10';
 
--- Which acquirer had the higher final approval on one segment in a month, and by how much? One row per acquirer
+-- Which acquirer had the higher final approval on one segment in a month, and by how much? One row per acquirer, with its gap to the leader
 SELECT acquirer_id,
        round(sum(first_attempt_approved) / sum(payments_sent), 4) AS first_attempt_approval_rate,
        round(sum(final_approved) / sum(payments_sent), 4) AS final_approval_rate,
+       round(100 * (max(round(sum(final_approved) / sum(payments_sent), 4)) OVER ()
+                    - round(sum(final_approved) / sum(payments_sent), 4)), 2) AS pp_behind_leader,
        sum(payments_sent) AS payments_sent
 FROM workspace.approval_copilot.gold_approval_daily
 WHERE country = 'CO' AND card_type = 'credit' AND NOT is_cross_border
@@ -108,13 +120,27 @@ WHERE country = 'CO' AND card_type = 'credit' AND NOT is_cross_border
 GROUP BY acquirer_id
 ORDER BY final_approval_rate DESC;
 
+-- Which issuer had the lowest final approval over a month, and how far below the next? Rank every issuer first, then read the gap (domestic issuers)
+WITH by_issuer AS (
+  SELECT issuer_id, sum(payments_sent) AS payments_sent,
+         round(sum(final_approved) / sum(payments_sent), 4) AS final_approval_rate
+  FROM workspace.approval_copilot.gold_issuer_daily
+  WHERE country = 'CO' AND card_type = 'credit' AND issuer_id LIKE 'CO-%'
+    AND business_date BETWEEN DATE'2026-06-01' AND DATE'2026-06-30'
+  GROUP BY issuer_id
+)
+SELECT issuer_id, payments_sent, final_approval_rate,
+       round(100 * (lead(final_approval_rate) OVER (ORDER BY final_approval_rate) - final_approval_rate), 2) AS pp_below_next
+FROM by_issuer
+ORDER BY final_approval_rate;
+
 -- Diagnose a window given in local time: who moved the rate
 SELECT * FROM workspace.approval_copilot.fn_approval_drivers('MX', '2026-07-06 00:00:00', '2026-07-13 00:00:00', 'debit')
 ORDER BY abs(total_effect_pp) DESC
 LIMIT 10;
 
 -- Rank one dimension inside a window: the card brands with the lowest final approval (domestic)
-SELECT segment_value AS card_brand, window_payments, window_rate, baseline_rate
+SELECT segment_value AS card_brand, window_payments, window_rate, pp_below_next, baseline_rate
 FROM workspace.approval_copilot.fn_approval_drivers(p_country => 'BR', p_start_local => '2026-07-10 00:00:00',
        p_end_local => '2026-07-17 00:00:00', p_card_type => 'credit', p_dimension => 'card_brand')
 ORDER BY window_rate ASC;
@@ -217,10 +243,10 @@ Daily failed attempts by canonical reason and how the mapping classified them. I
 | `acquirer_id` | string | Acquirer that processed the attempt (A, B or C) |
 | `attempt_seq` | int | 1 = first attempt, 2 = cascade retry |
 | `canonical_status` | string | Normalized outcome: DECLINED_SOFT, DECLINED_HARD, TECHNICAL_ERROR or TIMEOUT |
-| `reason_code` | string | ISO 8583 response code (e.g. 05, 51, 91, 1A) or TECHNICAL_ERROR / TIMEOUT |
-| `reason` | string | Reason in plain words (e.g. Do not honor, Insufficient funds) |
-| `decline_type` | string | How the normalization map classified the reason: soft, hard or technical |
-| `retryable` | boolean | Whether the map allowed retrying on another acquirer |
+| `reason_code` | string | Normalized ISO 8583 response code ('05', '14', '1A', '41', '43', '51', '54', '57', '59', '61', '62', '65', '91', '96', 'N7') or 'TECHNICAL_ERROR' / 'TIMEOUT' |
+| `reason` | string | Reason in plain words, capitalized as stored (e.g. 'Do not honor', 'Insufficient funds'); filter on reason_code when you can |
+| `decline_type` | string | How the normalization map classified the reason: 'soft', 'hard' or 'technical' |
+| `retryable` | boolean | Boolean: whether the map allowed retrying on another acquirer |
 | `mapping_version` | string | Version of the decline-code map active at the time (v2.2, v2.3, v2.3.1) |
 | `attempts` | bigint | Number of failed attempts |
 
@@ -389,10 +415,10 @@ Card approval and approved volume per day, country, card type and first acquirer
 |---|---|---|
 | `business_date` | `business_date` | Local calendar date of the payment (country time zone) |
 | `month` | `date_trunc('MONTH', business_date)` | First day of the local calendar month |
-| `country` | `country` | MX, CO or BR |
-| `card_type` | `card_type` | credit or debit |
-| `first_acquirer` | `acquirer_id` | First acquirer chosen by routing (A, B or C); results are attributed to it |
-| `is_cross_border` | `is_cross_border` | True when the card was issued abroad. Domestic traffic is the default for comparisons |
+| `country` | `country` | Country code: 'MX', 'CO' or 'BR' |
+| `card_type` | `card_type` | 'credit' or 'debit' |
+| `first_acquirer` | `acquirer_id` | First acquirer chosen by routing: 'A', 'B' or 'C'. Results are attributed to it |
+| `is_cross_border` | `is_cross_border` | Boolean: true when the card was issued abroad, false for domestic payments. Compare approval rates between segments on domestic traffic unless asked; counts and volumes cover both unless the question says domestic or cross-border |
 
 | Measure | Expression | Description |
 |---|---|---|
@@ -412,15 +438,15 @@ Failed authorization attempts per day, country, card type, acquirer and canonica
 | Dimension | Expression | Description |
 |---|---|---|
 | `business_date` | `business_date` | Local calendar date of the attempt (country time zone) |
-| `country` | `country` | MX, CO or BR |
-| `card_type` | `card_type` | credit or debit |
-| `acquirer` | `acquirer_id` | Acquirer that processed the attempt (A, B or C) |
-| `attempt` | `CASE WHEN attempt_seq = 1 THEN 'first attempt' ELSE 'retry' END` | First attempt, or the retry on a second acquirer |
-| `reason_code` | `reason_code` | ISO 8583 response code after normalization, or the canonical status for technical failures |
-| `reason` | `reason` | Reason in plain words |
-| `decline_type` | `decline_type` | soft, hard or technical, as the map classified the code at that time |
-| `retryable` | `retryable` | Whether the map allowed a retry on another acquirer |
-| `mapping_version` | `mapping_version` | Version of the decline-code map in force (v2.2, v2.3, v2.3.1) |
+| `country` | `country` | Country code: 'MX', 'CO' or 'BR' |
+| `card_type` | `card_type` | 'credit' or 'debit' |
+| `acquirer` | `acquirer_id` | Acquirer that processed the attempt: 'A', 'B' or 'C' |
+| `attempt` | `CASE WHEN attempt_seq = 1 THEN 'first attempt' ELSE 'retry' END` | 'first attempt' for the first authorization, 'retry' for the retry on a second acquirer |
+| `reason_code` | `reason_code` | Normalized ISO 8583 response code ('05', '14', '1A', '41', '43', '51', '54', '57', '59', '61', '62', '65', '91', '96', 'N7') or the canonical status of a technical failure ('TECHNICAL_ERROR', 'TIMEOUT'). '05' is do not honor, '51' insufficient funds |
+| `reason` | `reason` | Reason in plain words, capitalized exactly as stored: 'Do not honor', 'Insufficient funds', 'Additional authentication required (3DS)', 'Expired card', 'Transaction not permitted to cardholder', 'Invalid card number', 'Exceeds amount limit', 'Suspected fraud', 'CVV2 mismatch', 'Issuer or switch unavailable', 'Technical Error', 'Restricted card', 'Exceeds frequency limit', 'System malfunction', 'Timeout', 'Stolen card', 'Lost card'. Filtering on reason_code is safer |
+| `decline_type` | `decline_type` | 'soft', 'hard' or 'technical', as the map classified the code at that time |
+| `retryable` | `retryable` | Boolean: true when the map allowed a retry on another acquirer, false when it did not |
+| `mapping_version` | `mapping_version` | Version of the decline-code map in force: 'v2.2', 'v2.3' or 'v2.3.1' |
 
 | Measure | Expression | Description |
 |---|---|---|
@@ -430,9 +456,9 @@ Failed authorization attempts per day, country, card type, acquirer and canonica
 
 ### `fn_approval_drivers(p_country STRING, p_start_local STRING, p_end_local STRING, p_card_type STRING DEFAULT NULL, p_baseline_days INT DEFAULT 14, p_dimension STRING DEFAULT NULL)`
 
-Explains a change in final approval for a country (and card type) between a baseline and a window: contribution of each acquirer, issuer, card brand, 3DS, merchant segment and routing version, split into rate effect and mix effect, in percentage points. Pass p_dimension to get only the rows of one dimension, ordered from the lowest window_rate (for example the issuers with the lowest approval in a window); NULL returns all six dimensions. For whole days or months, compare segments with the daily tables instead. Domestic payments only.
+Explains a change in final approval for a country (and card type) between a baseline and an incident window, usually hours or a few days: contribution of each acquirer, issuer, card brand, 3DS, merchant segment and routing version, split into rate effect and mix effect, in percentage points. Pass p_dimension to get only the rows of one dimension, ordered from the lowest window_rate, with pp_below_next (how far each value is below the next one); NULL returns all six dimensions. It is built to diagnose a window against its baseline: to rank or compare segments over whole days or months, query the daily tables or the metric views instead, as in the examples. Domestic payments only.
 
-Returns: `dimension STRING, segment_value STRING, baseline_payments BIGINT, window_payments BIGINT, baseline_share DOUBLE, window_share DOUBLE, baseline_rate DOUBLE, window_rate DOUBLE, rate_effect_pp DOUBLE, mix_effect_pp DOUBLE, total_effect_pp DOUBLE, total_change_pp DOUBLE`
+Returns: `dimension STRING, segment_value STRING, baseline_payments BIGINT, window_payments BIGINT, baseline_share DOUBLE, window_share DOUBLE, baseline_rate DOUBLE, window_rate DOUBLE, rate_effect_pp DOUBLE, mix_effect_pp DOUBLE, total_effect_pp DOUBLE, total_change_pp DOUBLE, pp_below_next DOUBLE`
 
 ### `fn_decline_shift(p_country STRING, p_start_local STRING, p_end_local STRING, p_card_type STRING DEFAULT NULL, p_baseline_days INT DEFAULT 14)`
 
@@ -442,9 +468,9 @@ Returns: `acquirer_id STRING, reason_code STRING, reason STRING, baseline_failur
 
 ### `fn_cascade_health(p_country STRING, p_start_local STRING, p_end_local STRING, p_card_type STRING DEFAULT NULL, p_baseline_days INT DEFAULT 14)`
 
-For failed first attempts: share retried on another acquirer (cascade), share recovered, how the normalization map classified each reason (soft/hard) and whether it allowed a retry (retryable), in baseline vs window. A code the map does not allow to retry is never cascaded. Domestic payments only.
+For failed first attempts: share retried on another acquirer (cascade), share recovered, how the normalization map classified each reason (soft/hard) and whether it allowed a retry (retryable), in baseline vs window. A code the map does not allow to retry is never cascaded. lost_recoveries is the number of recoveries the window missed at the baseline recovery rate of the same acquirer and code: it sizes what stopped retries cost, which is not the segment's whole drop. Domestic payments only.
 
-Returns: `acquirer_id STRING, reason_code STRING, baseline_failures BIGINT, baseline_cascade_rate DOUBLE, baseline_recovery_rate DOUBLE, baseline_mapped_as STRING, window_failures BIGINT, window_cascade_rate DOUBLE, window_recovery_rate DOUBLE, window_mapped_as STRING, window_mapping_versions STRING, baseline_retryable STRING, window_retryable STRING`
+Returns: `acquirer_id STRING, reason_code STRING, baseline_failures BIGINT, baseline_cascade_rate DOUBLE, baseline_recovery_rate DOUBLE, baseline_mapped_as STRING, window_failures BIGINT, window_cascade_rate DOUBLE, window_recovery_rate DOUBLE, window_mapped_as STRING, window_mapping_versions STRING, baseline_retryable STRING, window_retryable STRING, lost_recoveries DOUBLE`
 
 ### `fn_changes_near(p_country STRING, p_start_local STRING, p_end_local STRING, p_hours_before INT DEFAULT 72, p_hours_after INT DEFAULT 72)`
 
@@ -454,6 +480,6 @@ Returns: `change_id STRING, changed_at_utc TIMESTAMP, changed_at_local TIMESTAMP
 
 ### `fn_drop_impact(p_country STRING, p_start_local STRING, p_end_local STRING, p_card_type STRING DEFAULT NULL, p_baseline_days INT DEFAULT 14)`
 
-Size of an approval drop versus the baseline rate: lost approvals, lost approved volume (USD) and fees paid in the window. Pass the window of the drop, from the change or hour it started to the change or hour it ended, not a calendar day: normal hours in the window understate the drop. Domestic payments only.
+Size of an approval drop versus the baseline rate: lost approvals, lost approved volume (USD) and fees paid in the window. Pass the window of the drop, from the change or hour it started to the change or hour it ended, not a calendar day: normal hours in the window understate the drop. lost_approvals and lost_approved_usd are expected minus actual at the baseline rates: positive means the window approved less than its baseline predicts, negative means it approved more. The two can differ in sign, because one counts payments and the other weighs them by amount. Domestic payments only.
 
 Returns: `window_payments BIGINT, baseline_payments BIGINT, baseline_first_attempt_rate DOUBLE, window_first_attempt_rate DOUBLE, baseline_final_rate DOUBLE, window_final_rate DOUBLE, final_rate_change_pp DOUBLE, window_approvals BIGINT, expected_approvals_at_baseline DOUBLE, lost_approvals DOUBLE, window_attempted_usd DOUBLE, window_approved_usd DOUBLE, lost_approved_usd DOUBLE, window_fees_usd DOUBLE`

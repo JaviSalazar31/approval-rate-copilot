@@ -21,8 +21,8 @@ CREATE OR REPLACE FUNCTION fn_approval_drivers(
   p_baseline_days INT DEFAULT 14 COMMENT 'Days before the window used as baseline',
   p_dimension STRING DEFAULT NULL COMMENT 'acquirer, issuer, card_brand, three_ds_authenticated, merchant_segment or routing_rule_version; NULL for all six'
 )
-RETURNS TABLE (dimension STRING, segment_value STRING, baseline_payments BIGINT, window_payments BIGINT, baseline_share DOUBLE, window_share DOUBLE, baseline_rate DOUBLE, window_rate DOUBLE, rate_effect_pp DOUBLE, mix_effect_pp DOUBLE, total_effect_pp DOUBLE, total_change_pp DOUBLE)
-COMMENT 'Explains a change in final approval for a country (and card type) between a baseline and a window: contribution of each acquirer, issuer, card brand, 3DS, merchant segment and routing version, split into rate effect and mix effect, in percentage points. Pass p_dimension to get only the rows of one dimension, ordered from the lowest window_rate (for example the issuers with the lowest approval in a window); NULL returns all six dimensions. For whole days or months, compare segments with the daily tables instead. Domestic payments only.'
+RETURNS TABLE (dimension STRING, segment_value STRING, baseline_payments BIGINT, window_payments BIGINT, baseline_share DOUBLE, window_share DOUBLE, baseline_rate DOUBLE, window_rate DOUBLE, rate_effect_pp DOUBLE, mix_effect_pp DOUBLE, total_effect_pp DOUBLE, total_change_pp DOUBLE, pp_below_next DOUBLE)
+COMMENT 'Explains a change in final approval for a country (and card type) between a baseline and an incident window, usually hours or a few days: contribution of each acquirer, issuer, card brand, 3DS, merchant segment and routing version, split into rate effect and mix effect, in percentage points. Pass p_dimension to get only the rows of one dimension, ordered from the lowest window_rate, with pp_below_next (how far each value is below the next one); NULL returns all six dimensions. It is built to diagnose a window against its baseline: to rank or compare segments over whole days or months, query the daily tables or the metric views instead, as in the examples. Domestic payments only.'
 RETURN
 -- Explains a change in final approval between a baseline period and a window.
 -- For each dimension value, splits its contribution into:
@@ -30,13 +30,14 @@ RETURN
 --   mix_effect_pp:  traffic moved into/out of a segment that was better/worse than average
 -- rate_effect_pp + mix_effect_pp across the values of one dimension = total_change_pp.
 -- p_dimension keeps one dimension (NULL keeps all six); rows come ordered from the lowest window rate.
+-- pp_below_next: how far each value's window rate sits below the next higher value of the same dimension.
 WITH scope AS (
   SELECT *
   FROM workspace.approval_copilot.silver_payments
   WHERE sent_to_acquirer
     AND NOT is_cross_border
     AND country = p_country
-    AND (p_card_type IS NULL OR card_type = p_card_type)
+    AND (p_card_type IS NULL OR upper(trim(p_card_type)) IN ('NULL', '') OR card_type = p_card_type)
 ),
 win AS (
   SELECT * FROM scope
@@ -99,12 +100,16 @@ SELECT
   round(100 * ((coalesce(w.n, 0) / nullif(t.n_win, 0)) * (coalesce(w.rate, 0) - coalesce(b.rate, t.rate_base))
              + (coalesce(w.n, 0) / nullif(t.n_win, 0) - coalesce(b.n, 0) / nullif(t.n_base, 0))
                * (coalesce(b.rate, t.rate_base) - t.rate_base)), 2) AS total_effect_pp,
-  round(100 * (t.rate_win - t.rate_base), 2) AS total_change_pp
+  round(100 * (t.rate_win - t.rate_base), 2) AS total_change_pp,
+  round(100 * (lead(round(w.rate, 4)) OVER (PARTITION BY coalesce(w.dimension, b.dimension)
+                                              ORDER BY w.rate ASC NULLS LAST, coalesce(w.segment_value, b.segment_value))
+               - round(w.rate, 4)), 2) AS pp_below_next
 FROM agg_win w
 FULL OUTER JOIN agg_base b
   ON w.dimension = b.dimension AND w.segment_value = b.segment_value
 CROSS JOIN totals t
-WHERE p_dimension IS NULL OR coalesce(w.dimension, b.dimension) = p_dimension
+WHERE p_dimension IS NULL OR upper(trim(p_dimension)) IN ('NULL', '')
+   OR coalesce(w.dimension, b.dimension) = p_dimension
 ORDER BY dimension, window_rate ASC NULLS LAST, segment_value;
 
 -- COMMAND ----------
@@ -129,7 +134,7 @@ WITH scope AS (
   WHERE sent_to_acquirer
     AND NOT is_cross_border
     AND country = p_country
-    AND (p_card_type IS NULL OR card_type = p_card_type)
+    AND (p_card_type IS NULL OR upper(trim(p_card_type)) IN ('NULL', '') OR card_type = p_card_type)
 ),
 win AS (
   SELECT * FROM scope
@@ -184,11 +189,12 @@ CREATE OR REPLACE FUNCTION fn_cascade_health(
   p_card_type STRING DEFAULT NULL COMMENT 'credit, debit, or NULL for both',
   p_baseline_days INT DEFAULT 14 COMMENT 'Days before the window used as baseline'
 )
-RETURNS TABLE (acquirer_id STRING, reason_code STRING, baseline_failures BIGINT, baseline_cascade_rate DOUBLE, baseline_recovery_rate DOUBLE, baseline_mapped_as STRING, window_failures BIGINT, window_cascade_rate DOUBLE, window_recovery_rate DOUBLE, window_mapped_as STRING, window_mapping_versions STRING, baseline_retryable STRING, window_retryable STRING)
-COMMENT 'For failed first attempts: share retried on another acquirer (cascade), share recovered, how the normalization map classified each reason (soft/hard) and whether it allowed a retry (retryable), in baseline vs window. A code the map does not allow to retry is never cascaded. Domestic payments only.'
+RETURNS TABLE (acquirer_id STRING, reason_code STRING, baseline_failures BIGINT, baseline_cascade_rate DOUBLE, baseline_recovery_rate DOUBLE, baseline_mapped_as STRING, window_failures BIGINT, window_cascade_rate DOUBLE, window_recovery_rate DOUBLE, window_mapped_as STRING, window_mapping_versions STRING, baseline_retryable STRING, window_retryable STRING, lost_recoveries DOUBLE)
+COMMENT 'For failed first attempts: share retried on another acquirer (cascade), share recovered, how the normalization map classified each reason (soft/hard) and whether it allowed a retry (retryable), in baseline vs window. A code the map does not allow to retry is never cascaded. lost_recoveries is the number of recoveries the window missed at the baseline recovery rate of the same acquirer and code: it sizes what stopped retries cost, which is not the segment\'s whole drop. Domestic payments only.'
 RETURN
 -- Did failed first attempts get retried on another acquirer, and did the retries work?
 -- Shows how the normalization map classified each reason in each period, and whether it allowed a retry.
+-- lost_recoveries: recoveries the window missed at the baseline recovery rate of the same acquirer and code.
 WITH scope AS (
   SELECT *
   FROM workspace.approval_copilot.silver_payments
@@ -196,7 +202,7 @@ WITH scope AS (
     AND NOT is_cross_border
     AND NOT first_attempt_approved
     AND country = p_country
-    AND (p_card_type IS NULL OR card_type = p_card_type)
+    AND (p_card_type IS NULL OR upper(trim(p_card_type)) IN ('NULL', '') OR card_type = p_card_type)
 ),
 win AS (
   SELECT * FROM scope
@@ -238,7 +244,9 @@ SELECT
   w.mapped_as AS window_mapped_as,
   w.mapping_versions AS window_mapping_versions,
   b.retryable AS baseline_retryable,
-  w.retryable AS window_retryable
+  w.retryable AS window_retryable,
+  CASE WHEN b.failures > 0
+       THEN round(coalesce(w.failures, 0) * b.recovered / b.failures - coalesce(w.recovered, 0), 1) END AS lost_recoveries
 FROM cw w
 FULL OUTER JOIN cb b ON w.acquirer_id = b.acquirer_id AND w.reason_code = b.reason_code;
 
@@ -294,7 +302,7 @@ CREATE OR REPLACE FUNCTION fn_drop_impact(
   p_baseline_days INT DEFAULT 14 COMMENT 'Days before the window used as baseline'
 )
 RETURNS TABLE (window_payments BIGINT, baseline_payments BIGINT, baseline_first_attempt_rate DOUBLE, window_first_attempt_rate DOUBLE, baseline_final_rate DOUBLE, window_final_rate DOUBLE, final_rate_change_pp DOUBLE, window_approvals BIGINT, expected_approvals_at_baseline DOUBLE, lost_approvals DOUBLE, window_attempted_usd DOUBLE, window_approved_usd DOUBLE, lost_approved_usd DOUBLE, window_fees_usd DOUBLE)
-COMMENT 'Size of an approval drop versus the baseline rate: lost approvals, lost approved volume (USD) and fees paid in the window. Pass the window of the drop, from the change or hour it started to the change or hour it ended, not a calendar day: normal hours in the window understate the drop. Domestic payments only.'
+COMMENT 'Size of an approval drop versus the baseline rate: lost approvals, lost approved volume (USD) and fees paid in the window. Pass the window of the drop, from the change or hour it started to the change or hour it ended, not a calendar day: normal hours in the window understate the drop. lost_approvals and lost_approved_usd are expected minus actual at the baseline rates: positive means the window approved less than its baseline predicts, negative means it approved more. The two can differ in sign, because one counts payments and the other weighs them by amount. Domestic payments only.'
 RETURN
 -- Size of a drop: approvals and approved volume lost versus the baseline rate,
 -- and acquirer fees paid in the window.
@@ -304,7 +312,7 @@ WITH scope AS (
   WHERE sent_to_acquirer
     AND NOT is_cross_border
     AND country = p_country
-    AND (p_card_type IS NULL OR card_type = p_card_type)
+    AND (p_card_type IS NULL OR upper(trim(p_card_type)) IN ('NULL', '') OR card_type = p_card_type)
 ),
 win AS (
   SELECT * FROM scope
