@@ -110,7 +110,7 @@ analysts need no grant on the reference tables the functions read.
 ## 8. Run the benchmarks
 
 The evaluation job `approval_copilot_eval` (notebook 11) asks the questions and logs each answer to MLflow
-(section 11). Run it with `question_set` set to `benchmark` or one of `heldout_2` to `heldout_5` and a
+(section 11). Run it with `question_set` set to `benchmark` or one of `heldout_2` to `heldout_6` and a
 `run_name`; the answers land in `/Volumes/workspace/approval_copilot/landing/evals/runs/<run_name>.json`. From the
 repository, run **Actions > Evaluate the Genie agent** with the same inputs: it waits for the job, keeps the
 answers file as a workflow artifact and prints it to the log, compressed, between a `BEGIN` and an `END` line;
