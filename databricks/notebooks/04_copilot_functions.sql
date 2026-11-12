@@ -15,16 +15,18 @@ USE SCHEMA approval_copilot;
 
 CREATE OR REPLACE FUNCTION fn_approval_drivers(
   p_country STRING COMMENT 'Country code: MX, CO or BR',
-  p_start_local STRING COMMENT 'Window start, local time of the country, as \'YYYY-MM-DD HH:MM:SS\'',
-  p_end_local STRING COMMENT 'Window end (exclusive), local time, as \'YYYY-MM-DD HH:MM:SS\'',
+  p_start_local STRING DEFAULT NULL COMMENT 'Window start, local time of the country, as \'YYYY-MM-DD HH:MM:SS\'; leave it out when you pass p_incident_date',
+  p_end_local STRING DEFAULT NULL COMMENT 'Window end (exclusive), local time, as \'YYYY-MM-DD HH:MM:SS\'',
   p_card_type STRING DEFAULT NULL COMMENT 'credit, debit, or NULL for both',
   p_baseline_days INT DEFAULT 14 COMMENT 'Days before the window used as baseline',
   p_dimension STRING DEFAULT NULL COMMENT 'acquirer, issuer, card_brand, three_ds_authenticated, merchant_segment or routing_rule_version; NULL for all six',
   p_rate STRING DEFAULT 'final' COMMENT 'final (approved on the first attempt or on a retry) or first_attempt (approved on the first attempt)',
-  p_rank STRING DEFAULT NULL COMMENT 'lowest or highest: keep the three values at that end of each dimension, in ranking order; NULL keeps every row'
+  p_rank STRING DEFAULT NULL COMMENT 'lowest or highest: keep the three values at that end of each dimension, in ranking order; NULL keeps every row',
+  p_incident_date STRING DEFAULT NULL COMMENT 'Date of the change that started an incident, as \'YYYY-MM-DD\': with no start or end, the window is read from the change log, as in fn_drop_impact',
+  p_segment_values STRING DEFAULT NULL COMMENT 'Values to keep, comma-separated, as they appear in segment_value: \'A,B\' for Acquirers A and B; NULL keeps every value'
 )
-RETURNS TABLE (dimension STRING, segment_value STRING, baseline_payments BIGINT, window_payments BIGINT, baseline_share DOUBLE, window_share DOUBLE, baseline_rate DOUBLE, window_rate DOUBLE, rate_effect_pp DOUBLE, mix_effect_pp DOUBLE, total_effect_pp DOUBLE, pp_below_next DOUBLE, rate_type STRING, gap_to_next_pp DOUBLE)
-COMMENT 'Explains a change in approval for a country (and card type) between a baseline and an incident window, usually hours or a few days: contribution of each acquirer, issuer, card brand, 3DS, merchant segment and routing version, split into rate effect and mix effect, in percentage points. The rate is final approval (first attempt or retry) unless p_rate is \'first_attempt\'; rate_type says which one window_rate and baseline_rate show. Pass p_dimension to get only the rows of one dimension, ordered from the lowest window_rate, with pp_below_next (how far each value is below the next one); NULL returns all six dimensions. To name the lowest or the highest value of a dimension, pass p_rank => \'lowest\' or \'highest\': only the three values at that end remain, in ranking order, and gap_to_next_pp is how far each one sits from the next. Each row is one segment: its own contribution is total_effect_pp, and the window\'s whole change in final approval is final_rate_change_pp in fn_drop_impact. A segment with no baseline traffic is valued at the whole baseline rate, so traffic that moved onto it shows in its rate_effect_pp while its mix_effect_pp stays near zero: compare baseline_share and window_share to see whether traffic moved. It is built to diagnose a window against its baseline: to rank or compare segments over whole days or months, the daily tables and the metric views hold the same rates, as in the examples. Domestic payments only.'
+RETURNS TABLE (dimension STRING, segment_value STRING, baseline_payments BIGINT, window_payments BIGINT, baseline_share DOUBLE, window_share DOUBLE, baseline_rate DOUBLE, window_rate DOUBLE, rate_effect_pp DOUBLE, mix_effect_pp DOUBLE, total_effect_pp DOUBLE, pp_below_next DOUBLE, rate_type STRING, gap_to_next_pp DOUBLE, window_start_local STRING, window_end_local STRING)
+COMMENT 'Explains a change in approval for a country (and card type) between a baseline and an incident window, usually hours or a few days: contribution of each acquirer, issuer, card brand, 3DS, merchant segment and routing version, split into rate effect and mix effect, in percentage points. The rate is final approval (first attempt or retry) unless p_rate is \'first_attempt\'; rate_type says which one window_rate and baseline_rate show. Pass p_dimension to get only the rows of one dimension, ordered from the lowest window_rate, with pp_below_next (how far each value is below the next one); NULL returns all six dimensions. To name the lowest or the highest value of a dimension, pass p_rank => \'lowest\' or \'highest\': only the three values at that end remain, in ranking order, and gap_to_next_pp is how far each one sits from the next. Each row is one segment: its own contribution is total_effect_pp, and the window\'s whole change in final approval is final_rate_change_pp in fn_drop_impact. A segment with no baseline traffic is valued at the whole baseline rate, so traffic that moved onto it shows in its rate_effect_pp while its mix_effect_pp stays near zero: compare baseline_share and window_share to see whether traffic moved. To compare named values, pass them in p_segment_values, comma-separated (\'A,B\' for Acquirers A and B): only they remain, and the gaps are computed among them. For an incident named by its date, pass p_incident_date and no start or end: the window is the one fn_drop_impact sizes, and window_start_local and window_end_local say which window the rows cover. It is built to diagnose a window against its baseline: to rank or compare segments over whole days or months, the daily tables and the metric views hold the same rates, as in the examples. Domestic payments only.'
 RETURN
 -- Explains a change in approval between a baseline period and a window.
 -- For each dimension value, splits its contribution into:
@@ -37,26 +39,88 @@ RETURN
 -- p_rate picks the rate: 'final' (the default: approved on the first attempt or on a retry) or 'first_attempt';
 -- rate_type says which one the rows show. p_rank ('lowest' or 'highest') keeps the three values at that end of
 -- each dimension, in ranking order, and gap_to_next_pp is how far each one sits from the next in that order.
+-- p_segment_values keeps only the values it names (for example 'A,B' for two acquirers), and the gaps and ranks are
+-- computed among them. Text arguments are read without quotes or case ('''final''' is final, 'NULL' is none).
+-- The window is the one given, or the one p_incident_date reads from the change log (_incident_window.sql);
+-- window_start_local and window_end_local say which.
 -- A segment with no baseline traffic is valued at the whole baseline rate, so traffic that moved onto it shows
 -- in its rate effect: baseline_share and window_share show the move.
-WITH scope AS (
-  SELECT *,
-         CAST(CASE WHEN lower(trim(coalesce(p_rate, 'final'))) IN ('first_attempt', 'first attempt', 'first-attempt')
-                   THEN first_attempt_approved ELSE final_approved END AS INT) AS ok
-  FROM workspace.approval_copilot.silver_payments
+WITH
+-- Shared window of the copilot functions, inserted where a function body says {incident_window}.
+-- A start and end, when passed, are the window. With p_incident_date and no start, the window runs from the
+-- first production change of that date in the country (gold_change_log, local time; rollbacks and partner
+-- notices do not start one) to the next change in the country, usually a rollback, a fix or a tuning, or 24
+-- hours if none follows. With no change that date, it is the calendar day.
+chg AS (
+  SELECT change_id, change_type,
+         CASE p_country WHEN 'MX' THEN changed_at_mexico_city
+                           WHEN 'CO' THEN changed_at_bogota
+                           WHEN 'BR' THEN changed_at_sao_paulo END AS at_local
+  FROM workspace.approval_copilot.gold_change_log
+  WHERE scope = 'ALL' OR array_contains(split(scope, ','), p_country)
+),
+day AS (
+  SELECT try_cast(p_incident_date AS DATE) AS d
+),
+started AS (
+  SELECT c.change_id, c.at_local
+  FROM chg c CROSS JOIN day
+  WHERE c.change_type NOT IN ('rollback', 'external_notice') AND to_date(c.at_local) = day.d
+  ORDER BY c.at_local, c.change_id
+  LIMIT 1
+),
+ended AS (
+  SELECT c.change_id, c.at_local
+  FROM chg c CROSS JOIN started s
+  WHERE c.at_local > s.at_local
+  ORDER BY c.at_local, c.change_id
+  LIMIT 1
+),
+bounds AS (
+  SELECT
+    CASE WHEN try_cast(p_start_local AS TIMESTAMP) IS NOT NULL THEN try_cast(p_start_local AS TIMESTAMP)
+         WHEN s.at_local IS NOT NULL THEN s.at_local
+         ELSE CAST(day.d AS TIMESTAMP) END AS ws,
+    CASE WHEN try_cast(p_start_local AS TIMESTAMP) IS NOT NULL THEN try_cast(p_end_local AS TIMESTAMP)
+         WHEN s.at_local IS NOT NULL THEN coalesce(e.at_local, s.at_local + INTERVAL 24 HOURS)
+         ELSE CAST(date_add(day.d, 1) AS TIMESTAMP) END AS we,
+    CASE WHEN try_cast(p_start_local AS TIMESTAMP) IS NULL AND s.at_local IS NULL AND day.d IS NOT NULL
+         THEN 'calendar day: no change in the country that date' END AS fallback
+  FROM day
+  LEFT JOIN started s ON true
+  LEFT JOIN ended e ON true
+),
+prm AS (
+  SELECT lower(trim(translate(coalesce(p_rate, ''), concat(char(39), char(34)), ''))) AS rate,
+         lower(trim(translate(coalesce(p_rank, ''), concat(char(39), char(34)), ''))) AS rnk,
+         lower(trim(translate(coalesce(p_dimension, ''), concat(char(39), char(34)), ''))) AS dim,
+         lower(trim(translate(coalesce(p_segment_values, ''), concat(char(39), char(34)), ''))) AS segs
+),
+arg AS (
+  SELECT rate IN ('first_attempt', 'first attempt', 'first-attempt') AS first_attempt,
+         rnk,
+         CASE WHEN dim IN ('', 'null') THEN NULL ELSE dim END AS dim,
+         CASE WHEN segs IN ('', 'null') THEN NULL
+              ELSE transform(split(segs, ','), x -> regexp_replace(trim(x), '^acquirer[ _]+', '')) END AS seg_list
+  FROM prm
+),
+scope AS (
+  SELECT p.*,
+         CAST(CASE WHEN arg.first_attempt THEN p.first_attempt_approved ELSE p.final_approved END AS INT) AS ok
+  FROM workspace.approval_copilot.silver_payments p CROSS JOIN arg
   WHERE sent_to_acquirer
     AND NOT is_cross_border
     AND country = p_country
     AND (p_card_type IS NULL OR upper(trim(p_card_type)) IN ('NULL', '') OR card_type = p_card_type)
 ),
 win AS (
-  SELECT * FROM scope
-  WHERE created_ts_local >= CAST(p_start_local AS TIMESTAMP) AND created_ts_local < CAST(p_end_local AS TIMESTAMP)
+  SELECT s.* FROM scope s CROSS JOIN bounds
+  WHERE s.created_ts_local >= bounds.ws AND s.created_ts_local < bounds.we
 ),
 base AS (
-  SELECT * FROM scope
-  WHERE created_ts_local >= timestampadd(DAY, -p_baseline_days, CAST(p_start_local AS TIMESTAMP))
-    AND created_ts_local < CAST(p_start_local AS TIMESTAMP)
+  SELECT s.* FROM scope s CROSS JOIN bounds
+  WHERE s.created_ts_local >= timestampadd(DAY, -p_baseline_days, bounds.ws)
+    AND s.created_ts_local < bounds.ws
 ),
 long_win AS (
   SELECT
@@ -125,40 +189,89 @@ FROM agg_win w
 FULL OUTER JOIN agg_base b
   ON w.dimension = b.dimension AND w.segment_value = b.segment_value
 CROSS JOIN totals t
-WHERE p_dimension IS NULL OR upper(trim(p_dimension)) IN ('NULL', '')
-   OR coalesce(w.dimension, b.dimension) = p_dimension
+CROSS JOIN arg
+WHERE (arg.dim IS NULL OR coalesce(w.dimension, b.dimension) = arg.dim)
+  AND (arg.seg_list IS NULL OR array_contains(arg.seg_list, lower(coalesce(w.segment_value, b.segment_value))))
 )
 SELECT
   dimension, segment_value, baseline_payments, window_payments, baseline_share, window_share, baseline_rate,
   window_rate, rate_effect_pp, mix_effect_pp, total_effect_pp, pp_below_next,
-  CASE WHEN lower(trim(coalesce(p_rate, 'final'))) IN ('first_attempt', 'first attempt', 'first-attempt')
-       THEN 'first_attempt' ELSE 'final' END AS rate_type,
-  CASE WHEN lower(trim(coalesce(p_rank, ''))) = 'highest' THEN pp_above_next_lower ELSE pp_below_next END
-    AS gap_to_next_pp
-FROM seg
+  CASE WHEN arg.first_attempt THEN 'first_attempt' ELSE 'final' END AS rate_type,
+  CASE WHEN arg.rnk = 'highest' THEN pp_above_next_lower ELSE pp_below_next END AS gap_to_next_pp,
+  date_format(bounds.ws, 'yyyy-MM-dd HH:mm:ss') AS window_start_local,
+  date_format(bounds.we, 'yyyy-MM-dd HH:mm:ss') AS window_end_local
+FROM seg CROSS JOIN arg CROSS JOIN bounds
 -- p_rank keeps the three values at one end of each dimension; any other value keeps every row
-WHERE lower(trim(coalesce(p_rank, ''))) NOT IN ('lowest', 'highest')
-   OR (lower(trim(p_rank)) = 'lowest' AND rank_lowest <= 3)
-   OR (lower(trim(p_rank)) = 'highest' AND rank_highest <= 3)
-ORDER BY dimension, CASE WHEN lower(trim(coalesce(p_rank, ''))) = 'highest' THEN rank_highest ELSE rank_lowest END;
+WHERE arg.rnk NOT IN ('lowest', 'highest')
+   OR (arg.rnk = 'lowest' AND rank_lowest <= 3)
+   OR (arg.rnk = 'highest' AND rank_highest <= 3)
+ORDER BY dimension, CASE WHEN arg.rnk = 'highest' THEN rank_highest ELSE rank_lowest END;
 
 -- COMMAND ----------
 
 CREATE OR REPLACE FUNCTION fn_decline_shift(
   p_country STRING COMMENT 'Country code: MX, CO or BR',
-  p_start_local STRING COMMENT 'Window start, local time, as \'YYYY-MM-DD HH:MM:SS\'',
-  p_end_local STRING COMMENT 'Window end (exclusive), local time, as \'YYYY-MM-DD HH:MM:SS\'',
+  p_start_local STRING DEFAULT NULL COMMENT 'Window start, local time, as \'YYYY-MM-DD HH:MM:SS\'; leave it out when you pass p_incident_date',
+  p_end_local STRING DEFAULT NULL COMMENT 'Window end (exclusive), local time, as \'YYYY-MM-DD HH:MM:SS\'',
   p_card_type STRING DEFAULT NULL COMMENT 'credit, debit, or NULL for both',
-  p_baseline_days INT DEFAULT 14 COMMENT 'Days before the window used as baseline'
+  p_baseline_days INT DEFAULT 14 COMMENT 'Days before the window used as baseline',
+  p_incident_date STRING DEFAULT NULL COMMENT 'Date of the change that started an incident, as \'YYYY-MM-DD\': with no start or end, the window is read from the change log, as in fn_drop_impact'
 )
-RETURNS TABLE (acquirer_id STRING, reason_code STRING, reason STRING, baseline_failures BIGINT, window_failures BIGINT, baseline_pct_of_payments DOUBLE, window_pct_of_payments DOUBLE, delta_pp DOUBLE, all_acquirers_baseline_pct DOUBLE, all_acquirers_window_pct DOUBLE, all_acquirers_delta_pp DOUBLE)
-COMMENT 'First-attempt failure reasons per acquirer as % of the segment\'s payments, baseline vs window, to see which decline codes grew during a drop. When traffic moved from one acquirer to another, the acquirer that carried none of the segment in the baseline shows its codes growing from zero: the all_acquirers columns give the same code summed over acquirers, which is how the code itself moved. Domestic payments only.'
+RETURNS TABLE (acquirer_id STRING, reason_code STRING, reason STRING, baseline_failures BIGINT, window_failures BIGINT, baseline_pct_of_payments DOUBLE, window_pct_of_payments DOUBLE, delta_pp DOUBLE, all_acquirers_baseline_pct DOUBLE, all_acquirers_window_pct DOUBLE, all_acquirers_delta_pp DOUBLE, window_start_local STRING, window_end_local STRING)
+COMMENT 'First-attempt failure reasons per acquirer as % of the segment\'s payments, baseline vs window, to see which decline codes grew during a drop. When traffic moved from one acquirer to another, the acquirer that carried none of the segment in the baseline shows its codes growing from zero: the all_acquirers columns give the same code summed over acquirers, which is how the code itself moved. The percentages are of all the segment\'s payments sent to an acquirer, approved or not. For an incident named by its date, pass p_incident_date and no start or end: the window is the one fn_drop_impact sizes. Domestic payments only.'
 RETURN
 -- Which first-attempt failure reasons grew or shrank, per acquirer, as % of payments.
 -- all_acquirers_*: the same code summed over acquirers. When traffic moved from one acquirer to another, the
 -- acquirer that carried none of the segment in the baseline shows its codes growing from zero; these columns
 -- show how the code itself moved.
-WITH scope AS (
+-- The window is the one given, or the one p_incident_date reads from the change log (_incident_window.sql);
+-- window_start_local and window_end_local say which.
+WITH
+-- Shared window of the copilot functions, inserted where a function body says {incident_window}.
+-- A start and end, when passed, are the window. With p_incident_date and no start, the window runs from the
+-- first production change of that date in the country (gold_change_log, local time; rollbacks and partner
+-- notices do not start one) to the next change in the country, usually a rollback, a fix or a tuning, or 24
+-- hours if none follows. With no change that date, it is the calendar day.
+chg AS (
+  SELECT change_id, change_type,
+         CASE p_country WHEN 'MX' THEN changed_at_mexico_city
+                           WHEN 'CO' THEN changed_at_bogota
+                           WHEN 'BR' THEN changed_at_sao_paulo END AS at_local
+  FROM workspace.approval_copilot.gold_change_log
+  WHERE scope = 'ALL' OR array_contains(split(scope, ','), p_country)
+),
+day AS (
+  SELECT try_cast(p_incident_date AS DATE) AS d
+),
+started AS (
+  SELECT c.change_id, c.at_local
+  FROM chg c CROSS JOIN day
+  WHERE c.change_type NOT IN ('rollback', 'external_notice') AND to_date(c.at_local) = day.d
+  ORDER BY c.at_local, c.change_id
+  LIMIT 1
+),
+ended AS (
+  SELECT c.change_id, c.at_local
+  FROM chg c CROSS JOIN started s
+  WHERE c.at_local > s.at_local
+  ORDER BY c.at_local, c.change_id
+  LIMIT 1
+),
+bounds AS (
+  SELECT
+    CASE WHEN try_cast(p_start_local AS TIMESTAMP) IS NOT NULL THEN try_cast(p_start_local AS TIMESTAMP)
+         WHEN s.at_local IS NOT NULL THEN s.at_local
+         ELSE CAST(day.d AS TIMESTAMP) END AS ws,
+    CASE WHEN try_cast(p_start_local AS TIMESTAMP) IS NOT NULL THEN try_cast(p_end_local AS TIMESTAMP)
+         WHEN s.at_local IS NOT NULL THEN coalesce(e.at_local, s.at_local + INTERVAL 24 HOURS)
+         ELSE CAST(date_add(day.d, 1) AS TIMESTAMP) END AS we,
+    CASE WHEN try_cast(p_start_local AS TIMESTAMP) IS NULL AND s.at_local IS NULL AND day.d IS NOT NULL
+         THEN 'calendar day: no change in the country that date' END AS fallback
+  FROM day
+  LEFT JOIN started s ON true
+  LEFT JOIN ended e ON true
+),
+scope AS (
   SELECT *
   FROM workspace.approval_copilot.silver_payments
   WHERE sent_to_acquirer
@@ -167,13 +280,13 @@ WITH scope AS (
     AND (p_card_type IS NULL OR upper(trim(p_card_type)) IN ('NULL', '') OR card_type = p_card_type)
 ),
 win AS (
-  SELECT * FROM scope
-  WHERE created_ts_local >= CAST(p_start_local AS TIMESTAMP) AND created_ts_local < CAST(p_end_local AS TIMESTAMP)
+  SELECT s.* FROM scope s CROSS JOIN bounds
+  WHERE s.created_ts_local >= bounds.ws AND s.created_ts_local < bounds.we
 ),
 base AS (
-  SELECT * FROM scope
-  WHERE created_ts_local >= timestampadd(DAY, -p_baseline_days, CAST(p_start_local AS TIMESTAMP))
-    AND created_ts_local < CAST(p_start_local AS TIMESTAMP)
+  SELECT s.* FROM scope s CROSS JOIN bounds
+  WHERE s.created_ts_local >= timestampadd(DAY, -p_baseline_days, bounds.ws)
+    AND s.created_ts_local < bounds.ws
 ),
 fw AS (
   SELECT first_acquirer_id AS acquirer_id, coalesce(first_iso_code, first_status) AS reason_code,
@@ -205,30 +318,81 @@ SELECT
             / nullif(t.n_win, 0), 2) AS all_acquirers_window_pct,
   round(100 * (sum(coalesce(w.n, 0)) OVER (PARTITION BY coalesce(w.reason_code, b.reason_code)) / nullif(t.n_win, 0)
              - sum(coalesce(b.n, 0)) OVER (PARTITION BY coalesce(w.reason_code, b.reason_code)) / nullif(t.n_base, 0)),
-        2) AS all_acquirers_delta_pp
+        2) AS all_acquirers_delta_pp,
+  date_format(bounds.ws, 'yyyy-MM-dd HH:mm:ss') AS window_start_local,
+  date_format(bounds.we, 'yyyy-MM-dd HH:mm:ss') AS window_end_local
 FROM fw w
 FULL OUTER JOIN fb b ON w.acquirer_id = b.acquirer_id AND w.reason_code = b.reason_code
-CROSS JOIN totals t;
+CROSS JOIN totals t
+CROSS JOIN bounds;
 
 -- COMMAND ----------
 
 CREATE OR REPLACE FUNCTION fn_cascade_health(
   p_country STRING COMMENT 'Country code: MX, CO or BR',
-  p_start_local STRING COMMENT 'Window start, local time, as \'YYYY-MM-DD HH:MM:SS\'',
-  p_end_local STRING COMMENT 'Window end (exclusive), local time, as \'YYYY-MM-DD HH:MM:SS\'',
+  p_start_local STRING DEFAULT NULL COMMENT 'Window start, local time, as \'YYYY-MM-DD HH:MM:SS\'; leave it out when you pass p_incident_date',
+  p_end_local STRING DEFAULT NULL COMMENT 'Window end (exclusive), local time, as \'YYYY-MM-DD HH:MM:SS\'',
   p_card_type STRING DEFAULT NULL COMMENT 'credit, debit, or NULL for both',
   p_baseline_days INT DEFAULT 14 COMMENT 'Days before the window used as baseline',
-  p_issuer STRING DEFAULT NULL COMMENT 'Issuer code such as \'BR-ISS-03\', or NULL for all issuers'
+  p_issuer STRING DEFAULT NULL COMMENT 'Issuer code such as \'BR-ISS-03\', or NULL for all issuers',
+  p_incident_date STRING DEFAULT NULL COMMENT 'Date of the change that started an incident, as \'YYYY-MM-DD\': with no start or end, the window is read from the change log, as in fn_drop_impact'
 )
-RETURNS TABLE (acquirer_id STRING, reason_code STRING, baseline_failures BIGINT, baseline_cascade_rate DOUBLE, baseline_recovery_rate DOUBLE, baseline_mapped_as STRING, window_failures BIGINT, window_cascade_rate DOUBLE, window_recovery_rate DOUBLE, window_mapped_as STRING, window_mapping_versions STRING, baseline_retryable STRING, window_retryable STRING, lost_recoveries DOUBLE, acquirer_history_mapping_versions STRING, acquirer_history_retryable STRING, map_stopped_retries BOOLEAN)
-COMMENT 'For failed first attempts: share retried on another acquirer (cascade), share recovered, how the normalization map classified each reason (soft/hard) and whether it allowed a retry (retryable), in baseline vs window. A code the map does not allow to retry is never cascaded. lost_recoveries is the number of recoveries the window missed at the baseline recovery rate of the same acquirer and code: it sizes what stopped retries cost, which is not the segment\'s whole drop. map_stopped_retries is true when the map allowed a retry for that acquirer and code in the acquirer\'s own history (all its traffic in the baseline period, acquirer_history_retryable) and no longer does in the window: a decline-map change stopped the retries, which is a cause to report, not a correct classification. Pass p_issuer to look at one issuer, for example during an issuer outage or maintenance. Domestic payments only.'
+RETURNS TABLE (acquirer_id STRING, reason_code STRING, baseline_failures BIGINT, baseline_cascade_rate DOUBLE, baseline_recovery_rate DOUBLE, baseline_mapped_as STRING, window_failures BIGINT, window_cascade_rate DOUBLE, window_recovery_rate DOUBLE, window_mapped_as STRING, window_mapping_versions STRING, baseline_retryable STRING, window_retryable STRING, lost_recoveries DOUBLE, acquirer_history_mapping_versions STRING, acquirer_history_retryable STRING, map_stopped_retries BOOLEAN, window_start_local STRING, window_end_local STRING)
+COMMENT 'For failed first attempts: share retried on another acquirer (cascade), share recovered, how the normalization map classified each reason (soft/hard) and whether it allowed a retry (retryable), in baseline vs window. A code the map does not allow to retry is never cascaded. lost_recoveries is the number of recoveries the window missed at the baseline recovery rate of the same acquirer and code: it sizes what stopped retries cost, which is not the segment\'s whole drop. map_stopped_retries is true when the map allowed a retry for that acquirer and code in the acquirer\'s own history (all its traffic in the baseline period, acquirer_history_retryable) and no longer does in the window: a decline-map change stopped the retries, which is a cause to report, not a correct classification. Pass p_issuer to look at one issuer, for example during an issuer outage or maintenance. For an incident named by its date, pass p_incident_date and no start or end: the window is the one fn_drop_impact sizes. Domestic payments only.'
 RETURN
 -- Did failed first attempts get retried on another acquirer, and did the retries work?
 -- Shows how the normalization map classified each reason in each period, and whether it allowed a retry.
 -- lost_recoveries: recoveries the window missed at the baseline recovery rate of the same acquirer and code.
 -- map_stopped_retries: the map allowed a retry for this acquirer and code in the acquirer's own history (all its
 -- traffic in the baseline period) and no longer does in the window, so a decline-map change stopped the retries.
-WITH scope AS (
+-- The window is the one given, or the one p_incident_date reads from the change log (_incident_window.sql);
+-- window_start_local and window_end_local say which.
+WITH
+-- Shared window of the copilot functions, inserted where a function body says {incident_window}.
+-- A start and end, when passed, are the window. With p_incident_date and no start, the window runs from the
+-- first production change of that date in the country (gold_change_log, local time; rollbacks and partner
+-- notices do not start one) to the next change in the country, usually a rollback, a fix or a tuning, or 24
+-- hours if none follows. With no change that date, it is the calendar day.
+chg AS (
+  SELECT change_id, change_type,
+         CASE p_country WHEN 'MX' THEN changed_at_mexico_city
+                           WHEN 'CO' THEN changed_at_bogota
+                           WHEN 'BR' THEN changed_at_sao_paulo END AS at_local
+  FROM workspace.approval_copilot.gold_change_log
+  WHERE scope = 'ALL' OR array_contains(split(scope, ','), p_country)
+),
+day AS (
+  SELECT try_cast(p_incident_date AS DATE) AS d
+),
+started AS (
+  SELECT c.change_id, c.at_local
+  FROM chg c CROSS JOIN day
+  WHERE c.change_type NOT IN ('rollback', 'external_notice') AND to_date(c.at_local) = day.d
+  ORDER BY c.at_local, c.change_id
+  LIMIT 1
+),
+ended AS (
+  SELECT c.change_id, c.at_local
+  FROM chg c CROSS JOIN started s
+  WHERE c.at_local > s.at_local
+  ORDER BY c.at_local, c.change_id
+  LIMIT 1
+),
+bounds AS (
+  SELECT
+    CASE WHEN try_cast(p_start_local AS TIMESTAMP) IS NOT NULL THEN try_cast(p_start_local AS TIMESTAMP)
+         WHEN s.at_local IS NOT NULL THEN s.at_local
+         ELSE CAST(day.d AS TIMESTAMP) END AS ws,
+    CASE WHEN try_cast(p_start_local AS TIMESTAMP) IS NOT NULL THEN try_cast(p_end_local AS TIMESTAMP)
+         WHEN s.at_local IS NOT NULL THEN coalesce(e.at_local, s.at_local + INTERVAL 24 HOURS)
+         ELSE CAST(date_add(day.d, 1) AS TIMESTAMP) END AS we,
+    CASE WHEN try_cast(p_start_local AS TIMESTAMP) IS NULL AND s.at_local IS NULL AND day.d IS NOT NULL
+         THEN 'calendar day: no change in the country that date' END AS fallback
+  FROM day
+  LEFT JOIN started s ON true
+  LEFT JOIN ended e ON true
+),
+scope AS (
   SELECT *
   FROM workspace.approval_copilot.silver_payments
   WHERE sent_to_acquirer
@@ -239,22 +403,22 @@ WITH scope AS (
     AND (p_issuer IS NULL OR upper(trim(p_issuer)) IN ('NULL', '') OR issuer_id = p_issuer)
 ),
 win AS (
-  SELECT * FROM scope
-  WHERE created_ts_local >= CAST(p_start_local AS TIMESTAMP) AND created_ts_local < CAST(p_end_local AS TIMESTAMP)
+  SELECT s.* FROM scope s CROSS JOIN bounds
+  WHERE s.created_ts_local >= bounds.ws AND s.created_ts_local < bounds.we
 ),
 base AS (
-  SELECT * FROM scope
-  WHERE created_ts_local >= timestampadd(DAY, -p_baseline_days, CAST(p_start_local AS TIMESTAMP))
-    AND created_ts_local < CAST(p_start_local AS TIMESTAMP)
+  SELECT s.* FROM scope s CROSS JOIN bounds
+  WHERE s.created_ts_local >= timestampadd(DAY, -p_baseline_days, bounds.ws)
+    AND s.created_ts_local < bounds.ws
 ),
 hist AS (
   SELECT first_acquirer_id AS acquirer_id, coalesce(first_iso_code, first_status) AS reason_code,
          concat_ws(',', sort_array(collect_set(first_mapping_version))) AS mapping_versions,
          concat_ws(',', sort_array(collect_set(CAST(first_retryable AS STRING)))) AS retryable
-  FROM workspace.approval_copilot.silver_payments
+  FROM workspace.approval_copilot.silver_payments CROSS JOIN bounds
   WHERE sent_to_acquirer AND NOT first_attempt_approved
-    AND created_ts_local >= timestampadd(DAY, -p_baseline_days, CAST(p_start_local AS TIMESTAMP))
-    AND created_ts_local < CAST(p_start_local AS TIMESTAMP)
+    AND created_ts_local >= timestampadd(DAY, -p_baseline_days, bounds.ws)
+    AND created_ts_local < bounds.ws
   GROUP BY first_acquirer_id, coalesce(first_iso_code, first_status)
 ),
 cw AS (
@@ -295,75 +459,39 @@ SELECT
   h.retryable AS acquirer_history_retryable,
   coalesce(w.failures, 0) > 0
     AND coalesce(array_contains(split(h.retryable, ','), 'true'), false)
-    AND NOT coalesce(array_contains(split(w.retryable, ','), 'true'), false) AS map_stopped_retries
+    AND NOT coalesce(array_contains(split(w.retryable, ','), 'true'), false) AS map_stopped_retries,
+  date_format(bounds.ws, 'yyyy-MM-dd HH:mm:ss') AS window_start_local,
+  date_format(bounds.we, 'yyyy-MM-dd HH:mm:ss') AS window_end_local
 FROM cw w
 FULL OUTER JOIN cb b ON w.acquirer_id = b.acquirer_id AND w.reason_code = b.reason_code
 LEFT JOIN hist h ON h.acquirer_id = coalesce(w.acquirer_id, b.acquirer_id)
-                AND h.reason_code = coalesce(w.reason_code, b.reason_code);
+                AND h.reason_code = coalesce(w.reason_code, b.reason_code)
+CROSS JOIN bounds;
 
 -- COMMAND ----------
 
 CREATE OR REPLACE FUNCTION fn_changes_near(
   p_country STRING COMMENT 'Country code: MX, CO or BR',
-  p_start_local STRING COMMENT 'Window start, local time, as \'YYYY-MM-DD HH:MM:SS\'',
-  p_end_local STRING COMMENT 'Window end (exclusive), local time, as \'YYYY-MM-DD HH:MM:SS\'',
+  p_start_local STRING DEFAULT NULL COMMENT 'Window start, local time, as \'YYYY-MM-DD HH:MM:SS\'; leave it out when you pass p_incident_date',
+  p_end_local STRING DEFAULT NULL COMMENT 'Window end (exclusive), local time, as \'YYYY-MM-DD HH:MM:SS\'',
   p_hours_before INT DEFAULT 72 COMMENT 'How many hours before the window to include',
-  p_hours_after INT DEFAULT 72 COMMENT 'How many hours after the window to include'
+  p_hours_after INT DEFAULT 72 COMMENT 'How many hours after the window to include',
+  p_incident_date STRING DEFAULT NULL COMMENT 'Date of the change that started an incident, as \'YYYY-MM-DD\': with no start or end, the window is read from the change log, as in fn_drop_impact'
 )
 RETURNS TABLE (change_id STRING, changed_at_utc TIMESTAMP, changed_at_local TIMESTAMP, change_type STRING, scope STRING, description STRING, hours_from_window_start DOUBLE, position STRING)
-COMMENT 'Production changes (routing, risk, mapping, releases, partner notices) that affect a country, from N hours before a window to M hours after it, with hours relative to the window start. The changes after the window show what ended a drop (a rollback, a fix, a tuning); position says whether each change came before, during or after the window.'
+COMMENT 'Production changes (routing, risk, mapping, releases, partner notices) that affect a country, from N hours before a window to M hours after it, with hours relative to the window start. The changes after the window show what ended a drop (a rollback, a fix, a tuning); position says whether each change came before, during or after the window. For an incident named by its date, pass p_incident_date and no start or end: the window is the one fn_drop_impact sizes.'
 RETURN
 -- Production changes that could explain a window: same country, an acquirer used in that country, or
 -- global changes, from N hours before the window until M hours after it. The hours after show what ended
 -- a drop (a rollback, a fix, a tuning); position says where each change falls.
-SELECT
-  c.change_id,
-  c.changed_at_utc,
-  from_utc_timestamp(c.changed_at_utc, tz.time_zone) AS changed_at_local,
-  c.change_type,
-  c.scope,
-  c.description,
-  round((unix_timestamp(from_utc_timestamp(c.changed_at_utc, tz.time_zone))
-         - unix_timestamp(CAST(p_start_local AS TIMESTAMP))) / 3600, 1) AS hours_from_window_start,
-  CASE WHEN from_utc_timestamp(c.changed_at_utc, tz.time_zone) < CAST(p_start_local AS TIMESTAMP) THEN 'before'
-       WHEN from_utc_timestamp(c.changed_at_utc, tz.time_zone) < CAST(p_end_local AS TIMESTAMP) THEN 'during'
-       ELSE 'after' END AS position
-FROM workspace.approval_copilot.ref_change_log c
-CROSS JOIN (SELECT time_zone FROM workspace.approval_copilot.ref_country_tz WHERE country = p_country) tz
--- Acquirers that serve the country. A join, not an IN subquery: Unity Catalog cannot resolve a function
--- parameter inside a subquery nested in a filter.
-LEFT JOIN (SELECT acquirer_id FROM workspace.approval_copilot.ref_acquirers
-           WHERE array_contains(split(countries, ','), p_country)) a
-  ON c.scope = a.acquirer_id
-WHERE (c.scope = 'ALL'
-       OR array_contains(split(c.scope, ','), p_country)
-       OR a.acquirer_id IS NOT NULL)
-  AND from_utc_timestamp(c.changed_at_utc, tz.time_zone)
-        >= timestampadd(HOUR, -p_hours_before, CAST(p_start_local AS TIMESTAMP))
-  AND from_utc_timestamp(c.changed_at_utc, tz.time_zone)
-        < timestampadd(HOUR, p_hours_after, CAST(p_end_local AS TIMESTAMP));
-
--- COMMAND ----------
-
-CREATE OR REPLACE FUNCTION fn_drop_impact(
-  p_country STRING COMMENT 'Country code: MX, CO or BR',
-  p_start_local STRING DEFAULT NULL COMMENT 'Window start, local time, as \'YYYY-MM-DD HH:MM:SS\'; leave it out when you pass p_incident_date',
-  p_end_local STRING DEFAULT NULL COMMENT 'Window end (exclusive), local time, as \'YYYY-MM-DD HH:MM:SS\'',
-  p_card_type STRING DEFAULT NULL COMMENT 'credit, debit, or NULL for both',
-  p_baseline_days INT DEFAULT 14 COMMENT 'Days before the window used as baseline',
-  p_incident_date STRING DEFAULT NULL COMMENT 'Date of the change that started an incident, as \'YYYY-MM-DD\': the window is read from the change log'
-)
-RETURNS TABLE (window_start_local STRING, window_end_local STRING, window_source STRING, window_payments BIGINT, baseline_payments BIGINT, baseline_first_attempt_rate DOUBLE, window_first_attempt_rate DOUBLE, baseline_final_rate DOUBLE, window_final_rate DOUBLE, final_rate_change_pp DOUBLE, window_approvals BIGINT, expected_approvals_at_baseline DOUBLE, lost_approvals DOUBLE, window_attempted_usd DOUBLE, window_approved_usd DOUBLE, lost_approved_usd DOUBLE, window_fees_usd DOUBLE, baseline_conversion_rate DOUBLE, window_conversion_rate DOUBLE, conversion_change_pp DOUBLE, baseline_risk_block_rate DOUBLE, window_risk_block_rate DOUBLE, baseline_3ds_abandon_rate DOUBLE, window_3ds_abandon_rate DOUBLE, window_intents BIGINT, lost_conversions DOUBLE, extra_risk_blocks DOUBLE, extra_3ds_abandons DOUBLE)
-COMMENT 'Size of an incident or a drop versus the baseline: lost approvals, lost approved volume (USD) and fees paid in the window, plus the payment funnel of the same segment (conversion, risk blocks and 3DS abandonment). For an incident named by its date, pass p_incident_date and leave the start and end out: the window then runs from the first production change of that date in the country to the next change there (a rollback, a fix or a tuning), and window_start_local, window_end_local and window_source say which window was sized. Otherwise pass the window of the drop, from the change or hour it started to the change or hour it ended, never a calendar day: normal hours in the window understate the drop. lost_approvals and lost_approved_usd are expected minus actual at the baseline rates: positive means the window approved less than its baseline predicts, negative means it approved more. The two can differ in sign, because one counts payments and the other weighs them by amount. final_rate_change_pp is the change in approval of the payments sent to an acquirer; conversion_change_pp is the change over all payment intents, so a conversion drop with a flat approval rate comes from risk blocks or 3DS abandonment, not from the acquirers. lost_approvals counts approvals lost among the payments sent to an acquirer; lost_conversions counts them over all payment intents, so it includes the intents that risk blocks or 3DS abandonment stopped before any acquirer, which extra_risk_blocks and extra_3ds_abandons count above the baseline rate. When conversion fell while approval held, size the cost with lost_conversions. Domestic payments only.'
-RETURN
--- Size of a drop: approvals and approved volume lost versus the baseline rate, acquirer fees paid in the window,
--- and the payment funnel of the same segment (risk blocks, 3DS abandonment, conversion).
--- lost_approvals counts the payments sent to an acquirer; lost_conversions counts all payment intents, so it also
--- holds the intents stopped before any acquirer, which extra_risk_blocks and extra_3ds_abandons count.
--- The window is the one given. With p_incident_date and no start or end, it runs from the first production change
--- of that date in the country (gold_change_log, local time) to the next change in the country, usually a rollback,
--- a fix or a tuning; with no change that date, it is the calendar day.
-WITH chg AS (
+-- The window is the one given, or the one p_incident_date reads from the change log (_incident_window.sql).
+WITH
+-- Shared window of the copilot functions, inserted where a function body says {incident_window}.
+-- A start and end, when passed, are the window. With p_incident_date and no start, the window runs from the
+-- first production change of that date in the country (gold_change_log, local time; rollbacks and partner
+-- notices do not start one) to the next change in the country, usually a rollback, a fix or a tuning, or 24
+-- hours if none follows. With no change that date, it is the calendar day.
+chg AS (
   SELECT change_id, change_type,
          CASE p_country WHEN 'MX' THEN changed_at_mexico_city
                            WHEN 'CO' THEN changed_at_bogota
@@ -390,13 +518,106 @@ ended AS (
 ),
 bounds AS (
   SELECT
-    CASE WHEN CAST(p_start_local AS TIMESTAMP) IS NOT NULL THEN CAST(p_start_local AS TIMESTAMP)
+    CASE WHEN try_cast(p_start_local AS TIMESTAMP) IS NOT NULL THEN try_cast(p_start_local AS TIMESTAMP)
          WHEN s.at_local IS NOT NULL THEN s.at_local
          ELSE CAST(day.d AS TIMESTAMP) END AS ws,
-    CASE WHEN CAST(p_start_local AS TIMESTAMP) IS NOT NULL THEN CAST(p_end_local AS TIMESTAMP)
+    CASE WHEN try_cast(p_start_local AS TIMESTAMP) IS NOT NULL THEN try_cast(p_end_local AS TIMESTAMP)
          WHEN s.at_local IS NOT NULL THEN coalesce(e.at_local, s.at_local + INTERVAL 24 HOURS)
          ELSE CAST(date_add(day.d, 1) AS TIMESTAMP) END AS we,
-    CASE WHEN CAST(p_start_local AS TIMESTAMP) IS NULL AND s.at_local IS NULL AND day.d IS NOT NULL
+    CASE WHEN try_cast(p_start_local AS TIMESTAMP) IS NULL AND s.at_local IS NULL AND day.d IS NOT NULL
+         THEN 'calendar day: no change in the country that date' END AS fallback
+  FROM day
+  LEFT JOIN started s ON true
+  LEFT JOIN ended e ON true
+)
+SELECT
+  c.change_id,
+  c.changed_at_utc,
+  from_utc_timestamp(c.changed_at_utc, tz.time_zone) AS changed_at_local,
+  c.change_type,
+  c.scope,
+  c.description,
+  round((unix_timestamp(from_utc_timestamp(c.changed_at_utc, tz.time_zone))
+         - unix_timestamp(bounds.ws)) / 3600, 1) AS hours_from_window_start,
+  CASE WHEN from_utc_timestamp(c.changed_at_utc, tz.time_zone) < bounds.ws THEN 'before'
+       WHEN from_utc_timestamp(c.changed_at_utc, tz.time_zone) < bounds.we THEN 'during'
+       ELSE 'after' END AS position
+FROM workspace.approval_copilot.ref_change_log c
+CROSS JOIN (SELECT time_zone FROM workspace.approval_copilot.ref_country_tz WHERE country = p_country) tz
+CROSS JOIN bounds
+-- Acquirers that serve the country. A join, not an IN subquery: Unity Catalog cannot resolve a function
+-- parameter inside a subquery nested in a filter.
+LEFT JOIN (SELECT acquirer_id FROM workspace.approval_copilot.ref_acquirers
+           WHERE array_contains(split(countries, ','), p_country)) a
+  ON c.scope = a.acquirer_id
+WHERE (c.scope = 'ALL'
+       OR array_contains(split(c.scope, ','), p_country)
+       OR a.acquirer_id IS NOT NULL)
+  AND from_utc_timestamp(c.changed_at_utc, tz.time_zone)
+        >= timestampadd(HOUR, -p_hours_before, bounds.ws)
+  AND from_utc_timestamp(c.changed_at_utc, tz.time_zone)
+        < timestampadd(HOUR, p_hours_after, bounds.we);
+
+-- COMMAND ----------
+
+CREATE OR REPLACE FUNCTION fn_drop_impact(
+  p_country STRING COMMENT 'Country code: MX, CO or BR',
+  p_start_local STRING DEFAULT NULL COMMENT 'Window start, local time, as \'YYYY-MM-DD HH:MM:SS\'; leave it out when you pass p_incident_date',
+  p_end_local STRING DEFAULT NULL COMMENT 'Window end (exclusive), local time, as \'YYYY-MM-DD HH:MM:SS\'',
+  p_card_type STRING DEFAULT NULL COMMENT 'credit, debit, or NULL for both',
+  p_baseline_days INT DEFAULT 14 COMMENT 'Days before the window used as baseline',
+  p_incident_date STRING DEFAULT NULL COMMENT 'Date of the change that started an incident, as \'YYYY-MM-DD\': the window is read from the change log'
+)
+RETURNS TABLE (window_start_local STRING, window_end_local STRING, window_source STRING, window_payments BIGINT, baseline_payments BIGINT, baseline_first_attempt_rate DOUBLE, window_first_attempt_rate DOUBLE, baseline_final_rate DOUBLE, window_final_rate DOUBLE, final_rate_change_pp DOUBLE, window_approvals BIGINT, expected_approvals_at_baseline DOUBLE, lost_approvals DOUBLE, gained_approvals DOUBLE, window_attempted_usd DOUBLE, window_approved_usd DOUBLE, lost_approved_usd DOUBLE, gained_approved_usd DOUBLE, window_fees_usd DOUBLE, baseline_conversion_rate DOUBLE, window_conversion_rate DOUBLE, conversion_change_pp DOUBLE, baseline_risk_block_rate DOUBLE, window_risk_block_rate DOUBLE, baseline_3ds_abandon_rate DOUBLE, window_3ds_abandon_rate DOUBLE, window_intents BIGINT, lost_conversions DOUBLE, gained_conversions DOUBLE, extra_risk_blocks DOUBLE, extra_3ds_abandons DOUBLE)
+COMMENT 'Size of an incident or a drop versus the baseline: lost approvals, lost approved volume (USD) and fees paid in the window, plus the payment funnel of the same segment (conversion, risk blocks and 3DS abandonment). For an incident named by its date, pass p_incident_date and leave the start and end out: the window then runs from the first production change of that date in the country to the next change there (a rollback, a fix or a tuning), and window_start_local, window_end_local and window_source say which window was sized. Otherwise pass the window of the drop, from the change or hour it started to the change or hour it ended, never a calendar day: normal hours in the window understate the drop. lost_approvals, lost_approved_usd and lost_conversions are what the window approved below its baseline rates, and gained_approvals, gained_approved_usd and gained_conversions what it approved above them; none is ever negative. The payments and the USD can go different ways, because the USD weighs payments by amount: a drop in approvals can come with gained_approved_usd. final_rate_change_pp is the change in approval of the payments sent to an acquirer; conversion_change_pp is the change over all payment intents, so a conversion drop with a flat approval rate comes from risk blocks or 3DS abandonment, not from the acquirers. lost_approvals counts approvals lost among the payments sent to an acquirer; lost_conversions counts them over all payment intents, so it includes the intents that risk blocks or 3DS abandonment stopped before any acquirer, which extra_risk_blocks and extra_3ds_abandons count above the baseline rate. When conversion fell while approval held, size the cost with lost_conversions. Domestic payments only.'
+RETURN
+-- Size of a drop: approvals and approved volume lost versus the baseline rate, acquirer fees paid in the window,
+-- and the payment funnel of the same segment (risk blocks, 3DS abandonment, conversion).
+-- lost_approvals counts the payments sent to an acquirer; lost_conversions counts all payment intents, so it also
+-- holds the intents stopped before any acquirer, which extra_risk_blocks and extra_3ds_abandons count.
+-- lost_* and gained_* are never negative: a window that approved less than its baseline predicts shows the
+-- shortfall in lost_*, one that approved more shows the excess in gained_*.
+-- The window is the one given, or the one p_incident_date reads from the change log (_incident_window.sql).
+WITH
+-- Shared window of the copilot functions, inserted where a function body says {incident_window}.
+-- A start and end, when passed, are the window. With p_incident_date and no start, the window runs from the
+-- first production change of that date in the country (gold_change_log, local time; rollbacks and partner
+-- notices do not start one) to the next change in the country, usually a rollback, a fix or a tuning, or 24
+-- hours if none follows. With no change that date, it is the calendar day.
+chg AS (
+  SELECT change_id, change_type,
+         CASE p_country WHEN 'MX' THEN changed_at_mexico_city
+                           WHEN 'CO' THEN changed_at_bogota
+                           WHEN 'BR' THEN changed_at_sao_paulo END AS at_local
+  FROM workspace.approval_copilot.gold_change_log
+  WHERE scope = 'ALL' OR array_contains(split(scope, ','), p_country)
+),
+day AS (
+  SELECT try_cast(p_incident_date AS DATE) AS d
+),
+started AS (
+  SELECT c.change_id, c.at_local
+  FROM chg c CROSS JOIN day
+  WHERE c.change_type NOT IN ('rollback', 'external_notice') AND to_date(c.at_local) = day.d
+  ORDER BY c.at_local, c.change_id
+  LIMIT 1
+),
+ended AS (
+  SELECT c.change_id, c.at_local
+  FROM chg c CROSS JOIN started s
+  WHERE c.at_local > s.at_local
+  ORDER BY c.at_local, c.change_id
+  LIMIT 1
+),
+bounds AS (
+  SELECT
+    CASE WHEN try_cast(p_start_local AS TIMESTAMP) IS NOT NULL THEN try_cast(p_start_local AS TIMESTAMP)
+         WHEN s.at_local IS NOT NULL THEN s.at_local
+         ELSE CAST(day.d AS TIMESTAMP) END AS ws,
+    CASE WHEN try_cast(p_start_local AS TIMESTAMP) IS NOT NULL THEN try_cast(p_end_local AS TIMESTAMP)
+         WHEN s.at_local IS NOT NULL THEN coalesce(e.at_local, s.at_local + INTERVAL 24 HOURS)
+         ELSE CAST(date_add(day.d, 1) AS TIMESTAMP) END AS we,
+    CASE WHEN try_cast(p_start_local AS TIMESTAMP) IS NULL AND s.at_local IS NULL AND day.d IS NOT NULL
          THEN 'calendar day: no change in the country that date' END AS fallback
   FROM day
   LEFT JOIN started s ON true
@@ -470,10 +691,12 @@ SELECT
   round(100 * (w.approved / nullif(w.payments, 0) - b.final_rate), 2) AS final_rate_change_pp,
   w.approved AS window_approvals,
   round(w.payments * b.final_rate) AS expected_approvals_at_baseline,
-  round(w.payments * b.final_rate) - w.approved AS lost_approvals,
+  greatest(round(w.payments * b.final_rate) - w.approved, 0) AS lost_approvals,
+  greatest(w.approved - round(w.payments * b.final_rate), 0) AS gained_approvals,
   round(w.attempted_usd, 2) AS window_attempted_usd,
   round(w.approved_usd, 2) AS window_approved_usd,
-  round(w.attempted_usd * b.volume_rate - w.approved_usd, 2) AS lost_approved_usd,
+  greatest(round(w.attempted_usd * b.volume_rate - w.approved_usd, 2), 0) AS lost_approved_usd,
+  greatest(round(w.approved_usd - w.attempted_usd * b.volume_rate, 2), 0) AS gained_approved_usd,
   round(w.fees_usd, 2) AS window_fees_usd,
   round(bf.approved / nullif(bf.intents, 0), 4) AS baseline_conversion_rate,
   round(wf.approved / nullif(wf.intents, 0), 4) AS window_conversion_rate,
@@ -483,7 +706,8 @@ SELECT
   round(bf.abandoned / nullif(bf.intents, 0), 4) AS baseline_3ds_abandon_rate,
   round(wf.abandoned / nullif(wf.intents, 0), 4) AS window_3ds_abandon_rate,
   wf.intents AS window_intents,
-  round(wf.intents * bf.approved / nullif(bf.intents, 0)) - wf.approved AS lost_conversions,
+  greatest(round(wf.intents * bf.approved / nullif(bf.intents, 0)) - wf.approved, 0) AS lost_conversions,
+  greatest(wf.approved - round(wf.intents * bf.approved / nullif(bf.intents, 0)), 0) AS gained_conversions,
   wf.blocked - round(wf.intents * bf.blocked / nullif(bf.intents, 0)) AS extra_risk_blocks,
   wf.abandoned - round(wf.intents * bf.abandoned / nullif(bf.intents, 0)) AS extra_3ds_abandons
 FROM bounds_src CROSS JOIN bounds CROSS JOIN w CROSS JOIN b CROSS JOIN wf CROSS JOIN bf;

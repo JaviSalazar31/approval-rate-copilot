@@ -360,7 +360,7 @@ def log_verdicts(graded: dict, mlflow, assessment_source) -> dict:
     file with "verdict" (true or false), "note", "grader" and "grader_type" (LLM_JUDGE for the judge, CODE for Genie's
     benchmark grader, HUMAN for a manual review or the author's stricter override) filled in per record;
     `assessment_source` is mlflow.entities.AssessmentSource. Grading a run again leaves unchanged verdicts alone and
-    replaces a changed one with MLflow's override, which keeps the old verdict in the trace's history."""
+    replaces one whose value or note changed with MLflow's override, which keeps the old one in the trace's history."""
     passed = graded_n = changed = 0
     for r in graded["records"]:
         if r.get("trace_id") is None or r.get("verdict") is None:
@@ -368,16 +368,15 @@ def log_verdicts(graded: dict, mlflow, assessment_source) -> dict:
         ok = verdict_value(r["verdict"])
         graded_n += 1
         passed += ok
-        old = current_verdict(mlflow, r["trace_id"])
-        if old is not None and assessment_value(old) == ok:
+        old, note = current_verdict(mlflow, r["trace_id"]), r.get("note") or ""
+        if old is not None and assessment_value(old) == ok and (getattr(old, "rationale", None) or "") == note:
             continue
         source = assessment_source(source_type=r.get("grader_type", "LLM_JUDGE"), source_id=r.get("grader", "judge"))
         if old is None:
-            mlflow.log_feedback(trace_id=r["trace_id"], name="verdict", value=ok, rationale=r.get("note") or "",
-                                source=source)
+            mlflow.log_feedback(trace_id=r["trace_id"], name="verdict", value=ok, rationale=note, source=source)
         else:
             mlflow.override_feedback(trace_id=r["trace_id"], assessment_id=old.assessment_id, value=ok,
-                                     rationale=r.get("note") or "", source=source)
+                                     rationale=note, source=source)
         changed += 1
     with mlflow.start_run(run_id=graded["mlflow_run_id"]):
         mlflow.log_metrics({"answers_graded": graded_n, "answers_passed": passed,

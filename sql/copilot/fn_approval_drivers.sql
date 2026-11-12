@@ -9,26 +9,45 @@
 -- p_rate picks the rate: 'final' (the default: approved on the first attempt or on a retry) or 'first_attempt';
 -- rate_type says which one the rows show. p_rank ('lowest' or 'highest') keeps the three values at that end of
 -- each dimension, in ranking order, and gap_to_next_pp is how far each one sits from the next in that order.
+-- p_segment_values keeps only the values it names (for example 'A,B' for two acquirers), and the gaps and ranks are
+-- computed among them. Text arguments are read without quotes or case ('''final''' is final, 'NULL' is none).
+-- The window is the one given, or the one p_incident_date reads from the change log (_incident_window.sql);
+-- window_start_local and window_end_local say which.
 -- A segment with no baseline traffic is valued at the whole baseline rate, so traffic that moved onto it shows
 -- in its rate effect: baseline_share and window_share show the move.
-WITH scope AS (
-  SELECT *,
-         CAST(CASE WHEN lower(trim(coalesce(${p_rate}, 'final'))) IN ('first_attempt', 'first attempt', 'first-attempt')
-                   THEN first_attempt_approved ELSE final_approved END AS INT) AS ok
-  FROM {schema}silver_payments
+WITH
+{incident_window},
+prm AS (
+  SELECT lower(trim(translate(coalesce(${p_rate}, ''), concat(char(39), char(34)), ''))) AS rate,
+         lower(trim(translate(coalesce(${p_rank}, ''), concat(char(39), char(34)), ''))) AS rnk,
+         lower(trim(translate(coalesce(${p_dimension}, ''), concat(char(39), char(34)), ''))) AS dim,
+         lower(trim(translate(coalesce(${p_segment_values}, ''), concat(char(39), char(34)), ''))) AS segs
+),
+arg AS (
+  SELECT rate IN ('first_attempt', 'first attempt', 'first-attempt') AS first_attempt,
+         rnk,
+         CASE WHEN dim IN ('', 'null') THEN NULL ELSE dim END AS dim,
+         CASE WHEN segs IN ('', 'null') THEN NULL
+              ELSE transform(split(segs, ','), x -> regexp_replace(trim(x), '^acquirer[ _]+', '')) END AS seg_list
+  FROM prm
+),
+scope AS (
+  SELECT p.*,
+         CAST(CASE WHEN arg.first_attempt THEN p.first_attempt_approved ELSE p.final_approved END AS INT) AS ok
+  FROM {schema}silver_payments p CROSS JOIN arg
   WHERE sent_to_acquirer
     AND NOT is_cross_border
     AND country = ${p_country}
     AND (${p_card_type} IS NULL OR upper(trim(${p_card_type})) IN ('NULL', '') OR card_type = ${p_card_type})
 ),
 win AS (
-  SELECT * FROM scope
-  WHERE created_ts_local >= ${p_start_local} AND created_ts_local < ${p_end_local}
+  SELECT s.* FROM scope s CROSS JOIN bounds
+  WHERE s.created_ts_local >= bounds.ws AND s.created_ts_local < bounds.we
 ),
 base AS (
-  SELECT * FROM scope
-  WHERE created_ts_local >= timestampadd(DAY, -${p_baseline_days}, ${p_start_local})
-    AND created_ts_local < ${p_start_local}
+  SELECT s.* FROM scope s CROSS JOIN bounds
+  WHERE s.created_ts_local >= timestampadd(DAY, -${p_baseline_days}, bounds.ws)
+    AND s.created_ts_local < bounds.ws
 ),
 long_win AS (
   SELECT
@@ -97,19 +116,20 @@ FROM agg_win w
 FULL OUTER JOIN agg_base b
   ON w.dimension = b.dimension AND w.segment_value = b.segment_value
 CROSS JOIN totals t
-WHERE ${p_dimension} IS NULL OR upper(trim(${p_dimension})) IN ('NULL', '')
-   OR coalesce(w.dimension, b.dimension) = ${p_dimension}
+CROSS JOIN arg
+WHERE (arg.dim IS NULL OR coalesce(w.dimension, b.dimension) = arg.dim)
+  AND (arg.seg_list IS NULL OR array_contains(arg.seg_list, lower(coalesce(w.segment_value, b.segment_value))))
 )
 SELECT
   dimension, segment_value, baseline_payments, window_payments, baseline_share, window_share, baseline_rate,
   window_rate, rate_effect_pp, mix_effect_pp, total_effect_pp, pp_below_next,
-  CASE WHEN lower(trim(coalesce(${p_rate}, 'final'))) IN ('first_attempt', 'first attempt', 'first-attempt')
-       THEN 'first_attempt' ELSE 'final' END AS rate_type,
-  CASE WHEN lower(trim(coalesce(${p_rank}, ''))) = 'highest' THEN pp_above_next_lower ELSE pp_below_next END
-    AS gap_to_next_pp
-FROM seg
+  CASE WHEN arg.first_attempt THEN 'first_attempt' ELSE 'final' END AS rate_type,
+  CASE WHEN arg.rnk = 'highest' THEN pp_above_next_lower ELSE pp_below_next END AS gap_to_next_pp,
+  date_format(bounds.ws, 'yyyy-MM-dd HH:mm:ss') AS window_start_local,
+  date_format(bounds.we, 'yyyy-MM-dd HH:mm:ss') AS window_end_local
+FROM seg CROSS JOIN arg CROSS JOIN bounds
 -- p_rank keeps the three values at one end of each dimension; any other value keeps every row
-WHERE lower(trim(coalesce(${p_rank}, ''))) NOT IN ('lowest', 'highest')
-   OR (lower(trim(${p_rank})) = 'lowest' AND rank_lowest <= 3)
-   OR (lower(trim(${p_rank})) = 'highest' AND rank_highest <= 3)
-ORDER BY dimension, CASE WHEN lower(trim(coalesce(${p_rank}, ''))) = 'highest' THEN rank_highest ELSE rank_lowest END
+WHERE arg.rnk NOT IN ('lowest', 'highest')
+   OR (arg.rnk = 'lowest' AND rank_lowest <= 3)
+   OR (arg.rnk = 'highest' AND rank_highest <= 3)
+ORDER BY dimension, CASE WHEN arg.rnk = 'highest' THEN rank_highest ELSE rank_lowest END

@@ -3,7 +3,11 @@
 -- lost_recoveries: recoveries the window missed at the baseline recovery rate of the same acquirer and code.
 -- map_stopped_retries: the map allowed a retry for this acquirer and code in the acquirer's own history (all its
 -- traffic in the baseline period) and no longer does in the window, so a decline-map change stopped the retries.
-WITH scope AS (
+-- The window is the one given, or the one p_incident_date reads from the change log (_incident_window.sql);
+-- window_start_local and window_end_local say which.
+WITH
+{incident_window},
+scope AS (
   SELECT *
   FROM {schema}silver_payments
   WHERE sent_to_acquirer
@@ -14,22 +18,22 @@ WITH scope AS (
     AND (${p_issuer} IS NULL OR upper(trim(${p_issuer})) IN ('NULL', '') OR issuer_id = ${p_issuer})
 ),
 win AS (
-  SELECT * FROM scope
-  WHERE created_ts_local >= ${p_start_local} AND created_ts_local < ${p_end_local}
+  SELECT s.* FROM scope s CROSS JOIN bounds
+  WHERE s.created_ts_local >= bounds.ws AND s.created_ts_local < bounds.we
 ),
 base AS (
-  SELECT * FROM scope
-  WHERE created_ts_local >= timestampadd(DAY, -${p_baseline_days}, ${p_start_local})
-    AND created_ts_local < ${p_start_local}
+  SELECT s.* FROM scope s CROSS JOIN bounds
+  WHERE s.created_ts_local >= timestampadd(DAY, -${p_baseline_days}, bounds.ws)
+    AND s.created_ts_local < bounds.ws
 ),
 hist AS (
   SELECT first_acquirer_id AS acquirer_id, coalesce(first_iso_code, first_status) AS reason_code,
          concat_ws(',', sort_array(collect_set(first_mapping_version))) AS mapping_versions,
          concat_ws(',', sort_array(collect_set(CAST(first_retryable AS STRING)))) AS retryable
-  FROM {schema}silver_payments
+  FROM {schema}silver_payments CROSS JOIN bounds
   WHERE sent_to_acquirer AND NOT first_attempt_approved
-    AND created_ts_local >= timestampadd(DAY, -${p_baseline_days}, ${p_start_local})
-    AND created_ts_local < ${p_start_local}
+    AND created_ts_local >= timestampadd(DAY, -${p_baseline_days}, bounds.ws)
+    AND created_ts_local < bounds.ws
   GROUP BY first_acquirer_id, coalesce(first_iso_code, first_status)
 ),
 cw AS (
@@ -70,8 +74,11 @@ SELECT
   h.retryable AS acquirer_history_retryable,
   coalesce(w.failures, 0) > 0
     AND coalesce(array_contains(split(h.retryable, ','), 'true'), false)
-    AND NOT coalesce(array_contains(split(w.retryable, ','), 'true'), false) AS map_stopped_retries
+    AND NOT coalesce(array_contains(split(w.retryable, ','), 'true'), false) AS map_stopped_retries,
+  date_format(bounds.ws, 'yyyy-MM-dd HH:mm:ss') AS window_start_local,
+  date_format(bounds.we, 'yyyy-MM-dd HH:mm:ss') AS window_end_local
 FROM cw w
 FULL OUTER JOIN cb b ON w.acquirer_id = b.acquirer_id AND w.reason_code = b.reason_code
 LEFT JOIN hist h ON h.acquirer_id = coalesce(w.acquirer_id, b.acquirer_id)
                 AND h.reason_code = coalesce(w.reason_code, b.reason_code)
+CROSS JOIN bounds

@@ -189,12 +189,17 @@ FUNCTIONS = [
                  "approval is final_rate_change_pp in fn_drop_impact. A segment with no baseline traffic is valued "
                  "at the whole baseline rate, so traffic that moved onto it shows in its rate_effect_pp while its "
                  "mix_effect_pp stays near zero: compare baseline_share and window_share to see whether traffic "
-                 "moved. It is built to diagnose a window against its baseline: to rank or compare segments over "
-                 "whole days or months, the daily tables and the metric views hold the same rates, as in the "
-                 "examples. Domestic payments only.",
+                 "moved. To compare named values, pass them in p_segment_values, comma-separated ('A,B' for "
+                 "Acquirers A and B): only they remain, and the gaps are computed among them. For an incident named "
+                 "by its date, pass p_incident_date and no start or end: the window is the one fn_drop_impact sizes, "
+                 "and window_start_local and window_end_local say which window the rows cover. It is built to "
+                 "diagnose a window against its baseline: to rank or compare segments over whole days or months, "
+                 "the daily tables and the metric views hold the same rates, as in the examples. Domestic payments "
+                 "only.",
          params=[("p_country", "STRING", None, "Country code: MX, CO or BR"),
-                 ("p_start_local", "STRING", None, "Window start, local time of the country, as 'YYYY-MM-DD HH:MM:SS'"),
-                 ("p_end_local", "STRING", None, "Window end (exclusive), local time, as 'YYYY-MM-DD HH:MM:SS'"),
+                 ("p_start_local", "STRING", "NULL", "Window start, local time of the country, as 'YYYY-MM-DD "
+                                                     "HH:MM:SS'; leave it out when you pass p_incident_date"),
+                 ("p_end_local", "STRING", "NULL", "Window end (exclusive), local time, as 'YYYY-MM-DD HH:MM:SS'"),
                  ("p_card_type", "STRING", "NULL", "credit, debit, or NULL for both"),
                  ("p_baseline_days", "INT", "14", "Days before the window used as baseline"),
                  ("p_dimension", "STRING", "NULL", "acquirer, issuer, card_brand, three_ds_authenticated, "
@@ -202,25 +207,38 @@ FUNCTIONS = [
                  ("p_rate", "STRING", "'final'", "final (approved on the first attempt or on a retry) or "
                                                  "first_attempt (approved on the first attempt)"),
                  ("p_rank", "STRING", "NULL", "lowest or highest: keep the three values at that end of each "
-                                              "dimension, in ranking order; NULL keeps every row")],
+                                              "dimension, in ranking order; NULL keeps every row"),
+                 ("p_incident_date", "STRING", "NULL", "Date of the change that started an incident, as 'YYYY-MM-DD': with no "
+                                                       "start or end, the window is read from the change log, as in "
+                                                       "fn_drop_impact"),
+                 ("p_segment_values", "STRING", "NULL", "Values to keep, comma-separated, as they appear in "
+                                                        "segment_value: 'A,B' for Acquirers A and B; NULL keeps "
+                                                        "every value")],
          returns="dimension STRING, segment_value STRING, baseline_payments BIGINT, window_payments BIGINT, "
                  "baseline_share DOUBLE, window_share DOUBLE, baseline_rate DOUBLE, window_rate DOUBLE, "
                  "rate_effect_pp DOUBLE, mix_effect_pp DOUBLE, total_effect_pp DOUBLE, pp_below_next DOUBLE, "
-                 "rate_type STRING, gap_to_next_pp DOUBLE"),
+                 "rate_type STRING, gap_to_next_pp DOUBLE, window_start_local STRING, window_end_local STRING"),
     dict(name="fn_decline_shift",
          comment="First-attempt failure reasons per acquirer as % of the segment's payments, baseline vs window, to "
                  "see which decline codes grew during a drop. When traffic moved from one acquirer to another, "
                  "the acquirer that carried none of the segment in the baseline shows its codes growing from zero: "
                  "the all_acquirers columns give the same code summed over acquirers, which is how the code "
-                 "itself moved. Domestic payments only.",
+                 "itself moved. The percentages are of all the segment's payments sent to an acquirer, approved or "
+                 "not. For an incident named by its date, pass p_incident_date and no start or end: the window is "
+                 "the one fn_drop_impact sizes. Domestic payments only.",
          params=[("p_country", "STRING", None, "Country code: MX, CO or BR"),
-                 ("p_start_local", "STRING", None, "Window start, local time, as 'YYYY-MM-DD HH:MM:SS'"),
-                 ("p_end_local", "STRING", None, "Window end (exclusive), local time, as 'YYYY-MM-DD HH:MM:SS'"),
+                 ("p_start_local", "STRING", "NULL", "Window start, local time, as 'YYYY-MM-DD HH:MM:SS'; leave "
+                                                     "it out when you pass p_incident_date"),
+                 ("p_end_local", "STRING", "NULL", "Window end (exclusive), local time, as 'YYYY-MM-DD HH:MM:SS'"),
                  ("p_card_type", "STRING", "NULL", "credit, debit, or NULL for both"),
-                 ("p_baseline_days", "INT", "14", "Days before the window used as baseline")],
+                 ("p_baseline_days", "INT", "14", "Days before the window used as baseline"),
+                 ("p_incident_date", "STRING", "NULL", "Date of the change that started an incident, as 'YYYY-MM-DD': with no "
+                                                       "start or end, the window is read from the change log, as in "
+                                                       "fn_drop_impact")],
          returns="acquirer_id STRING, reason_code STRING, reason STRING, baseline_failures BIGINT, window_failures BIGINT, "
                  "baseline_pct_of_payments DOUBLE, window_pct_of_payments DOUBLE, delta_pp DOUBLE, "
-                 "all_acquirers_baseline_pct DOUBLE, all_acquirers_window_pct DOUBLE, all_acquirers_delta_pp DOUBLE"),
+                 "all_acquirers_baseline_pct DOUBLE, all_acquirers_window_pct DOUBLE, all_acquirers_delta_pp DOUBLE, "
+                 "window_start_local STRING, window_end_local STRING"),
     dict(name="fn_cascade_health",
          comment="For failed first attempts: share retried on another acquirer (cascade), share recovered, how "
                  "the normalization map classified each reason (soft/hard) and whether it allowed a retry "
@@ -231,29 +249,40 @@ FUNCTIONS = [
                  "acquirer's own history (all its traffic in the baseline period, acquirer_history_retryable) and "
                  "no longer does in the window: a decline-map change stopped the retries, which is a cause to "
                  "report, not a correct classification. Pass p_issuer to look at one issuer, for example during "
-                 "an issuer outage or maintenance. Domestic payments only.",
+                 "an issuer outage or maintenance. For an incident named by its date, pass p_incident_date and no "
+                 "start or end: the window is the one fn_drop_impact sizes. Domestic payments only.",
          params=[("p_country", "STRING", None, "Country code: MX, CO or BR"),
-                 ("p_start_local", "STRING", None, "Window start, local time, as 'YYYY-MM-DD HH:MM:SS'"),
-                 ("p_end_local", "STRING", None, "Window end (exclusive), local time, as 'YYYY-MM-DD HH:MM:SS'"),
+                 ("p_start_local", "STRING", "NULL", "Window start, local time, as 'YYYY-MM-DD HH:MM:SS'; leave "
+                                                     "it out when you pass p_incident_date"),
+                 ("p_end_local", "STRING", "NULL", "Window end (exclusive), local time, as 'YYYY-MM-DD HH:MM:SS'"),
                  ("p_card_type", "STRING", "NULL", "credit, debit, or NULL for both"),
                  ("p_baseline_days", "INT", "14", "Days before the window used as baseline"),
-                 ("p_issuer", "STRING", "NULL", "Issuer code such as 'BR-ISS-03', or NULL for all issuers")],
+                 ("p_issuer", "STRING", "NULL", "Issuer code such as 'BR-ISS-03', or NULL for all issuers"),
+                 ("p_incident_date", "STRING", "NULL", "Date of the change that started an incident, as 'YYYY-MM-DD': with no "
+                                                       "start or end, the window is read from the change log, as in "
+                                                       "fn_drop_impact")],
          returns="acquirer_id STRING, reason_code STRING, baseline_failures BIGINT, baseline_cascade_rate DOUBLE, "
                  "baseline_recovery_rate DOUBLE, baseline_mapped_as STRING, window_failures BIGINT, "
                  "window_cascade_rate DOUBLE, window_recovery_rate DOUBLE, window_mapped_as STRING, "
                  "window_mapping_versions STRING, baseline_retryable STRING, window_retryable STRING, "
                  "lost_recoveries DOUBLE, acquirer_history_mapping_versions STRING, "
-                 "acquirer_history_retryable STRING, map_stopped_retries BOOLEAN"),
+                 "acquirer_history_retryable STRING, map_stopped_retries BOOLEAN, window_start_local STRING, "
+                 "window_end_local STRING"),
     dict(name="fn_changes_near",
          comment="Production changes (routing, risk, mapping, releases, partner notices) that affect a country, "
                  "from N hours before a window to M hours after it, with hours relative to the window start. "
                  "The changes after the window show what ended a drop (a rollback, a fix, a tuning); position "
-                 "says whether each change came before, during or after the window.",
+                 "says whether each change came before, during or after the window. For an incident named by its "
+                 "date, pass p_incident_date and no start or end: the window is the one fn_drop_impact sizes.",
          params=[("p_country", "STRING", None, "Country code: MX, CO or BR"),
-                 ("p_start_local", "STRING", None, "Window start, local time, as 'YYYY-MM-DD HH:MM:SS'"),
-                 ("p_end_local", "STRING", None, "Window end (exclusive), local time, as 'YYYY-MM-DD HH:MM:SS'"),
+                 ("p_start_local", "STRING", "NULL", "Window start, local time, as 'YYYY-MM-DD HH:MM:SS'; leave "
+                                                     "it out when you pass p_incident_date"),
+                 ("p_end_local", "STRING", "NULL", "Window end (exclusive), local time, as 'YYYY-MM-DD HH:MM:SS'"),
                  ("p_hours_before", "INT", "72", "How many hours before the window to include"),
-                 ("p_hours_after", "INT", "72", "How many hours after the window to include")],
+                 ("p_hours_after", "INT", "72", "How many hours after the window to include"),
+                 ("p_incident_date", "STRING", "NULL", "Date of the change that started an incident, as 'YYYY-MM-DD': with no "
+                                                       "start or end, the window is read from the change log, as in "
+                                                       "fn_drop_impact")],
          returns="change_id STRING, changed_at_utc TIMESTAMP, changed_at_local TIMESTAMP, change_type STRING, "
                  "scope STRING, description STRING, hours_from_window_start DOUBLE, position STRING"),
     dict(name="fn_drop_impact",
@@ -264,10 +293,11 @@ FUNCTIONS = [
                  "the country to the next change there (a rollback, a fix or a tuning), and window_start_local, "
                  "window_end_local and window_source say which window was sized. Otherwise pass the window of the "
                  "drop, from the change or hour it started to the change or hour it ended, never a calendar day: "
-                 "normal hours in the window understate the drop. lost_approvals and lost_approved_usd are "
-                 "expected minus actual at the baseline rates: positive means the window approved less than its "
-                 "baseline predicts, negative means it approved more. The two can differ in sign, because one "
-                 "counts payments and the other weighs them by amount. final_rate_change_pp is the change in "
+                 "normal hours in the window understate the drop. lost_approvals, lost_approved_usd and "
+                 "lost_conversions are what the window approved below its baseline rates, and gained_approvals, "
+                 "gained_approved_usd and gained_conversions what it approved above them; none is ever negative. "
+                 "The payments and the USD can go different ways, because the USD weighs payments by amount: a "
+                 "drop in approvals can come with gained_approved_usd. final_rate_change_pp is the change in "
                  "approval of the payments sent to an acquirer; conversion_change_pp is the change over all "
                  "payment intents, so a conversion drop with a flat approval rate comes from risk blocks or 3DS "
                  "abandonment, not from the acquirers. lost_approvals counts approvals lost among the payments "
@@ -287,11 +317,13 @@ FUNCTIONS = [
                  "window_payments BIGINT, baseline_payments BIGINT, baseline_first_attempt_rate DOUBLE, "
                  "window_first_attempt_rate DOUBLE, baseline_final_rate DOUBLE, window_final_rate DOUBLE, "
                  "final_rate_change_pp DOUBLE, window_approvals BIGINT, expected_approvals_at_baseline DOUBLE, "
-                 "lost_approvals DOUBLE, window_attempted_usd DOUBLE, window_approved_usd DOUBLE, "
-                 "lost_approved_usd DOUBLE, window_fees_usd DOUBLE, baseline_conversion_rate DOUBLE, "
+                 "lost_approvals DOUBLE, gained_approvals DOUBLE, window_attempted_usd DOUBLE, "
+                 "window_approved_usd DOUBLE, lost_approved_usd DOUBLE, gained_approved_usd DOUBLE, "
+                 "window_fees_usd DOUBLE, baseline_conversion_rate DOUBLE, "
                  "window_conversion_rate DOUBLE, conversion_change_pp DOUBLE, baseline_risk_block_rate DOUBLE, "
                  "window_risk_block_rate DOUBLE, baseline_3ds_abandon_rate DOUBLE, window_3ds_abandon_rate DOUBLE, "
-                 "window_intents BIGINT, lost_conversions DOUBLE, extra_risk_blocks DOUBLE, extra_3ds_abandons DOUBLE"),
+                 "window_intents BIGINT, lost_conversions DOUBLE, gained_conversions DOUBLE, "
+                 "extra_risk_blocks DOUBLE, extra_3ds_abandons DOUBLE"),
 ]
 
 
@@ -301,7 +333,16 @@ TIMESTAMP_TEXT = {"p_start_local", "p_end_local"}
 
 
 def param_sql(name):
-    return f"CAST({name} AS TIMESTAMP)" if name in TIMESTAMP_TEXT else name
+    # try_cast: a model may pass the text 'NULL' for a window it leaves out, which a plain cast rejects
+    return f"try_cast({name} AS TIMESTAMP)" if name in TIMESTAMP_TEXT else name
+
+
+def function_body(name):
+    """A function's SQL body with the shared window (sql/copilot/_incident_window.sql) put in its place."""
+    folder = os.path.join(ROOT, "sql", "copilot")
+    body = open(os.path.join(folder, f"{name}.sql")).read().strip().rstrip(";")
+    window = open(os.path.join(folder, "_incident_window.sql")).read().strip()
+    return body.replace("{incident_window}", window)
 
 
 def build_functions():
@@ -313,8 +354,7 @@ def build_functions():
         CELL,
         f"USE CATALOG {CATALOG};\nUSE SCHEMA {SCHEMA};\n"]
     for f in FUNCTIONS:
-        body = open(os.path.join(ROOT, "sql", "copilot", f"{f['name']}.sql")).read().strip().rstrip(";")
-        body = body.replace("{schema}", f"{CATALOG}.{SCHEMA}.")
+        body = function_body(f["name"]).replace("{schema}", f"{CATALOG}.{SCHEMA}.")
         body = re.sub(r"\$\{(p_[a-z_]+)\}", lambda m: param_sql(m.group(1)), body)
         params = []
         for n, t, d, c in f["params"]:

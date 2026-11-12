@@ -2,7 +2,11 @@
 -- all_acquirers_*: the same code summed over acquirers. When traffic moved from one acquirer to another, the
 -- acquirer that carried none of the segment in the baseline shows its codes growing from zero; these columns
 -- show how the code itself moved.
-WITH scope AS (
+-- The window is the one given, or the one p_incident_date reads from the change log (_incident_window.sql);
+-- window_start_local and window_end_local say which.
+WITH
+{incident_window},
+scope AS (
   SELECT *
   FROM {schema}silver_payments
   WHERE sent_to_acquirer
@@ -11,13 +15,13 @@ WITH scope AS (
     AND (${p_card_type} IS NULL OR upper(trim(${p_card_type})) IN ('NULL', '') OR card_type = ${p_card_type})
 ),
 win AS (
-  SELECT * FROM scope
-  WHERE created_ts_local >= ${p_start_local} AND created_ts_local < ${p_end_local}
+  SELECT s.* FROM scope s CROSS JOIN bounds
+  WHERE s.created_ts_local >= bounds.ws AND s.created_ts_local < bounds.we
 ),
 base AS (
-  SELECT * FROM scope
-  WHERE created_ts_local >= timestampadd(DAY, -${p_baseline_days}, ${p_start_local})
-    AND created_ts_local < ${p_start_local}
+  SELECT s.* FROM scope s CROSS JOIN bounds
+  WHERE s.created_ts_local >= timestampadd(DAY, -${p_baseline_days}, bounds.ws)
+    AND s.created_ts_local < bounds.ws
 ),
 fw AS (
   SELECT first_acquirer_id AS acquirer_id, coalesce(first_iso_code, first_status) AS reason_code,
@@ -49,7 +53,10 @@ SELECT
             / nullif(t.n_win, 0), 2) AS all_acquirers_window_pct,
   round(100 * (sum(coalesce(w.n, 0)) OVER (PARTITION BY coalesce(w.reason_code, b.reason_code)) / nullif(t.n_win, 0)
              - sum(coalesce(b.n, 0)) OVER (PARTITION BY coalesce(w.reason_code, b.reason_code)) / nullif(t.n_base, 0)),
-        2) AS all_acquirers_delta_pp
+        2) AS all_acquirers_delta_pp,
+  date_format(bounds.ws, 'yyyy-MM-dd HH:mm:ss') AS window_start_local,
+  date_format(bounds.we, 'yyyy-MM-dd HH:mm:ss') AS window_end_local
 FROM fw w
 FULL OUTER JOIN fb b ON w.acquirer_id = b.acquirer_id AND w.reason_code = b.reason_code
 CROSS JOIN totals t
+CROSS JOIN bounds

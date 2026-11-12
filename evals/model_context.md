@@ -36,11 +36,16 @@ Definitions
   with its baseline: use them for incident windows, not to rank a whole month. To rank one dimension
   inside a window with fn_approval_drivers, pass p_dimension (for example 'issuer') and p_rank
   ('lowest' or 'highest'): it returns the three values at that end, in ranking order, with
-  gap_to_next_pp.
+  gap_to_next_pp. To compare named values, pass p_segment_values (for example 'A,B'): only they
+  remain, with the gap between them.
 - fn_approval_drivers measures final approval unless you pass p_rate => 'first_attempt'; its
   rate_type column says which rate window_rate and baseline_rate are. Over whole days or months,
   first-attempt approval comes from first_attempt_approved (daily and hourly tables, silver_payments)
   or MEASURE(first_attempt_approval_rate).
+- decline_metrics counts failed attempts only. A share of all first attempts divides the failures
+  by payments_sent (every first attempt, approved or not) from approval_metrics or gold_approval_daily
+  for the same country, dates and card types, as in the examples. Failures divided by failures give a
+  share of the failures, not of the attempts.
 
 How to answer "why" questions about a drop
 1. Find the window. Look at gold_approval_hourly from the day before to the day after, and call
@@ -50,14 +55,20 @@ How to answer "why" questions about a drop
    the change or hour it ended. Size and explain that window, not the calendar day, and say which
    window you used. When a question names an incident by its date or dates, call fn_drop_impact with
    p_incident_date (the date of the change that started it) and no start or end: it reads the window
-   from the change log and returns it in window_start_local and window_end_local. Use that window for
-   every other function.
+   from the change log and returns it in window_start_local and window_end_local. Pass the same
+   p_incident_date, with no start or end, to fn_approval_drivers, fn_decline_shift, fn_cascade_health
+   and fn_changes_near: they read the same window. Every figure you give for the incident comes from
+   that window; a figure from a longer period or a calendar day is not the incident's.
 2. Size it with fn_drop_impact, with its default 14-day baseline unless the question asks for another.
    It also returns the funnel of the same payments: when conversion fell, compare
    conversion_change_pp with final_rate_change_pp and the risk-block and 3DS-abandonment rates, and
    say whether the acquirers' approval moved or not. lost_approvals counts only the payments that
    reached an acquirer. When conversion fell while approval held, the cost is lost_conversions, and
    extra_risk_blocks and extra_3ds_abandons count the intents stopped above the baseline rate.
+   lost_conversions already holds the approvals lost at the acquirers: never add lost_approvals to it.
+   The lost_ and gained_ columns are never negative: lost_approved_usd = 0 with gained_approved_usd
+   above zero means the window approved more volume than its baseline predicts, so no USD was lost at
+   authorization.
 3. Find who moved with fn_approval_drivers (look at total_effect_pp; acquirer, issuer and
    routing_rule_version are the most informative dimensions). Each row is one segment's own
    contribution; the whole change is final_rate_change_pp from fn_drop_impact. To say whether traffic
@@ -134,8 +145,9 @@ Rules
 - You have no forecast model, and the data ends on 2026-08-29. A question about a future period (next
   week, next month, September) or about what would happen if something were done or repeated asks for
   a forecast, even when it is phrased as a what-if or asks only for a number. Do not scale, multiply or
-  extrapolate a measured figure to another period, and do not apply a measured gap to other traffic to
-  say what would have happened. Say that the data covers 2026-06-01 to 2026-08-29
+  extrapolate a measured figure to another period, do not apply a measured gap to other traffic to
+  say what would have happened, and do not say that a similar event would or might cost a similar
+  amount. Say that the data covers 2026-06-01 to 2026-08-29
   and that you cannot forecast, and offer what was measured, labeled as history (for example what an
   incident cost over its own window). What a past window lost against its baseline (lost_approvals,
   lost_recoveries) is history, not a forecast.
@@ -202,6 +214,19 @@ SELECT * FROM workspace.approval_copilot.fn_approval_drivers('MX', '2026-07-06 0
 ORDER BY abs(total_effect_pp) DESC
 LIMIT 10;
 
+-- Who moved the rate during an incident named by its date? Pass p_incident_date with no start or end, to this function and to the others, so all of them read the same window from the change log
+SELECT dimension, segment_value, baseline_share, window_share, window_rate, total_effect_pp,
+       window_start_local, window_end_local
+FROM workspace.approval_copilot.fn_approval_drivers(p_country => 'MX', p_card_type => 'debit', p_incident_date => '2026-07-02')
+ORDER BY abs(total_effect_pp) DESC
+LIMIT 10;
+
+-- Compare named acquirers inside a window: p_segment_values keeps only them, and gap_to_next_pp is the gap between them (domestic)
+SELECT segment_value AS acquirer_id, window_payments, rate_type, window_rate, gap_to_next_pp
+FROM workspace.approval_copilot.fn_approval_drivers(p_country => 'BR', p_start_local => '2026-06-15 00:00:00',
+       p_end_local => '2026-06-22 00:00:00', p_card_type => 'debit', p_dimension => 'acquirer',
+       p_segment_values => 'A,C');
+
 -- Which issuer had the lowest final approval inside a window given in local time? p_rank keeps the lowest and the next two, with the gap (domestic)
 SELECT segment_value AS issuer_id, window_payments, window_rate, gap_to_next_pp, baseline_rate
 FROM workspace.approval_copilot.fn_approval_drivers(p_country => 'MX', p_start_local => '2026-07-06 00:00:00',
@@ -253,6 +278,21 @@ WHERE country = 'MX' AND acquirer = 'C' AND attempt = 'first attempt'
   AND business_date BETWEEN DATE'2026-07-02' AND DATE'2026-07-08'
 GROUP BY reason_code, reason
 ORDER BY failed_attempts DESC;
+
+-- What share of all first attempts failed with one code over a month? decline_metrics counts only failures, so divide by the payments sent (every first attempt, approved or not) from approval_metrics
+WITH d AS (
+  SELECT MEASURE(failed_attempts) AS declined
+  FROM workspace.approval_copilot.decline_metrics
+  WHERE country = 'BR' AND attempt = 'first attempt' AND reason_code = '05'
+    AND business_date BETWEEN DATE'2026-06-01' AND DATE'2026-06-30'
+),
+p AS (
+  SELECT MEASURE(payments_sent) AS first_attempts
+  FROM workspace.approval_copilot.approval_metrics
+  WHERE country = 'BR' AND business_date BETWEEN DATE'2026-06-01' AND DATE'2026-06-30'
+)
+SELECT declined, first_attempts, round(declined / first_attempts, 4) AS share_of_first_attempts
+FROM d CROSS JOIN p;
 
 -- Conversion, risk blocks and 3DS abandonment of a country on one day, over both card types
 SELECT MEASURE(conversion_rate) AS conversion_rate, MEASURE(risk_block_rate) AS risk_block_rate,
@@ -525,7 +565,7 @@ Card approval and approved volume per day, country, card type and first acquirer
 
 ### `decline_metrics`
 
-Failed authorization attempts per day, country, card type, acquirer and canonical reason, with how the decline-code map classified each code at the time. Source: `gold_decline_reasons_daily`.
+Failed authorization attempts per day, country, card type, acquirer and canonical reason, with how the decline-code map classified each code at the time. It holds failed attempts only, so a share of all attempts needs payments_sent from approval_metrics as the denominator. Source: `gold_decline_reasons_daily`.
 
 | Dimension | Expression | Description |
 |---|---|---|
@@ -542,7 +582,7 @@ Failed authorization attempts per day, country, card type, acquirer and canonica
 
 | Measure | Expression | Description |
 |---|---|---|
-| `failed_attempts` | `SUM(attempts)` | Authorization attempts the issuer or the acquirer did not approve |
+| `failed_attempts` | `SUM(attempts)` | Authorization attempts the issuer or the acquirer did not approve. Dividing it by failed attempts gives a share of the failures. A share of all first attempts divides it by MEASURE(payments_sent) from approval_metrics over the same filters, without the reason |
 
 ### `funnel_metrics`
 
@@ -568,32 +608,32 @@ Payment funnel per day, country and card type, from checkout intent to approval,
 
 ## Functions (Unity Catalog SQL table functions)
 
-### `fn_approval_drivers(p_country STRING, p_start_local STRING, p_end_local STRING, p_card_type STRING DEFAULT NULL, p_baseline_days INT DEFAULT 14, p_dimension STRING DEFAULT NULL, p_rate STRING DEFAULT 'final', p_rank STRING DEFAULT NULL)`
+### `fn_approval_drivers(p_country STRING, p_start_local STRING DEFAULT NULL, p_end_local STRING DEFAULT NULL, p_card_type STRING DEFAULT NULL, p_baseline_days INT DEFAULT 14, p_dimension STRING DEFAULT NULL, p_rate STRING DEFAULT 'final', p_rank STRING DEFAULT NULL, p_incident_date STRING DEFAULT NULL, p_segment_values STRING DEFAULT NULL)`
 
-Explains a change in approval for a country (and card type) between a baseline and an incident window, usually hours or a few days: contribution of each acquirer, issuer, card brand, 3DS, merchant segment and routing version, split into rate effect and mix effect, in percentage points. The rate is final approval (first attempt or retry) unless p_rate is 'first_attempt'; rate_type says which one window_rate and baseline_rate show. Pass p_dimension to get only the rows of one dimension, ordered from the lowest window_rate, with pp_below_next (how far each value is below the next one); NULL returns all six dimensions. To name the lowest or the highest value of a dimension, pass p_rank => 'lowest' or 'highest': only the three values at that end remain, in ranking order, and gap_to_next_pp is how far each one sits from the next. Each row is one segment: its own contribution is total_effect_pp, and the window's whole change in final approval is final_rate_change_pp in fn_drop_impact. A segment with no baseline traffic is valued at the whole baseline rate, so traffic that moved onto it shows in its rate_effect_pp while its mix_effect_pp stays near zero: compare baseline_share and window_share to see whether traffic moved. It is built to diagnose a window against its baseline: to rank or compare segments over whole days or months, the daily tables and the metric views hold the same rates, as in the examples. Domestic payments only.
+Explains a change in approval for a country (and card type) between a baseline and an incident window, usually hours or a few days: contribution of each acquirer, issuer, card brand, 3DS, merchant segment and routing version, split into rate effect and mix effect, in percentage points. The rate is final approval (first attempt or retry) unless p_rate is 'first_attempt'; rate_type says which one window_rate and baseline_rate show. Pass p_dimension to get only the rows of one dimension, ordered from the lowest window_rate, with pp_below_next (how far each value is below the next one); NULL returns all six dimensions. To name the lowest or the highest value of a dimension, pass p_rank => 'lowest' or 'highest': only the three values at that end remain, in ranking order, and gap_to_next_pp is how far each one sits from the next. Each row is one segment: its own contribution is total_effect_pp, and the window's whole change in final approval is final_rate_change_pp in fn_drop_impact. A segment with no baseline traffic is valued at the whole baseline rate, so traffic that moved onto it shows in its rate_effect_pp while its mix_effect_pp stays near zero: compare baseline_share and window_share to see whether traffic moved. To compare named values, pass them in p_segment_values, comma-separated ('A,B' for Acquirers A and B): only they remain, and the gaps are computed among them. For an incident named by its date, pass p_incident_date and no start or end: the window is the one fn_drop_impact sizes, and window_start_local and window_end_local say which window the rows cover. It is built to diagnose a window against its baseline: to rank or compare segments over whole days or months, the daily tables and the metric views hold the same rates, as in the examples. Domestic payments only.
 
-Returns: `dimension STRING, segment_value STRING, baseline_payments BIGINT, window_payments BIGINT, baseline_share DOUBLE, window_share DOUBLE, baseline_rate DOUBLE, window_rate DOUBLE, rate_effect_pp DOUBLE, mix_effect_pp DOUBLE, total_effect_pp DOUBLE, pp_below_next DOUBLE, rate_type STRING, gap_to_next_pp DOUBLE`
+Returns: `dimension STRING, segment_value STRING, baseline_payments BIGINT, window_payments BIGINT, baseline_share DOUBLE, window_share DOUBLE, baseline_rate DOUBLE, window_rate DOUBLE, rate_effect_pp DOUBLE, mix_effect_pp DOUBLE, total_effect_pp DOUBLE, pp_below_next DOUBLE, rate_type STRING, gap_to_next_pp DOUBLE, window_start_local STRING, window_end_local STRING`
 
-### `fn_decline_shift(p_country STRING, p_start_local STRING, p_end_local STRING, p_card_type STRING DEFAULT NULL, p_baseline_days INT DEFAULT 14)`
+### `fn_decline_shift(p_country STRING, p_start_local STRING DEFAULT NULL, p_end_local STRING DEFAULT NULL, p_card_type STRING DEFAULT NULL, p_baseline_days INT DEFAULT 14, p_incident_date STRING DEFAULT NULL)`
 
-First-attempt failure reasons per acquirer as % of the segment's payments, baseline vs window, to see which decline codes grew during a drop. When traffic moved from one acquirer to another, the acquirer that carried none of the segment in the baseline shows its codes growing from zero: the all_acquirers columns give the same code summed over acquirers, which is how the code itself moved. Domestic payments only.
+First-attempt failure reasons per acquirer as % of the segment's payments, baseline vs window, to see which decline codes grew during a drop. When traffic moved from one acquirer to another, the acquirer that carried none of the segment in the baseline shows its codes growing from zero: the all_acquirers columns give the same code summed over acquirers, which is how the code itself moved. The percentages are of all the segment's payments sent to an acquirer, approved or not. For an incident named by its date, pass p_incident_date and no start or end: the window is the one fn_drop_impact sizes. Domestic payments only.
 
-Returns: `acquirer_id STRING, reason_code STRING, reason STRING, baseline_failures BIGINT, window_failures BIGINT, baseline_pct_of_payments DOUBLE, window_pct_of_payments DOUBLE, delta_pp DOUBLE, all_acquirers_baseline_pct DOUBLE, all_acquirers_window_pct DOUBLE, all_acquirers_delta_pp DOUBLE`
+Returns: `acquirer_id STRING, reason_code STRING, reason STRING, baseline_failures BIGINT, window_failures BIGINT, baseline_pct_of_payments DOUBLE, window_pct_of_payments DOUBLE, delta_pp DOUBLE, all_acquirers_baseline_pct DOUBLE, all_acquirers_window_pct DOUBLE, all_acquirers_delta_pp DOUBLE, window_start_local STRING, window_end_local STRING`
 
-### `fn_cascade_health(p_country STRING, p_start_local STRING, p_end_local STRING, p_card_type STRING DEFAULT NULL, p_baseline_days INT DEFAULT 14, p_issuer STRING DEFAULT NULL)`
+### `fn_cascade_health(p_country STRING, p_start_local STRING DEFAULT NULL, p_end_local STRING DEFAULT NULL, p_card_type STRING DEFAULT NULL, p_baseline_days INT DEFAULT 14, p_issuer STRING DEFAULT NULL, p_incident_date STRING DEFAULT NULL)`
 
-For failed first attempts: share retried on another acquirer (cascade), share recovered, how the normalization map classified each reason (soft/hard) and whether it allowed a retry (retryable), in baseline vs window. A code the map does not allow to retry is never cascaded. lost_recoveries is the number of recoveries the window missed at the baseline recovery rate of the same acquirer and code: it sizes what stopped retries cost, which is not the segment's whole drop. map_stopped_retries is true when the map allowed a retry for that acquirer and code in the acquirer's own history (all its traffic in the baseline period, acquirer_history_retryable) and no longer does in the window: a decline-map change stopped the retries, which is a cause to report, not a correct classification. Pass p_issuer to look at one issuer, for example during an issuer outage or maintenance. Domestic payments only.
+For failed first attempts: share retried on another acquirer (cascade), share recovered, how the normalization map classified each reason (soft/hard) and whether it allowed a retry (retryable), in baseline vs window. A code the map does not allow to retry is never cascaded. lost_recoveries is the number of recoveries the window missed at the baseline recovery rate of the same acquirer and code: it sizes what stopped retries cost, which is not the segment's whole drop. map_stopped_retries is true when the map allowed a retry for that acquirer and code in the acquirer's own history (all its traffic in the baseline period, acquirer_history_retryable) and no longer does in the window: a decline-map change stopped the retries, which is a cause to report, not a correct classification. Pass p_issuer to look at one issuer, for example during an issuer outage or maintenance. For an incident named by its date, pass p_incident_date and no start or end: the window is the one fn_drop_impact sizes. Domestic payments only.
 
-Returns: `acquirer_id STRING, reason_code STRING, baseline_failures BIGINT, baseline_cascade_rate DOUBLE, baseline_recovery_rate DOUBLE, baseline_mapped_as STRING, window_failures BIGINT, window_cascade_rate DOUBLE, window_recovery_rate DOUBLE, window_mapped_as STRING, window_mapping_versions STRING, baseline_retryable STRING, window_retryable STRING, lost_recoveries DOUBLE, acquirer_history_mapping_versions STRING, acquirer_history_retryable STRING, map_stopped_retries BOOLEAN`
+Returns: `acquirer_id STRING, reason_code STRING, baseline_failures BIGINT, baseline_cascade_rate DOUBLE, baseline_recovery_rate DOUBLE, baseline_mapped_as STRING, window_failures BIGINT, window_cascade_rate DOUBLE, window_recovery_rate DOUBLE, window_mapped_as STRING, window_mapping_versions STRING, baseline_retryable STRING, window_retryable STRING, lost_recoveries DOUBLE, acquirer_history_mapping_versions STRING, acquirer_history_retryable STRING, map_stopped_retries BOOLEAN, window_start_local STRING, window_end_local STRING`
 
-### `fn_changes_near(p_country STRING, p_start_local STRING, p_end_local STRING, p_hours_before INT DEFAULT 72, p_hours_after INT DEFAULT 72)`
+### `fn_changes_near(p_country STRING, p_start_local STRING DEFAULT NULL, p_end_local STRING DEFAULT NULL, p_hours_before INT DEFAULT 72, p_hours_after INT DEFAULT 72, p_incident_date STRING DEFAULT NULL)`
 
-Production changes (routing, risk, mapping, releases, partner notices) that affect a country, from N hours before a window to M hours after it, with hours relative to the window start. The changes after the window show what ended a drop (a rollback, a fix, a tuning); position says whether each change came before, during or after the window.
+Production changes (routing, risk, mapping, releases, partner notices) that affect a country, from N hours before a window to M hours after it, with hours relative to the window start. The changes after the window show what ended a drop (a rollback, a fix, a tuning); position says whether each change came before, during or after the window. For an incident named by its date, pass p_incident_date and no start or end: the window is the one fn_drop_impact sizes.
 
 Returns: `change_id STRING, changed_at_utc TIMESTAMP, changed_at_local TIMESTAMP, change_type STRING, scope STRING, description STRING, hours_from_window_start DOUBLE, position STRING`
 
 ### `fn_drop_impact(p_country STRING, p_start_local STRING DEFAULT NULL, p_end_local STRING DEFAULT NULL, p_card_type STRING DEFAULT NULL, p_baseline_days INT DEFAULT 14, p_incident_date STRING DEFAULT NULL)`
 
-Size of an incident or a drop versus the baseline: lost approvals, lost approved volume (USD) and fees paid in the window, plus the payment funnel of the same segment (conversion, risk blocks and 3DS abandonment). For an incident named by its date, pass p_incident_date and leave the start and end out: the window then runs from the first production change of that date in the country to the next change there (a rollback, a fix or a tuning), and window_start_local, window_end_local and window_source say which window was sized. Otherwise pass the window of the drop, from the change or hour it started to the change or hour it ended, never a calendar day: normal hours in the window understate the drop. lost_approvals and lost_approved_usd are expected minus actual at the baseline rates: positive means the window approved less than its baseline predicts, negative means it approved more. The two can differ in sign, because one counts payments and the other weighs them by amount. final_rate_change_pp is the change in approval of the payments sent to an acquirer; conversion_change_pp is the change over all payment intents, so a conversion drop with a flat approval rate comes from risk blocks or 3DS abandonment, not from the acquirers. lost_approvals counts approvals lost among the payments sent to an acquirer; lost_conversions counts them over all payment intents, so it includes the intents that risk blocks or 3DS abandonment stopped before any acquirer, which extra_risk_blocks and extra_3ds_abandons count above the baseline rate. When conversion fell while approval held, size the cost with lost_conversions. Domestic payments only.
+Size of an incident or a drop versus the baseline: lost approvals, lost approved volume (USD) and fees paid in the window, plus the payment funnel of the same segment (conversion, risk blocks and 3DS abandonment). For an incident named by its date, pass p_incident_date and leave the start and end out: the window then runs from the first production change of that date in the country to the next change there (a rollback, a fix or a tuning), and window_start_local, window_end_local and window_source say which window was sized. Otherwise pass the window of the drop, from the change or hour it started to the change or hour it ended, never a calendar day: normal hours in the window understate the drop. lost_approvals, lost_approved_usd and lost_conversions are what the window approved below its baseline rates, and gained_approvals, gained_approved_usd and gained_conversions what it approved above them; none is ever negative. The payments and the USD can go different ways, because the USD weighs payments by amount: a drop in approvals can come with gained_approved_usd. final_rate_change_pp is the change in approval of the payments sent to an acquirer; conversion_change_pp is the change over all payment intents, so a conversion drop with a flat approval rate comes from risk blocks or 3DS abandonment, not from the acquirers. lost_approvals counts approvals lost among the payments sent to an acquirer; lost_conversions counts them over all payment intents, so it includes the intents that risk blocks or 3DS abandonment stopped before any acquirer, which extra_risk_blocks and extra_3ds_abandons count above the baseline rate. When conversion fell while approval held, size the cost with lost_conversions. Domestic payments only.
 
-Returns: `window_start_local STRING, window_end_local STRING, window_source STRING, window_payments BIGINT, baseline_payments BIGINT, baseline_first_attempt_rate DOUBLE, window_first_attempt_rate DOUBLE, baseline_final_rate DOUBLE, window_final_rate DOUBLE, final_rate_change_pp DOUBLE, window_approvals BIGINT, expected_approvals_at_baseline DOUBLE, lost_approvals DOUBLE, window_attempted_usd DOUBLE, window_approved_usd DOUBLE, lost_approved_usd DOUBLE, window_fees_usd DOUBLE, baseline_conversion_rate DOUBLE, window_conversion_rate DOUBLE, conversion_change_pp DOUBLE, baseline_risk_block_rate DOUBLE, window_risk_block_rate DOUBLE, baseline_3ds_abandon_rate DOUBLE, window_3ds_abandon_rate DOUBLE, window_intents BIGINT, lost_conversions DOUBLE, extra_risk_blocks DOUBLE, extra_3ds_abandons DOUBLE`
+Returns: `window_start_local STRING, window_end_local STRING, window_source STRING, window_payments BIGINT, baseline_payments BIGINT, baseline_first_attempt_rate DOUBLE, window_first_attempt_rate DOUBLE, baseline_final_rate DOUBLE, window_final_rate DOUBLE, final_rate_change_pp DOUBLE, window_approvals BIGINT, expected_approvals_at_baseline DOUBLE, lost_approvals DOUBLE, gained_approvals DOUBLE, window_attempted_usd DOUBLE, window_approved_usd DOUBLE, lost_approved_usd DOUBLE, gained_approved_usd DOUBLE, window_fees_usd DOUBLE, baseline_conversion_rate DOUBLE, window_conversion_rate DOUBLE, conversion_change_pp DOUBLE, baseline_risk_block_rate DOUBLE, window_risk_block_rate DOUBLE, baseline_3ds_abandon_rate DOUBLE, window_3ds_abandon_rate DOUBLE, window_intents BIGINT, lost_conversions DOUBLE, gained_conversions DOUBLE, extra_risk_blocks DOUBLE, extra_3ds_abandons DOUBLE`

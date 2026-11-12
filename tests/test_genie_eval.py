@@ -79,7 +79,8 @@ def fake_mlflow():
     def log_feedback(**kw):
         log.feedback.append(kw)
         log.assessments.setdefault(kw["trace_id"], []).append(types.SimpleNamespace(
-            name=kw["name"], value=kw["value"], valid=True, assessment_id=f"a{len(log.feedback)}"))
+            name=kw["name"], value=kw["value"], rationale=kw["rationale"], valid=True,
+            assessment_id=f"a{len(log.feedback)}"))
 
     def override_feedback(**kw):
         log.overrides.append(kw)
@@ -87,7 +88,8 @@ def fake_mlflow():
             if a.assessment_id == kw["assessment_id"]:
                 a.valid = False
         log.assessments[kw["trace_id"]].append(types.SimpleNamespace(
-            name="verdict", value=kw["value"], valid=True, assessment_id=f"o{len(log.overrides)}"))
+            name="verdict", value=kw["value"], rationale=kw["rationale"], valid=True,
+            assessment_id=f"o{len(log.overrides)}"))
 
     @contextlib.contextmanager
     def start_run(run_name=None, run_id=None):
@@ -173,6 +175,18 @@ def test_grading_again_overrides_only_the_verdicts_that_changed():
     assert len(log.overrides) == 1 and log.overrides[0]["value"] is True
     assert log.overrides[0]["source"] == {"source_type": "HUMAN", "source_id": "author"}
     assert log.metrics["answers_passed"] == 4
+
+
+def test_grading_again_replaces_a_note_that_changed():
+    result, _ = run("heldout_2", [CHAT_Q, AGENT_Q])
+    for r in result["records"]:
+        r.update(verdict="FAIL", note="first note", grader="judge")
+    mlflow, log = fake_mlflow()
+    genie_eval.log_verdicts(result, mlflow, lambda **kw: kw)
+    result["records"][0].update(note="corrected note", grader="author", grader_type="HUMAN")
+    out = genie_eval.log_verdicts(result, mlflow, lambda **kw: kw)
+    assert out["changed"] == 1 and len(log.overrides) == 1
+    assert log.overrides[0]["value"] is False and log.overrides[0]["rationale"] == "corrected note"
 
 
 def test_a_verdict_must_be_a_boolean_or_pass_or_fail():

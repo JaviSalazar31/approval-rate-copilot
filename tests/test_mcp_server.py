@@ -43,6 +43,14 @@ def test_window_and_choices_are_checked():
             srv._date("incident_date", bad)
     with pytest.raises(ValueError):
         srv._issuer("BR-ISS-03' OR 1=1 --")
+    assert srv._segments(" A, B ") == "A,B" and srv._segments(["CO-ISS-03"]) == "CO-ISS-03"
+    assert srv._segments("NULL") is None
+    with pytest.raises(ValueError):
+        srv._segments("A'; DROP TABLE x; --")
+    assert srv.window_args("co", None, "NULL", "2026-08-13") == {"p_country": "CO", "p_incident_date": "2026-08-13"}
+    assert srv.window_args("CO", *list(WINDOW.values())[1:], None) == srv.check_window(**WINDOW)
+    with pytest.raises(ValueError):
+        srv.window_args("CO", None, None, None)   # neither a window nor an incident date
 
 
 def test_a_text_null_means_no_value():
@@ -115,7 +123,13 @@ async def _call_tools(server_or_params):
         incident = await client.call_tool("drop_impact", {"country": "CO", "card_type": "debit",
                                                           "incident_date": "2026-08-13"})
         no_window = await client.call_tool("drop_impact", {"country": "CO"})
-        return tools, impact, drivers, bad, incident, no_window
+        inc_drivers = await client.call_tool("approval_drivers", {"country": "CO", "card_type": "debit",
+                                                                  "incident_date": "2026-08-13", "dimension": "acquirer"})
+        named = await client.call_tool("approval_drivers", {"country": "MX", "card_type": "debit",
+                                                            "start_local": "2026-07-01 00:00:00",
+                                                            "end_local": "2026-08-01 00:00:00", "dimension": "acquirer",
+                                                            "rate": "first_attempt", "segments": "A,B"})
+        return tools, impact, drivers, bad, incident, no_window, inc_drivers, named
 
 
 def _rows(result) -> list[dict]:
@@ -126,13 +140,15 @@ def _rows(result) -> list[dict]:
 @pytest.mark.skipif(not LOCAL_OUTPUT, reason="needs the local pipeline output (python local/run_local.py)")
 def test_tools_over_mcp_return_the_copilot_numbers():
     pytest.importorskip("mcp")
-    tools, impact, drivers, bad, incident, no_window = asyncio.run(_call_tools(srv.create_server(srv.LocalBackend())))
+    tools, impact, drivers, bad, incident, no_window, inc_drivers, named = asyncio.run(
+        _call_tools(srv.create_server(srv.LocalBackend())))
     assert sorted(tools) == ["approval_drivers", "cascade_health", "changes_near", "decline_shift", "drop_impact"]
     assert all(t.annotations.read_only_hint for t in tools.values())
     row = _rows(impact)[0]
     assert (row["window_payments"], row["final_rate_change_pp"], row["lost_approvals"]) == (1004, -10.95, 110)
     assert round(row["lost_approved_usd"], 1) == 6354.2
     assert row["lost_conversions"] == 110 and row["window_intents"] == 1026
+    assert row["gained_approvals"] == 0 and row["gained_approved_usd"] == 0   # lost_ and gained_ are never negative
     issuers = _rows(drivers)   # the lowest issuer and the next two, with the gap to the next one
     assert [r["segment_value"] for r in issuers] == ["CO-ISS-07", "CO-ISS-03", "CO-ISS-05"]
     assert issuers[0]["gap_to_next_pp"] == 7.13 and {r["rate_type"] for r in issuers} == {"final"}
@@ -141,6 +157,10 @@ def test_tools_over_mcp_return_the_copilot_numbers():
     assert (inc["window_start_local"], inc["window_end_local"], inc["lost_approvals"]) == (
         "2026-08-13 14:00:00", "2026-08-14 12:10:00", row["lost_approvals"])
     assert no_window.is_error and "incident_date" in no_window.content[0].text
+    windows = {(r["window_start_local"], r["window_end_local"]) for r in _rows(inc_drivers)}
+    assert windows == {("2026-08-13 14:00:00", "2026-08-14 12:10:00")}   # the same window as drop_impact
+    ab = _rows(named)   # only the two acquirers named, with the gap between them
+    assert [r["segment_value"] for r in ab] == ["B", "A"] and ab[0]["gap_to_next_pp"] == 3.45
 
 
 @pytest.mark.skipif(not LOCAL_OUTPUT, reason="needs the local pipeline output (python local/run_local.py)")

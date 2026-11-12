@@ -116,11 +116,16 @@
           "  with its baseline: use them for incident windows, not to rank a whole month. To rank one dimension\n",
           "  inside a window with fn_approval_drivers, pass p_dimension (for example 'issuer') and p_rank\n",
           "  ('lowest' or 'highest'): it returns the three values at that end, in ranking order, with\n",
-          "  gap_to_next_pp.\n",
+          "  gap_to_next_pp. To compare named values, pass p_segment_values (for example 'A,B'): only they\n",
+          "  remain, with the gap between them.\n",
           "- fn_approval_drivers measures final approval unless you pass p_rate => 'first_attempt'; its\n",
           "  rate_type column says which rate window_rate and baseline_rate are. Over whole days or months,\n",
           "  first-attempt approval comes from first_attempt_approved (daily and hourly tables, silver_payments)\n",
           "  or MEASURE(first_attempt_approval_rate).\n",
+          "- decline_metrics counts failed attempts only. A share of all first attempts divides the failures\n",
+          "  by payments_sent (every first attempt, approved or not) from approval_metrics or gold_approval_daily\n",
+          "  for the same country, dates and card types, as in the examples. Failures divided by failures give a\n",
+          "  share of the failures, not of the attempts.\n",
           "\n",
           "How to answer \"why\" questions about a drop\n",
           "1. Find the window. Look at gold_approval_hourly from the day before to the day after, and call\n",
@@ -130,14 +135,20 @@
           "   the change or hour it ended. Size and explain that window, not the calendar day, and say which\n",
           "   window you used. When a question names an incident by its date or dates, call fn_drop_impact with\n",
           "   p_incident_date (the date of the change that started it) and no start or end: it reads the window\n",
-          "   from the change log and returns it in window_start_local and window_end_local. Use that window for\n",
-          "   every other function.\n",
+          "   from the change log and returns it in window_start_local and window_end_local. Pass the same\n",
+          "   p_incident_date, with no start or end, to fn_approval_drivers, fn_decline_shift, fn_cascade_health\n",
+          "   and fn_changes_near: they read the same window. Every figure you give for the incident comes from\n",
+          "   that window; a figure from a longer period or a calendar day is not the incident's.\n",
           "2. Size it with fn_drop_impact, with its default 14-day baseline unless the question asks for another.\n",
           "   It also returns the funnel of the same payments: when conversion fell, compare\n",
           "   conversion_change_pp with final_rate_change_pp and the risk-block and 3DS-abandonment rates, and\n",
           "   say whether the acquirers' approval moved or not. lost_approvals counts only the payments that\n",
           "   reached an acquirer. When conversion fell while approval held, the cost is lost_conversions, and\n",
           "   extra_risk_blocks and extra_3ds_abandons count the intents stopped above the baseline rate.\n",
+          "   lost_conversions already holds the approvals lost at the acquirers: never add lost_approvals to it.\n",
+          "   The lost_ and gained_ columns are never negative: lost_approved_usd = 0 with gained_approved_usd\n",
+          "   above zero means the window approved more volume than its baseline predicts, so no USD was lost at\n",
+          "   authorization.\n",
           "3. Find who moved with fn_approval_drivers (look at total_effect_pp; acquirer, issuer and\n",
           "   routing_rule_version are the most informative dimensions). Each row is one segment's own\n",
           "   contribution; the whole change is final_rate_change_pp from fn_drop_impact. To say whether traffic\n",
@@ -214,8 +225,9 @@
           "- You have no forecast model, and the data ends on 2026-08-29. A question about a future period (next\n",
           "  week, next month, September) or about what would happen if something were done or repeated asks for\n",
           "  a forecast, even when it is phrased as a what-if or asks only for a number. Do not scale, multiply or\n",
-          "  extrapolate a measured figure to another period, and do not apply a measured gap to other traffic to\n",
-          "  say what would have happened. Say that the data covers 2026-06-01 to 2026-08-29\n",
+          "  extrapolate a measured figure to another period, do not apply a measured gap to other traffic to\n",
+          "  say what would have happened, and do not say that a similar event would or might cost a similar\n",
+          "  amount. Say that the data covers 2026-06-01 to 2026-08-29\n",
           "  and that you cannot forecast, and offer what was measured, labeled as history (for example what an\n",
           "  incident cost over its own window). What a past window lost against its baseline (lost_approvals,\n",
           "  lost_recoveries) is history, not a forecast.\n",
@@ -227,6 +239,18 @@
       }
     ],
     "example_question_sqls": [
+      {
+        "id": "2fec5c239454e2811b300d31fcd45f7b",
+        "question": [
+          "Compare named acquirers inside a window: p_segment_values keeps only them, and gap_to_next_pp is the gap between them (domestic)"
+        ],
+        "sql": [
+          "SELECT segment_value AS acquirer_id, window_payments, rate_type, window_rate, gap_to_next_pp\n",
+          "FROM workspace.approval_copilot.fn_approval_drivers(p_country => 'BR', p_start_local => '2026-06-15 00:00:00',\n",
+          "       p_end_local => '2026-06-22 00:00:00', p_card_type => 'debit', p_dimension => 'acquirer',\n",
+          "       p_segment_values => 'A,C');\n"
+        ]
+      },
       {
         "id": "407d91ec0870d8686089e793dfae4e51",
         "question": [
@@ -301,6 +325,19 @@
           "FROM workspace.approval_copilot.silver_payments\n",
           "WHERE country = 'BR' AND first_acquirer_id = 'A'\n",
           "  AND business_date BETWEEN DATE'2026-07-01' AND DATE'2026-07-31';\n"
+        ]
+      },
+      {
+        "id": "87188d87360ee265f5607aba1bfa0f95",
+        "question": [
+          "Who moved the rate during an incident named by its date? Pass p_incident_date with no start or end, to this function and to the others, so all of them read the same window from the change log"
+        ],
+        "sql": [
+          "SELECT dimension, segment_value, baseline_share, window_share, window_rate, total_effect_pp,\n",
+          "       window_start_local, window_end_local\n",
+          "FROM workspace.approval_copilot.fn_approval_drivers(p_country => 'MX', p_card_type => 'debit', p_incident_date => '2026-07-02')\n",
+          "ORDER BY abs(total_effect_pp) DESC\n",
+          "LIMIT 10;\n"
         ]
       },
       {
@@ -442,6 +479,27 @@
           "       conversion_change_pp, lost_conversions, baseline_risk_block_rate, window_risk_block_rate, extra_risk_blocks,\n",
           "       baseline_3ds_abandon_rate, window_3ds_abandon_rate, extra_3ds_abandons\n",
           "FROM workspace.approval_copilot.fn_drop_impact(p_country => 'MX', p_card_type => 'debit', p_incident_date => '2026-07-02');\n"
+        ]
+      },
+      {
+        "id": "fbcb7bc02d4e0f0e4eeae155d36dfd1e",
+        "question": [
+          "What share of all first attempts failed with one code over a month? decline_metrics counts only failures, so divide by the payments sent (every first attempt, approved or not) from approval_metrics"
+        ],
+        "sql": [
+          "WITH d AS (\n",
+          "  SELECT MEASURE(failed_attempts) AS declined\n",
+          "  FROM workspace.approval_copilot.decline_metrics\n",
+          "  WHERE country = 'BR' AND attempt = 'first attempt' AND reason_code = '05'\n",
+          "    AND business_date BETWEEN DATE'2026-06-01' AND DATE'2026-06-30'\n",
+          "),\n",
+          "p AS (\n",
+          "  SELECT MEASURE(payments_sent) AS first_attempts\n",
+          "  FROM workspace.approval_copilot.approval_metrics\n",
+          "  WHERE country = 'BR' AND business_date BETWEEN DATE'2026-06-01' AND DATE'2026-06-30'\n",
+          ")\n",
+          "SELECT declined, first_attempts, round(declined / first_attempts, 4) AS share_of_first_attempts\n",
+          "FROM d CROSS JOIN p;\n"
         ]
       }
     ],

@@ -42,13 +42,15 @@ SIGNATURES = {
                        ("p_card_type", "STRING"), ("p_baseline_days", "INT"), ("p_incident_date", "STRING")],
     "fn_approval_drivers": [("p_country", "STRING"), ("p_start_local", "STRING"), ("p_end_local", "STRING"),
                             ("p_card_type", "STRING"), ("p_baseline_days", "INT"), ("p_dimension", "STRING"),
-                            ("p_rate", "STRING"), ("p_rank", "STRING")],
+                            ("p_rate", "STRING"), ("p_rank", "STRING"), ("p_incident_date", "STRING"),
+                            ("p_segment_values", "STRING")],
     "fn_decline_shift": [("p_country", "STRING"), ("p_start_local", "STRING"), ("p_end_local", "STRING"),
-                         ("p_card_type", "STRING"), ("p_baseline_days", "INT")],
+                         ("p_card_type", "STRING"), ("p_baseline_days", "INT"), ("p_incident_date", "STRING")],
     "fn_cascade_health": [("p_country", "STRING"), ("p_start_local", "STRING"), ("p_end_local", "STRING"),
-                          ("p_card_type", "STRING"), ("p_baseline_days", "INT"), ("p_issuer", "STRING")],
+                          ("p_card_type", "STRING"), ("p_baseline_days", "INT"), ("p_issuer", "STRING"),
+                          ("p_incident_date", "STRING")],
     "fn_changes_near": [("p_country", "STRING"), ("p_start_local", "STRING"), ("p_end_local", "STRING"),
-                        ("p_hours_before", "INT"), ("p_hours_after", "INT")],
+                        ("p_hours_before", "INT"), ("p_hours_after", "INT"), ("p_incident_date", "STRING")],
 }
 
 
@@ -107,6 +109,26 @@ def _integer(name: str, value, low: int, high: int, default: int) -> int:
     if not low <= v <= high:
         raise ValueError(f"{name} must be between {low} and {high}; got {v}")
     return v
+
+
+def _segments(value):
+    """Values to keep in approval_drivers, comma-separated: 'A,B', or a list such as ['A', 'B']."""
+    if _empty(value):
+        return None
+    items = value if isinstance(value, (list, tuple)) else str(value).split(",")
+    items = [str(v).strip() for v in items if str(v).strip()]
+    if not items or len(items) > 20 or not all(re.fullmatch(r"[A-Za-z0-9_.\- ]{1,40}", v) for v in items):
+        raise ValueError(f"segments must be up to 20 values such as 'A,B' or 'CO-ISS-03'; got {value!r}")
+    return ",".join(items)
+
+
+def window_args(country, start_local, end_local, incident_date) -> dict:
+    """A window passed as start and end, or the incident window the functions read from the change log."""
+    if not _empty(start_local) or not _empty(end_local):
+        return check_window(country, start_local, end_local)
+    if _empty(incident_date):
+        raise ValueError("pass start_local and end_local, or incident_date")
+    return {"p_country": _choice("country", country, COUNTRIES), "p_incident_date": _date("incident_date", incident_date)}
 
 
 def check_window(country, start_local, end_local) -> dict:
@@ -237,9 +259,9 @@ Diagnostic functions of the Approval Rate Copilot, on synthetic card payments of
 in Mexico (MX), Colombia (CO) and Brazil (BR), routed to acquirers A, B and C. Data covers 2026-06-01 to 2026-08-29.
 Windows are in the country's local time ('YYYY-MM-DD HH:MM:SS'; MX UTC-6, CO UTC-5, BR UTC-3), the end exclusive.
 Every function covers domestic payments and compares the window with a baseline of the days before it.
-To explain a drop: find the window with changes_near, or pass drop_impact the date of the change that started an
-incident and it reads the window from the change log; size it with drop_impact, then use approval_drivers,
-decline_shift and cascade_health. In cascade_health, map_stopped_retries = true means a decline-map change
+To explain a drop: find the window with changes_near, or pass the date of the change that started an incident as
+incident_date and every function reads the same window from the change log; size it with drop_impact, then use
+approval_drivers, decline_shift and cascade_health. In cascade_health, map_stopped_retries = true means a decline-map change
 stopped retries the acquirer used to get, which is a cause, not a correct classification. Rates are fractions
 (0.756 is 75.6%), and _pp columns are percentage points.
 All data is synthetic: issuers, merchants and acquirers are fictional codes, never real companies."""
@@ -269,68 +291,68 @@ def create_server(backend):
         same segment (conversion, risk blocks, 3DS abandonment). Pass incident_date, the date of the change that
         started an incident, and the window is read from the change log (window_start_local, window_end_local);
         or pass the window of the drop, from the change or hour it started to the change or hour it ended, not a
-        calendar day. Lost figures are expected minus actual at the baseline rates: positive means the window
-        approved less. lost_approvals counts the payments sent to an acquirer; lost_conversions counts all payment
-        intents, including those that risk blocks (extra_risk_blocks) or 3DS abandonment (extra_3ds_abandons)
-        stopped before any acquirer."""
-        def args():
-            common = {"p_card_type": _choice("card_type", card_type, CARD_TYPES, optional=True),
-                      "p_baseline_days": _integer("baseline_days", baseline_days, 1, 90, 14)}
-            if not _empty(start_local) or not _empty(end_local):
-                return {**check_window(country, start_local, end_local), **common}
-            if _empty(incident_date):
-                raise ValueError("pass start_local and end_local, or incident_date")
-            return {"p_country": _choice("country", country, COUNTRIES),
-                    "p_incident_date": _date("incident_date", incident_date), **common}
-        return call("fn_drop_impact", args)
+        calendar day. The lost_ columns are what the window approved below its baseline rates and the gained_
+        columns what it approved above them; none is negative. lost_approvals counts the payments sent to an
+        acquirer; lost_conversions counts all payment intents, including those that risk blocks (extra_risk_blocks)
+        or 3DS abandonment (extra_3ds_abandons) stopped before any acquirer, so it already holds lost_approvals."""
+        return call("fn_drop_impact", lambda: {
+            **window_args(country, start_local, end_local, incident_date),
+            "p_card_type": _choice("card_type", card_type, CARD_TYPES, optional=True),
+            "p_baseline_days": _integer("baseline_days", baseline_days, 1, 90, 14)})
 
     @server.tool(annotations=read_only)
-    def approval_drivers(country: str, start_local: str, end_local: str, card_type: str | None = None,
-                         baseline_days: int = 14, dimension: str | None = None, rate: str | None = None,
-                         rank: str | None = None) -> Table:
+    def approval_drivers(country: str, start_local: str | None = None, end_local: str | None = None,
+                         card_type: str | None = None, baseline_days: int = 14, dimension: str | None = None,
+                         rate: str | None = None, rank: str | None = None, incident_date: str | None = None,
+                         segments: str | None = None) -> Table:
         """Which segments moved approval between the baseline and the window: for each acquirer, issuer, card
         brand, 3DS outcome, merchant segment and routing version, the rate effect and the mix effect in points.
         The rate is final approval unless rate is 'first_attempt' (rate_type says which). Pass a dimension to get
         only its rows, ordered from the lowest window rate, with pp_below_next (how far each value sits below the
         next one). Pass rank ('lowest' or 'highest') to keep the three values at that end of each dimension, in
-        ranking order, with gap_to_next_pp."""
-        return call("fn_approval_drivers", lambda: {**check_window(country, start_local, end_local),
+        ranking order, with gap_to_next_pp, and segments ('A,B') to keep only the values named. Pass the window,
+        or incident_date to use the incident window that drop_impact reads from the change log."""
+        return call("fn_approval_drivers", lambda: {**window_args(country, start_local, end_local, incident_date),
                                             "p_card_type": _choice("card_type", card_type, CARD_TYPES, optional=True),
                                             "p_baseline_days": _integer("baseline_days", baseline_days, 1, 90, 14),
                                             "p_dimension": _choice("dimension", dimension, DIMENSIONS, optional=True),
                                             "p_rate": _choice("rate", rate, RATES, optional=True),
-                                            "p_rank": _choice("rank", rank, RANKS, optional=True)})
+                                            "p_rank": _choice("rank", rank, RANKS, optional=True),
+                                            "p_segment_values": _segments(segments)})
 
     @server.tool(annotations=read_only)
-    def decline_shift(country: str, start_local: str, end_local: str, card_type: str | None = None,
-                      baseline_days: int = 14) -> Table:
+    def decline_shift(country: str, start_local: str | None = None, end_local: str | None = None,
+                      card_type: str | None = None, baseline_days: int = 14, incident_date: str | None = None) -> Table:
         """Which first-attempt decline codes grew in the window, per acquirer, as a share of the segment's payments,
         and the same code summed over acquirers (all_acquirers columns), which shows how the code itself moved when
-        traffic moved from one acquirer to another."""
-        return call("fn_decline_shift", lambda: {**check_window(country, start_local, end_local),
+        traffic moved from one acquirer to another. Pass the window, or incident_date for the incident window."""
+        return call("fn_decline_shift", lambda: {**window_args(country, start_local, end_local, incident_date),
                                          "p_card_type": _choice("card_type", card_type, CARD_TYPES, optional=True),
                                          "p_baseline_days": _integer("baseline_days", baseline_days, 1, 90, 14)})
 
     @server.tool(annotations=read_only)
-    def cascade_health(country: str, start_local: str, end_local: str, card_type: str | None = None,
-                       baseline_days: int = 14, issuer: str | None = None) -> Table:
+    def cascade_health(country: str, start_local: str | None = None, end_local: str | None = None,
+                       card_type: str | None = None, baseline_days: int = 14, issuer: str | None = None,
+                       incident_date: str | None = None) -> Table:
         """Whether failed first attempts were retried on another acquirer and recovered, per acquirer and code, in
         the baseline and the window, with how the decline-code map classified each code and whether it allowed a
         retry. map_stopped_retries is true when a decline-map change stopped retries the acquirer used to get.
         lost_recoveries is what stopped retries cost: the recoveries the window missed at the baseline recovery
-        rate of the same acquirer and code. Pass issuer (such as 'BR-ISS-03') to look at one issuer."""
-        return call("fn_cascade_health", lambda: {**check_window(country, start_local, end_local),
+        rate of the same acquirer and code. Pass issuer (such as 'BR-ISS-03') to look at one issuer. Pass the window,
+        or incident_date for the incident window."""
+        return call("fn_cascade_health", lambda: {**window_args(country, start_local, end_local, incident_date),
                                           "p_card_type": _choice("card_type", card_type, CARD_TYPES, optional=True),
                                           "p_baseline_days": _integer("baseline_days", baseline_days, 1, 90, 14),
                                           "p_issuer": _issuer(issuer)})
 
     @server.tool(annotations=read_only)
-    def changes_near(country: str, start_local: str, end_local: str, hours_before: int = 72,
-                     hours_after: int = 72) -> Table:
+    def changes_near(country: str, start_local: str | None = None, end_local: str | None = None,
+                     hours_before: int = 72, hours_after: int = 72, incident_date: str | None = None) -> Table:
         """Production changes that affect the country (routing, risk rules, decline-code maps, releases, partner
         notices) from hours_before the window to hours_after it, with each change's position: before, during or
-        after the window. The changes after a drop show what ended it."""
-        return call("fn_changes_near", lambda: {**check_window(country, start_local, end_local),
+        after the window. The changes after a drop show what ended it. Pass the window, or incident_date for the
+        incident window."""
+        return call("fn_changes_near", lambda: {**window_args(country, start_local, end_local, incident_date),
                                         "p_hours_before": _integer("hours_before", hours_before, 0, 720, 72),
                                         "p_hours_after": _integer("hours_after", hours_after, 0, 720, 72)})
 

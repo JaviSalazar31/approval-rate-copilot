@@ -73,7 +73,7 @@ WITH METRICS
 LANGUAGE YAML
 AS $$
 version: 1.1
-comment: Failed authorization attempts per day, country, card type, acquirer and canonical reason, with how the decline-code map classified each code at the time.
+comment: Failed authorization attempts per day, country, card type, acquirer and canonical reason, with how the decline-code map classified each code at the time. It holds failed attempts only, so a share of all attempts needs payments_sent from approval_metrics as the denominator.
 source: workspace.approval_copilot.gold_decline_reasons_daily
 dimensions:
   - name: business_date
@@ -109,7 +109,7 @@ dimensions:
 measures:
   - name: failed_attempts
     expr: SUM(attempts)
-    comment: Authorization attempts the issuer or the acquirer did not approve
+    comment: Authorization attempts the issuer or the acquirer did not approve. Dividing it by failed attempts gives a share of the failures. A share of all first attempts divides it by MEASURE(payments_sent) from approval_metrics over the same filters, without the reason
 $$
 """)  # noqa: F821
 print("created decline_metrics")
