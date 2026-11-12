@@ -6,8 +6,8 @@ this server lets an assistant outside the workspace run the same method and get 
 
 | Tool | Function in Unity Catalog | Returns |
 |---|---|---|
-| `drop_impact` | `fn_drop_impact` | The size of a drop: change in final approval, lost approvals, lost approved volume (USD), fees and the payment funnel. Given the date of the change that started an incident, it reads the window from the change log |
-| `approval_drivers` | `fn_approval_drivers` | Which acquirers, issuers, card brands, 3DS outcomes, merchant segments and routing versions moved the rate |
+| `drop_impact` | `fn_drop_impact` | The size of a drop: change in final approval, lost approvals, lost approved volume (USD), fees and the payment funnel, with the approvals lost over all intents and the intents blocked or abandoned above the usual rate. Given the date of the change that started an incident, it reads the window from the change log |
+| `approval_drivers` | `fn_approval_drivers` | Which acquirers, issuers, card brands, 3DS outcomes, merchant segments and routing versions moved the rate, final or first-attempt; with `rank`, the three lowest or highest of each dimension |
 | `decline_shift` | `fn_decline_shift` | Which first-attempt decline codes grew, per acquirer and across acquirers |
 | `cascade_health` | `fn_cascade_health` | Whether failed attempts were retried on another acquirer and recovered, whether a decline-map change stopped them, and what that cost; optionally for one issuer |
 | `changes_near` | `fn_changes_near` | Production changes before, during and after a window |
