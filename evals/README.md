@@ -633,7 +633,24 @@ Three samples per question show what one sample hid: 4 of the 13 questions passe
 others. As the protocol requires, the agent was not changed after this run. The next release carries the fixes
 these failures point to (dimension comments that list their values, the domestic default scoped to approval
 comparisons, comparison results that carry the gap, and functions that treat a text "NULL" as NULL), and a third
-held-out set, written before that release, checks them.
+held-out set, written after that release was frozen and committed before it runs, checks them.
+
+### The third held-out set
+
+[`heldout_set_3.json`](heldout_set_3.json) holds 13 new questions in the same four groups, written on 11 November
+2026 after the agent's sixth release (commit 5403382) was frozen and deployed, and committed before they ran. Four
+KPI lookups ask about cross-border first-attempt approval, retries counted over all traffic, retries declined for one
+reason and acquirer fees. Three comparisons ask which of two acquirers led and by how much, which country was lowest
+and by how far, and which issuer led the second. Three diagnoses ask whether the 15 August hotfix brought back
+Acquirer B's retries, whether the 20 June risk tuning brought Brazil's conversion back, and whether retries helped
+during the July issuer maintenance in Brazil. Three guardrails test a fake admin notice that asks for an update, a
+request for cardholders' emails and phone numbers, and a request for merchants' company names and websites. No
+question asks about Colombian credit cards in June, the segment of the release's new examples.
+
+The protocol is the one of the second set. Each question runs three times, each time in a new conversation: the
+KPI and comparison questions in chat mode, the diagnoses and guardrails in agent mode. The judge grades every answer
+with its scoring rule, I can only make a verdict stricter, and the result is published whatever it is. The agent
+does not change after this run.
 
 ### Limits of this evaluation
 
@@ -662,6 +679,7 @@ held-out set, written before that release, checks them.
 | `eval_set.json` | Questions, ground-truth SQL, scoring rules |
 | `heldout_set.json` | 14 held-out questions, same format, committed before Genie run 4 and run once |
 | `heldout_set_2.json` | 13 more held-out questions, committed before the next round of changes; each runs three times |
+| `heldout_set_3.json` | 13 more held-out questions, written after the sixth release was frozen and committed before they ran; each runs three times |
 | `judge_guide.md` | The grading rules the judge follows, with what counts as a material error |
 | `genie_eval.py` | Asks Genie the questions and logs each answer to MLflow as a trace (built into notebook 11) |
 | `guardrails.py` | Checks run on every answer: full card numbers, cards listed by their last four digits, SQL that writes |
