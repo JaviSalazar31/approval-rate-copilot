@@ -249,6 +249,17 @@ and again lost most of its points in chat mode: a function's table with no text 
 runner-up (N6), an instruction applied outside its scope (N3), and a metric view whose description did not list a
 dimension's values (N4, ADR-17). Two of the four, N7 and N4, call for structure again.
 
+The sixth release put each fix where the model reads it: the values of every short dimension in the metric view and
+column descriptions (N4), monthly rankings and comparisons sent to the daily tables with two example queries that
+compute the gap before any filter (N6, N7, C1), a `pp_below_next` column on `fn_approval_drivers`, the recoveries
+lost at the baseline rate on `fn_cascade_health` (B4), and a text "NULL" read as NULL in the functions (H7). Six
+passages of the instructions changed with them, on the scope of the domestic default (N3), where whole-month
+rankings go and how a comparison computes its gap (N6, N7, C1), how to size stopped retries (B4), how a diagnosis
+opens (B1) and the data's lack of customer names (N13). On a third held-out set, written after the release and
+asked three times each, chat mode passed all 21 answers and the set passed 35 of 39. The benchmark stayed at 15 of
+20: C1 and B4 now pass, A5 and B6 failed, and B1 failed all three samples, each on a different misreading of its
+own query results; those need structural fixes as well.
+
 ---
 
 ### ADR-13 · Stop the run on a broken feed, quarantine bad rows
@@ -450,3 +461,62 @@ are a floor: they cannot tell a real bank's name from an issuer code, which only
 
 **Result.** Run 5 (24 answers) and the held-out run (39 answers) are MLflow runs with one trace per answer and
 the verdicts attached. None of the 63 answers failed a guardrail check.
+
+---
+
+### ADR-19 · Run the evaluation from the repository, like the deploy
+
+**Decision.** A workflow started by hand (`.github/workflows/evaluate.yml`) runs the evaluation job with the
+repository's two Databricks secrets. `ask` runs a question set and keeps the answers file as a workflow artifact and,
+compressed, in the run log; `log_verdicts` uploads a graded file committed to the repository
+(`evals/results/verdicts_*.json`) and attaches its verdicts to the run's MLflow traces; `fetch` reads back the answers
+of an earlier run. The deploy workflow can also run the daily job after a deploy (`run_daily_job`), so the
+functions, column descriptions and metric views in the workspace match the release before the agent is updated.
+
+**Why.** The agent changes only with an evaluated release (ADR-16), but until run 5 I started the evaluation from a
+local session on my computer. On 12 November (UTC) that session's credentials had expired, and the sixth release
+still had to be deployed and evaluated. Running both from the repository removes the dependency on one machine and
+one login, and the graded file that MLflow received becomes part of the published record.
+
+**Alternatives.** Logging in again on the local machine: quicker that night, but every later run would depend on
+it again. An evaluation on every deploy: each run asks Genie dozens of questions and needs a judge outside the
+workspace, so it stays a deliberate step.
+
+**Cost.** The workflow holds a GitHub runner while the job runs, up to two hours. The answers are kept three
+times: in the volume, as an artifact and in the log.
+
+**Result.** The sixth release was deployed, with the daily job and then the agent update, and evaluated from GitHub
+Actions on 12 November (UTC): Genie run 6 (24 answers) and the third held-out set (39 answers). The verdicts
+reached MLflow from the committed files, 24 and 39 graded, and both runs logged the same hash of the agent's
+context (`context_sha256` in the results files), different from run 5's.
+
+---
+
+### ADR-20 · Expose the five functions to other assistants through a small MCP server
+
+**Decision.** A Model Context Protocol server (`mcp_server/`, Python, stdio) offers the five diagnostic
+functions as read-only tools to any MCP client, such as Claude Desktop, Claude Code or another agent. Each tool
+runs one `SELECT` on one function. Its arguments are checked against the values the data holds and bound as
+parameters of the Statement Execution API, so nothing a client sends becomes SQL text. A local backend runs the
+same SQL bodies on the local pipeline output.
+
+**Why.** The method lives in the functions (ADR-06, ADR-12), not in Genie. An analyst who works in another
+assistant, or an agent that triages incidents, should get the same numbers without reimplementing the method or
+having to work in the Databricks workspace. A server that can only call the five functions keeps that access as
+narrow as the Genie agent's.
+
+**Alternatives.** A tool that takes free SQL: more flexible, and it would turn every client into a writer of SQL
+against the workspace, which the guardrails exist to prevent. A Databricks-managed MCP server for the schema's
+functions: no code to keep, but arguments would reach the functions unchecked, every call would need the workspace,
+so CI could not test the tools on the local output, and Free Edition may not offer it. A REST API: any client could
+call it, but each assistant would need its own integration.
+
+**Cost.** One more component to keep in step with the functions: a new function or parameter needs a new tool or
+argument here. The server uses the caller's Databricks credentials, so read-only access depends on the token too.
+It adds the MCP and Databricks SDKs to CI.
+
+**Result.** On 12 November, through the MCP protocol over stdio, the server returned on the deployed functions the
+copilot's numbers for the Colombia debit incident: 1,004 payments, −10.95 points, 110 lost approvals and USD 6,354
+of lost approved volume; CO-ISS-07 as the lowest issuer, 7.1 points below the next; and the routing change during
+the window, with the rollback and the map hotfix after it. CI makes the impact and issuer calls on the local
+backend.

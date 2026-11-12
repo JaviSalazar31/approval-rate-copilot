@@ -110,14 +110,19 @@ analysts need no grant on the reference tables the functions read.
 ## 8. Run the benchmarks
 
 The evaluation job `approval_copilot_eval` (notebook 11) asks the questions and logs each answer to MLflow
-(section 11). Run it with `question_set` set to `benchmark` or `heldout_2` and a `run_name`; the answers land in
-`/Volumes/workspace/approval_copilot/landing/evals/runs/<run_name>.json`. Genie's benchmark grader grades the
-chat-mode benchmark questions inside the run. Grade the other answers with the judge guide and the scoring rules
+(section 11). Run it with `question_set` set to `benchmark`, `heldout_2` or `heldout_3` and a `run_name`; the
+answers land in `/Volumes/workspace/approval_copilot/landing/evals/runs/<run_name>.json`. From the repository, run
+**Actions > Evaluate the Genie agent** with the same inputs: it waits for the job, keeps the answers file as a
+workflow artifact and prints it to the log, compressed, between a `BEGIN` and an `END` line; `fetch` reads back the
+answers of an earlier run without asking the questions again. Genie's benchmark grader grades the chat-mode
+benchmark questions inside the run. Grade the other answers with the judge guide and the scoring rules
 ([evals/README.md](../evals/README.md), [evals/judge_guide.md](../evals/judge_guide.md)), set `verdict` (true or
 false), `note`, `grader` and `grader_type` (`LLM_JUDGE` for the judge, `CODE` for Genie's grader, `HUMAN` for a
-manual review or an overrule) on each record of the answers file, upload it to the volume, and run the job again with `action` set to `log_verdicts` and
-`graded_path` pointing to the file: the verdicts are attached to the same traces. Running it again with a
-corrected file overrides only the verdicts that changed, and MLflow keeps the old ones in each trace's history.
+manual review or an overrule) on each record of the answers file, upload it to the volume, and run the job again
+with `action` set to `log_verdicts` and `graded_path` pointing to the file: the verdicts are attached to the same
+traces. With the workflow, commit the graded file under `evals/results/` (as `verdicts_<run>.json`) and pass its
+path as `graded_file`; the workflow uploads it and runs the job. Running it again with a corrected file overrides
+only the verdicts that changed, and MLflow keeps the old ones in each trace's history.
 
 The benchmarks also run by hand in the Genie UI: follow section 5 of [genie_space_setup.md](genie_space_setup.md),
 with two runs, one per mode, each with **Run selected**:
@@ -191,14 +196,23 @@ on every push to main that touches it, and deploys when you run it by hand.
    or a table. The bundle keeps the dashboard in the folder it was created in (`parent_path`), because moving it
    would give it a new ID and URL. After the first deploy the jobs show as managed by the bundle and are locked in
    the UI; change them in the repository.
-4. Tick **update_agent** only for a release that changes what the agent sees, after its evaluation: it applies
-   `databricks/genie/approval_copilot_agent.json` to the Genie agent, once its example queries, benchmark answers,
-   functions and tables pass a check.
+4. Tick **run_daily_job** when a release changes the functions, the column descriptions or the metric views: the
+   daily job recreates them from the deployed files before anything else reads them.
+5. Tick **update_agent** only for a release that changes what the agent sees, and evaluate it right after
+   (section 8) before publishing it: it applies `databricks/genie/approval_copilot_agent.json` to the Genie agent,
+   once its example queries, benchmark answers, functions and tables pass a check.
 
 The evaluation job runs notebook 11 on a question set and logs every answer to the MLflow experiment
 `approval-copilot-evals` in your user folder, as a trace with its latency, its SQL and the guardrail checks; the
 answers also go to `/Volumes/workspace/approval_copilot/landing/evals/runs/`. Its weekly schedule on the benchmark
 is defined but paused.
+
+## 12. Use the functions from another assistant
+
+[`mcp_server/`](../mcp_server/README.md) offers the five functions as read-only tools over the Model Context
+Protocol, with a configuration example for Claude Desktop. It needs a SQL warehouse ID and the same kind of
+credentials as the CLI. **Actions > MCP server on Databricks** starts it with the repository's secrets and calls
+its tools on the deployed functions.
 
 ## Alternative: deploy through the APIs
 

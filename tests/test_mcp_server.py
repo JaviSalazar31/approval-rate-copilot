@@ -81,6 +81,7 @@ class FakeStatements:
 
 
 def test_databricks_backend_binds_parameters_and_types_the_rows(monkeypatch):
+    pytest.importorskip("databricks.sdk")
     monkeypatch.setattr(srv.time, "sleep", lambda s: None)
     fake = FakeStatements()
     backend = srv.DatabricksBackend(client=SimpleNamespace(statement_execution=fake), warehouse_id="wh1")
@@ -110,6 +111,7 @@ def _rows(result) -> list[dict]:
 
 @pytest.mark.skipif(not LOCAL_OUTPUT, reason="needs the local pipeline output (python local/run_local.py)")
 def test_tools_over_mcp_return_the_copilot_numbers():
+    pytest.importorskip("mcp")
     tools, impact, drivers, bad = asyncio.run(_call_tools(srv.create_server(srv.LocalBackend())))
     assert sorted(tools) == ["approval_drivers", "cascade_health", "changes_near", "decline_shift", "drop_impact"]
     assert all(t.annotations.read_only_hint for t in tools.values())
@@ -123,6 +125,7 @@ def test_tools_over_mcp_return_the_copilot_numbers():
 
 @pytest.mark.skipif(not LOCAL_OUTPUT, reason="needs the local pipeline output (python local/run_local.py)")
 def test_server_runs_over_stdio():
+    pytest.importorskip("mcp")
     from mcp import StdioServerParameters
     params = StdioServerParameters(command=sys.executable, cwd=ROOT,
                                    args=[os.path.join(ROOT, "mcp_server", "approval_copilot_mcp.py"), "--backend", "local"])

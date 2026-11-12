@@ -110,19 +110,19 @@ def verdict_chip(v, mark=""):
             f'{"✓" if ok else "✗"}</span><span class="t">{"Pass" if ok else "Fail"}</span>{mark}</span>')
 
 
-def samples_chip(verdicts):
+def samples_chip(verdicts, mark=""):
     """One chip for a question asked several times: passed in every sample, in some, or in none."""
     n, k = len(verdicts), sum(v == "PASS" for v in verdicts)
     cls, ic = ("pass", "✓") if k == n else ("fail", "✗") if k == 0 else ("part", "")
     marks = " ".join("pass" if v == "PASS" else "fail" for v in verdicts)
     icon = f'<span class="ic" aria-hidden="true">{ic}</span>' if ic else ""
     return (f'<span class="verdict samples {cls}" title="samples: {marks}">{icon}'
-            f'<span class="t">{k} of {n}</span></span>')
+            f'<span class="t">{k} of {n}{mark}</span></span>')
 
 
 DOCS = [("PRD", "Problem, users, goals, requirements, rollout", "docs/PRD.md"),
         ("Metrics", "Metric tree, definitions and pitfalls", "docs/metrics.md"),
-        ("Decision log", "Eighteen decisions with their trade-offs", "docs/decisions.md"),
+        ("Decision log", "Twenty decisions with their trade-offs", "docs/decisions.md"),
         ("Postmortem INC-0814", "Timeline, root cause, action items", "docs/postmortem_INC-0814.md"),
         ("Impact and detection", "Control-group estimate, forecast alert backtest", "docs/impact_and_detection.md"),
         ("Evaluation", "Question set, rubric, all runs", "evals/README.md"),
@@ -181,8 +181,8 @@ def build():
                               f"<p>{html.escape(f['change'])}</p></div>")
 
     # held-out sets: questions the agent was never tuned on, committed before the run
-    # (evals/results/heldout_run4.json, asked once; evals/results/heldout2_run5.json, three samples each)
-    held, held2 = genie["heldout"], genie["heldout2"]
+    # (evals/results/heldout_run4.json, asked once; heldout2_run5.json and heldout3_run6.json, three samples each)
+    held, held2, held3 = genie["heldout"], genie["heldout2"], genie["heldout3"]
     hq = {q["id"]: q for q in json.load(open(os.path.join(ROOT, "evals", "heldout_set.json")))}
     heldout_rows = "\n".join(
         f'<tr><td class="mono">{qid}</td><td>{html.escape(q["question"])}</td><td>{CATEGORY[q["category"]]}</td>'
@@ -207,6 +207,21 @@ def build():
                       f'comparisons {g2.get("comparison", "–")}, diagnoses {g2.get("diagnosis", "–")}, guardrails '
                       f'{g2.get("guardrail", "–")}), and {held2["questions_all_samples"]} of the {held2["questions_total"]} '
                       f'questions passed in every sample. {held2.get("note", "")}').strip()
+    hq3 = {q["id"]: q for q in json.load(open(os.path.join(ROOT, "evals", "heldout_set_3.json")))}
+    heldout3_rows = "\n".join(
+        f'<tr><td class="mono">{qid}</td><td>{html.escape(q["question"])}</td><td>{CATEGORY[q["category"]]}</td>'
+        f'<td data-label="Mode" class="mode">{q["mode"]}</td><td data-label="G{held3["run"]}" class="genie">'
+        f'{samples_chip(held3["samples_by_question"][qid], "†" if any(o.startswith(qid + "_") for o in held3.get("overruled", [])) else "")}</td></tr>'
+        for qid, q in hq3.items())
+    g3 = {k: v["answers"] for k, v in held3["by_group"].items()}
+    heldout3_intro = (f'The third set: {held3["questions_total"]} new questions, written after the release that addressed '
+                      f'what the second set found and committed before Genie run {held3["run"]}, asked '
+                      f'{TIMES[held3["samples"]]} each in the same way. {held3["answers_passed"]} of '
+                      f'{held3["answers_total"]} answers passed (KPI lookups {g3.get("kpi", "–")}, comparisons '
+                      f'{g3.get("comparison", "–")}, diagnoses {g3.get("diagnosis", "–")}, guardrails '
+                      f'{g3.get("guardrail", "–")}), and {held3["questions_all_samples"]} of the '
+                      f'{held3["questions_total"]} questions passed in every sample. † marks a question with verdicts I '
+                      f'overruled to failures. {held3.get("note", "")}').strip()
 
     answer = summary["showcase"]
     sql_html = "".join(f"<pre><code>{html.escape(s)}</code></pre>" for s in answer["queries"])
@@ -230,6 +245,9 @@ def build():
     score_html += (f'\n      <div class="cell genie" role="listitem"><span class="v">{held2["answers_passed"]}/{held2["answers_total"]}</span>'
                    f'<span class="l">answers to {held2["questions_total"]} new held-out questions, each asked '
                    f'{TIMES[held2["samples"]]}, in Genie run {held2["run"]}</span></div>')
+    score_html += (f'\n      <div class="cell genie" role="listitem"><span class="v">{held3["answers_passed"]}/{held3["answers_total"]}</span>'
+                   f'<span class="l">answers to {held3["questions_total"]} more new questions, each asked '
+                   f'{TIMES[held3["samples"]]}, in Genie run {held3["run"]}</span></div>')
     genie_last = genie_runs[-1]
     genie_best = max(genie_runs, key=lambda r: r["passed"])
     earlier = [str(passed[str(n)]) for n in run_ids[:-1]]
@@ -257,7 +275,12 @@ def build():
                   heldout2_total=held2["questions_total"], heldout2_all=held2["questions_all_samples"],
                   heldout2_run=held2["run"], heldout2_times=TIMES[held2["samples"]],
                   heldout2_mixed=sum(0 < v.count("PASS") < len(v) for v in held2["samples_by_question"].values()),
-                  heldout_questions=held["total"] + held2["questions_total"]),
+                  heldout3_rows_html=heldout3_rows, heldout3_intro=html.escape(heldout3_intro),
+                  heldout3_answers_passed=held3["answers_passed"], heldout3_answers_total=held3["answers_total"],
+                  heldout3_total=held3["questions_total"], heldout3_all=held3["questions_all_samples"],
+                  heldout3_run=held3["run"],
+                  heldout3_mixed=sum(0 < v.count("PASS") < len(v) for v in held3["samples_by_question"].values()),
+                  heldout_questions=held["total"] + held2["questions_total"] + held3["questions_total"]),
         answer=dict(question=html.escape(answer["question"]), html=md_to_html(answer["answer"]),
                     sql_html=sql_html, query_count=len(answer["queries"]),
                     run_label=html.escape(answer.get("run_label", "evaluation run"))),

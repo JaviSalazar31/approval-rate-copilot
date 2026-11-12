@@ -378,7 +378,7 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
       <div class="eyebrow">Payments product · Data · Generative AI</div>
       <h1>Approval Rate Copilot</h1>
       <p class="lede">An AI analyst for a payments team. Ask it why card approvals dropped and it comes back with the cause and the cost, plus a recommended next step. Each number is backed by SQL you can open.</p>
-      <p class="sub">A personal product case on synthetic data for a fictional payment orchestrator in Mexico, Colombia and Brazil. A Databricks pipeline cleans four inconsistent data feeds, and a Genie agent and an AI/BI dashboard sit on top, all deployed on Databricks Free Edition. Its evaluation uses {{eval.total}} benchmark questions and {{eval.heldout_questions}} held-out ones, in two sets.</p>
+      <p class="sub">A personal product case on synthetic data for a fictional payment orchestrator in Mexico, Colombia and Brazil. A Databricks pipeline cleans four inconsistent data feeds, and a Genie agent and an AI/BI dashboard sit on top, all deployed on Databricks Free Edition. Its evaluation uses {{eval.total}} benchmark questions and {{eval.heldout_questions}} held-out ones, in three sets.</p>
       <div class="byline"><span><strong>Javier Salazar</strong>, Senior Product Owner, payments (LATAM)</span><span>October to November 2026</span><span>Personal project · 100% synthetic data</span></div>
     </div>
     <div aria-label="Summary of the copilot's diagnosis">
@@ -400,7 +400,7 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
     <div class="fact" role="listitem"><div class="v">1 in {{incident.one_in|int}}</div><div class="l">Colombian debit payments was an extra decline in the 22 hours after a routing change ({{incident.lost_approvals|int}} of {{incident.window_payments|int}} above the usual rate)</div></div>
     <div class="fact" role="listitem"><div class="v">{{incident.days_of_early_warning|int}} days</div><div class="l">of early warning: the retry alert flagged the hidden cause in its first daily run, on 7 Aug, but nobody owned it</div></div>
     <div class="fact" role="listitem"><div class="v">USD {{incident.b05_lost_recoveries_usd|k0}}</div><div class="l">estimated approved volume lost over nine days while retries were switched off, mostly before the visible drop</div></div>
-    <div class="fact" role="listitem"><div class="v">{{eval.genie_passed}}/{{eval.total}}</div><div class="l">benchmark questions passed by the deployed Genie agent on its {{eval.genie_last_ordinal}} run ({{eval.genie_first}} on the first, {{eval.genie_best}} on the {{eval.genie_best_ordinal}}), and {{eval.heldout2_answers_passed}} of {{eval.heldout2_answers_total}} answers to new questions it was never tuned on</div></div>
+    <div class="fact" role="listitem"><div class="v">{{eval.genie_passed}}/{{eval.total}}</div><div class="l">benchmark questions passed by the deployed Genie agent on its {{eval.genie_last_ordinal}} run ({{eval.genie_first}} on the first, {{eval.genie_best}} on the {{eval.genie_best_ordinal}}), and {{eval.heldout3_answers_passed}} of {{eval.heldout3_answers_total}} answers to new questions it was never tuned on ({{eval.heldout2_answers_passed}} of {{eval.heldout2_answers_total}} on a different set, before the last release)</div></div>
   </div>
   <p class="glossary"><b>pp</b> percentage points · <b>bps</b> basis points (0.01%) · <b>acquirer</b> the bank or processor that takes card payments for the merchant · <b>issuer</b> the cardholder's bank · <b>cascade</b> retrying a declined payment on a second acquirer</p>
 
@@ -587,9 +587,16 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
           <tbody>{{eval.heldout2_rows_html}}</tbody>
         </table>
       </div>
+      <p>{{eval.heldout3_intro}}</p>
+      <div class="table-wrap">
+        <table class="eval-table ho-table">
+          <thead><tr><th>ID</th><th>Question</th><th>Type</th><th>Mode</th><th class="genie">Genie {{eval.heldout3_run}}, samples passed</th></tr></thead>
+          <tbody>{{eval.heldout3_rows_html}}</tbody>
+        </table>
+      </div>
     </div>
     <h3 class="limits-head">Limits</h3>
-    <p class="eval-limits">After every fix the twenty benchmark questions ran again, so they show that the fixes work on these cases. The held-out sets check whether the fixes generalize: {{eval.heldout_total}} questions asked once, then {{eval.heldout2_total}} asked {{eval.heldout2_times}} each, and the second showed how much one sample hides, with {{eval.heldout2_mixed}} of its {{eval.heldout2_total}} questions passing in some samples and failing in others. On Genie, B1 and C3 also ran three times in runs 2 to {{eval.genie_runs}}, and reworded variants of failed questions passed {{eval.genie_variants}} in run 4. The judge is a model; its verdicts are published, and I overrule a verdict only to make it stricter. The offline model stood in for Genie and overstated it: {{eval.last_passed}} of {{eval.total}} offline against {{eval.genie_first}} on the first Genie run.</p>
+    <p class="eval-limits">After every fix the twenty benchmark questions ran again, so they show that the fixes work on these cases. The held-out sets check whether the fixes generalize: {{eval.heldout_total}} questions asked once, then two sets of {{eval.heldout2_total}} asked {{eval.heldout2_times}} each, and the repeated samples show how much one sample hides: {{eval.heldout2_mixed}} of the second set's questions and {{eval.heldout3_mixed}} of the third's passed in some samples and failed in others. Each set is new and was committed to the repository before its run. On Genie, B1 and C3 also ran three times in runs 2 to {{eval.genie_runs}}, and reworded variants of failed questions passed {{eval.genie_variants}} in run 4. The judge is a model; its verdicts are published, and I overrule a verdict only to make it stricter. The offline model stood in for Genie and overstated it: {{eval.last_passed}} of {{eval.total}} offline against {{eval.genie_first}} on the first Genie run.</p>
   </section>
 
   <!-- ===================================================================================== -->
@@ -654,7 +661,7 @@ footer { margin-top: 5rem; padding-block: 2rem 3rem; border-top: 1px solid var(-
     </div>
     <div class="next">
       <ol>
-        <li>Fix the chat-mode gaps the two held-out sets found: answers that are a table with no text, a text "NULL" passed for an optional parameter, a metric view whose description does not list a dimension's values, and a rule applied outside its scope. Then check the release on a third held-out set, written before it.</li>
+        <li>Fix what run 6 and the third held-out set found, above all the main diagnosis, which passed none of its three samples, and the offers to draft a refused update. Then check that release on a fourth held-out set.</li>
         <li>Pilot on real data with three analysts for four weeks, after short interviews, and measure time to diagnosis against today's process.</li>
         <li>Add hourly detection on the busiest segments, so a drop that starts at 14:00 surfaces within hours, before the next daily run.</li>
       </ol>
