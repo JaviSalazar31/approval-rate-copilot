@@ -554,7 +554,7 @@ there. Changing the benchmark's references so the answers match: the evaluation 
 **Cost.** The functions return more columns for the agent to read. Agent-mode answers took longer than in run 6
 (a median of 72 seconds against 55), which one run cannot pin on the release. One change came after the fourth
 held-out set was committed, and it bears on B3's grade: `fn_drop_impact` names its window the same way however it
-is passed (`window_source`, commit c78f5ce). The benchmark's reference for B3 passes the window explicitly and
+is passed (`window_source`, commit 652692d). The benchmark's reference for B3 passes the window explicitly and
 selects every column, and Genie's grader compares every column, so without the change an answer that called the
 function with the incident date would have failed on that label alone, with the same figures. It was deployed with
 the agent before both runs, and no question of the fourth set depends on that column.

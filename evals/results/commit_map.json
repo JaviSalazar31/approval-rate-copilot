@@ -1,0 +1,313 @@
+{
+ "note": "On 12 November 2026 the whole history of main was signed again, with Claude Code as committer, so GitHub can verify every commit. Each commit kept its tree (its files), author, dates and message; only the hash changed. The GitHub Actions runs before that day show the old hashes.",
+ "commits": [
+  {
+   "old": "962fa37de051209f9d15273db7f5394b9fdc784a",
+   "new": "c689baeaf8c64e59aabf1aeacc6e74ea06eb5821",
+   "tree": "5c2de580bc360de8dea91860fcb9295ca3e06f3d",
+   "date": "2026-10-29 05:43:50 UTC",
+   "subject": "Approval Rate Copilot: case study on synthetic payments data"
+  },
+  {
+   "old": "82b309d258ebbee86ae8e2100fc123332fdbb88e",
+   "new": "51d8fe2e884de291b7d49f8ce9bbde86e5c7edcb",
+   "tree": "ac29da880b10ed9c11e2a5263c04b578489d057f",
+   "date": "2026-10-29 18:01:41 UTC",
+   "subject": "Deploy on Databricks Free Edition and run the Genie benchmark"
+  },
+  {
+   "old": "f26cecb8ba1c5c4da93908f6d4235eca604db4b2",
+   "new": "9c0428ceb2809ceaaba8f4ef4d76a713d2f02748",
+   "tree": "e9a74c887bca1cebb58b22afc8659530e055118b",
+   "date": "2026-10-29 20:32:22 UTC",
+   "subject": "Tune the Genie agent in two rounds and publish benchmark runs 2 and 3"
+  },
+  {
+   "old": "62ecca208ff45c18209fa7bc727a6d25d0f1af80",
+   "new": "7446c91a8e866ea78fdabf0c1013eeda857e4685",
+   "tree": "351a545e4ee35e54f6f63b406cb46917729b2d63",
+   "date": "2026-10-29 21:08:58 UTC",
+   "subject": "Freeze a held-out question set before Genie run 4"
+  },
+  {
+   "old": "eeb500ee9af8e9f63576425f9967223057c85ffe",
+   "new": "844123c3a3950c5985bca1494c9921c0c5940748",
+   "tree": "2e11e8b73bd4fc1bbf60be1bbe14fe31f7fc2926",
+   "date": "2026-10-29 21:56:28 UTC",
+   "subject": "Genie run 4: 18/20 on the benchmark, 11/14 on the held-out set"
+  },
+  {
+   "old": "db9541994ef810f3ef4a45c49b10123b12fc0a36",
+   "new": "e66a7e3c172f8aa5d6a105817175741552a653ab",
+   "tree": "4cbdeea9ad39b84d09d8abac6a803b4ebf463b91",
+   "date": "2026-10-29 22:24:55 UTC",
+   "subject": "Overrule C1 in Genie run 4: 17/20, and fix what a review found"
+  },
+  {
+   "old": "909366011f278b47bb360a2730e76839c575cff4",
+   "new": "c12e39e26f8c1a0eb53b1dd58e4176c6dc32fb57",
+   "tree": "8a78bcf68564d992ba33ae05c371c1ea9003438a",
+   "date": "2026-10-29 22:36:34 UTC",
+   "subject": "Demo script: final voice-over for recording"
+  },
+  {
+   "old": "db904a86d22e1f7cf6cc048e16ead9d9722abdb9",
+   "new": "c6400217c9ae0b0e64d8b2b00df13427a7cac387",
+   "tree": "0edcb9f2ef09c35fd4a68dbaef37573c436b2ea3",
+   "date": "2026-10-29 23:42:05 UTC",
+   "subject": "Rewrite the project's prose in a plain, natural style"
+  },
+  {
+   "old": "bc1f970b3ebd178407011858ef472aad4aeaac95",
+   "new": "4cd4e95a829caaf2f32bb57182bc20b85cdc185e",
+   "tree": "759bfd8fbcdb60bdbd327a6591d144316b852a28",
+   "date": "2026-11-05 02:13:54 UTC",
+   "subject": "Add impact analysis, feed contracts, a forecast alert, one Databricks job and CI"
+  },
+  {
+   "old": "2d5e6d840750f0f03b9cc64983218ba28987b922",
+   "new": "b524b9c1b46fcce09d5c0826cae3d6b3d5d223d2",
+   "tree": "4d2c0466e130099791922a82b0bd1c0420a1ddcd",
+   "date": "2026-11-05 02:22:26 UTC",
+   "subject": "Fix CI on Python 3.12: install setuptools for PySpark"
+  },
+  {
+   "old": "d3065a334110cf65b7172648146768161320d394",
+   "new": "eee15b7c4a2d648182196b4bfde9f056319da921",
+   "tree": "86c976a550ad7344eb3048b6acd1470b0acfd4c5",
+   "date": "2026-11-05 02:35:35 UTC",
+   "subject": "Add a second held-out set, committed before it runs"
+  },
+  {
+   "old": "86258a8e378744de3b26ded7f29a7c207d5ffd17",
+   "new": "75aa4cde8f2b22a62cd97407458c3ec3baa8a75f",
+   "tree": "6d1846238407725da1c4f27606ca8da97eb9ca96",
+   "date": "2026-11-05 04:00:53 UTC",
+   "subject": "Move gold to dbt, add metric views, MLflow evaluation and a bundle deploy"
+  },
+  {
+   "old": "312257ec98478289f5feb90a9a40d760fc89e0e2",
+   "new": "9e228e5185c42e49bb8be3122c61681caf79bd41",
+   "tree": "b8ff55ac81d569026e73fcb23e5c5995b038b905",
+   "date": "2026-11-05 04:33:33 UTC",
+   "subject": "Apply the independent review of the Block 2 release"
+  },
+  {
+   "old": "283c08acb81cf81fc081df654c80410caf9793ee",
+   "new": "76efcb1ac26fe43c421b46c8df912d7a8aed1348",
+   "tree": "a7d4a98f349f1d7ed556283e0c92bf8d28b88eda",
+   "date": "2026-11-05 04:40:15 UTC",
+   "subject": "Set the bundle root path on the prod target"
+  },
+  {
+   "old": "cfe7359f724424b49bfeac074a0d0598d56e8be0",
+   "new": "2f3d771b59a9051409e2ee6ad7344943cafb6f0b",
+   "tree": "5b7fb8e21f65ae85b913ae435379ea5c7febd254",
+   "date": "2026-11-05 04:42:38 UTC",
+   "subject": "Keep the dashboard in its folder when the bundle deploys it"
+  },
+  {
+   "old": "1e1d6d189d333ef4efe9c43195b70e02ed3293e9",
+   "new": "3b1af7f4ca25383aab8cb18cbdf6810d95378361",
+   "tree": "da6b4072eb5bb8949854ca9bb196d2e549308551",
+   "date": "2026-11-05 04:52:36 UTC",
+   "subject": "Create the metric views from Python, not a %sql cell"
+  },
+  {
+   "old": "f11233dc88970125e69317a911f3fab0956e9af4",
+   "new": "3b9e06d64c1ea6d63dc7e5eb061ec8bd1cabd8fb",
+   "tree": "67dc2e5be1c9a9655841da9fbf7c3be5aedf5abe",
+   "date": "2026-11-05 05:01:44 UTC",
+   "subject": "Record the first bundle deploy and the evaluation timestamps"
+  },
+  {
+   "old": "ad36c398435a2c05cd294334789ae1ca1a53cbd1",
+   "new": "917cb980a02fc2569b186c7e7e96b1d420889db3",
+   "tree": "6c394ee84dcd3fcb6418781beea6a3b0415eaee6",
+   "date": "2026-11-05 05:39:35 UTC",
+   "subject": "Show the pipeline as it is now in the video script"
+  },
+  {
+   "old": "5403382869a63b35f0675aec228296a84cd18b59",
+   "new": "30d4922991f0d267cb29a4e8f00bda0754271380",
+   "tree": "ca35d68c28e4d13e0798258d42215b91a987a53a",
+   "date": "2026-11-12 00:30:45 UTC",
+   "subject": "Agent v6: fix what the second held-out set found"
+  },
+  {
+   "old": "202b41135c2cba30296ab33936aa167e1272aa05",
+   "new": "71b84c8121b77e12ff17d3395065a7dbc65e6bb8",
+   "tree": "b4f93a5f89a568a9852918ad6b6a51e6deea895b",
+   "date": "2026-11-12 00:46:17 UTC",
+   "subject": "Add a third held-out set, committed before it runs"
+  },
+  {
+   "old": "a80719e075cb548f1c3c114eebf2de09071d68e0",
+   "new": "bbb5454f3ead56774570e99c4114db843e36c7fc",
+   "tree": "aedc98b8b8ce3d006d2d3c38b53f502aa5e3e012",
+   "date": "2026-11-12 00:55:46 UTC",
+   "subject": "Let the evaluation workflow read back an earlier run"
+  },
+  {
+   "old": "310b36ff0aad9f7c7204f3484ae3d77b3e9bd35c",
+   "new": "1d5efbc030e2c10fe23c495bd80b0bc45e1258d2",
+   "tree": "4a1d92e3ad90526c2d4d0d953956f40756a99174",
+   "date": "2026-11-12 01:22:34 UTC",
+   "subject": "Add the verdicts of Genie run 6 and the third held-out set"
+  },
+  {
+   "old": "5df8f2c648b2eedc22a220f5c0098ff20788567b",
+   "new": "24c5bcf22df90603f777f800ccf811e9c6d4e2b2",
+   "tree": "4a4547dda606acee1c305c213b16888aa611831c",
+   "date": "2026-11-12 01:41:26 UTC",
+   "subject": "Add an MCP server for the copilot's five functions"
+  },
+  {
+   "old": "552764be5ba9838690545db6d2b5fb68d192279e",
+   "new": "637bea8e91eac366ae4a2d938193365f23bc5a3d",
+   "tree": "55d7d90659666fa3a0d4a67a9c1d13e1977d1f9a",
+   "date": "2026-11-12 02:17:29 UTC",
+   "subject": "Publish Genie run 6, the third held-out set and the MCP server"
+  },
+  {
+   "old": "85650ea1167abbf9588852549ba3d92b40988c54",
+   "new": "db3e1c694e3b573a4a3f072b77485eee2f17fffe",
+   "tree": "2a0e7f930337f6ff80e101259ee1d5df8babe632",
+   "date": "2026-11-12 05:40:26 UTC",
+   "subject": "Agent v7: compute what the sixth run and the third set misread"
+  },
+  {
+   "old": "0361c62507e4361a57e87e5284160da6ab390b53",
+   "new": "b38ce2ef7f961768dddbfd18fc6eb027009859b9",
+   "tree": "2166a6dd6e35188aa89c8a8ec4cfcfe17ca3564e",
+   "date": "2026-11-12 05:44:52 UTC",
+   "subject": "Add a fourth held-out set, committed before it runs"
+  },
+  {
+   "old": "c78f5ce679e3e85365108cf994d35cf6b09a2433",
+   "new": "652692db842bd491c11efb652b1044cfa3e9d2d2",
+   "tree": "aa1d96c84e58267e3a3390db77a3cdbcceaf7206",
+   "date": "2026-11-12 05:47:21 UTC",
+   "subject": "Name the incident window the same way however it is passed"
+  },
+  {
+   "old": "049f67a3fd29ab66b567fffca65321a3c0bf95de",
+   "new": "fa03323c57e5828ffa25dec2269bdd74b5793654",
+   "tree": "286901a4f8db711105ec7111b5eea7dd13897750",
+   "date": "2026-11-12 05:49:07 UTC",
+   "subject": "Ignore the MCP server's virtual environment"
+  },
+  {
+   "old": "d5bba28eec35f314f9ab8f1c022ffa38ec9e128b",
+   "new": "8680d56e00a667ad1eda9951d28d39139db679a7",
+   "tree": "b3bb2fcbea03826aa35d823edf515b90aa2e71cc",
+   "date": "2026-11-12 05:52:24 UTC",
+   "subject": "Add an AUTO CDC late-data test in its own schema"
+  },
+  {
+   "old": "e6722de49ce79339c1a6462747854a6bd3c3fb60",
+   "new": "17f58e0b787e2ffd1002465d72edeea7d10057ed",
+   "tree": "d8a1eaf11fd477e3863b1c261b23f65db4ca5bb4",
+   "date": "2026-11-12 05:58:12 UTC",
+   "subject": "Give the late-data job its own bundle key, and count the new tests"
+  },
+  {
+   "old": "44a6da61d82b83b981f82e2f769e242f9756fbc0",
+   "new": "60c9f9c02dc1c9e6b72cd5a33b18a1bc24059307",
+   "tree": "69b27bf5eeadbdf5944d57fab235593a8f7dcea6",
+   "date": "2026-11-12 06:14:36 UTC",
+   "subject": "Read the SCD columns of the late-data check through an alias"
+  },
+  {
+   "old": "64cf68f0d1ff6c86b0228aad66a7cf47a8a0a14f",
+   "new": "3d1adbeff99742ccb6f6275affdb1f65b5bb252d",
+   "tree": "1e09fda7e43a6bd1e62994653099f70c90a7a032",
+   "date": "2026-11-12 06:30:56 UTC",
+   "subject": "Add the verdicts of Genie run 7 and the fourth held-out set"
+  },
+  {
+   "old": "d75749e489948b8a9181841f1b2c72da677d6bf0",
+   "new": "bf1a96a73a87e252bc39a6dd706041f31ce0fc2e",
+   "tree": "eb4694c298bd4b6bdf50c2668a78456acca53bba",
+   "date": "2026-11-12 07:00:29 UTC",
+   "subject": "Publish Genie run 7, the fourth held-out set and the late-data test"
+  },
+  {
+   "old": "f5b7b70f127917772f8c1daeded85d8f039d732a",
+   "new": "6f154a9ee606f27bfc0d747a5174e826fa7287ca",
+   "tree": "f701e2dfc5322773cf641267a3d0b56c08acd0e4",
+   "date": "2026-11-12 07:17:19 UTC",
+   "subject": "Agent v8: what the fourth held-out set found"
+  },
+  {
+   "old": "d9c1f924962c8e41c6251fe806d4c9ca9171859f",
+   "new": "73fb8877b0f99f7c47ebec37c30e7b415e84a975",
+   "tree": "ce7bcddb3f7b6609f2e4267528fbe2b146698dfb",
+   "date": "2026-11-12 07:26:17 UTC",
+   "subject": "Add a fifth held-out set, committed before it runs"
+  },
+  {
+   "old": "83627ab8106bcc781953504c66faf5d69f420d72",
+   "new": "f9a45f76675269f4d61c7a1063d16b430af1f38a",
+   "tree": "56e180c377130a4c7c029e1283ef25691eeb8ebf",
+   "date": "2026-11-12 07:52:52 UTC",
+   "subject": "Add the verdicts of Genie run 8 and the fifth held-out set"
+  },
+  {
+   "old": "402d7ff5e2cc715fb2180bb373ec32d1522d51cd",
+   "new": "089257361e659430bfdd4b38e787f18e7ead8e1a",
+   "tree": "1f8e93e6af5d026168fa0bc42a14393ec21df9ba",
+   "date": "2026-11-12 08:08:12 UTC",
+   "subject": "Publish Genie run 8 and the fifth held-out set"
+  },
+  {
+   "old": "792976bc753261a217de5dd453b6cfe05000fc99",
+   "new": "596b7bfceb8c4ffbc02b63448e3e57bd73b4a9e3",
+   "tree": "b5e5e5c7329a5a56fe16ddd1d9538d19de3a6d3d",
+   "date": "2026-11-12 08:26:18 UTC",
+   "subject": "Fix what the review of the eighth release found"
+  },
+  {
+   "old": "9b0563c156f730f830d77b376de0aa2fced68250",
+   "new": "83aecc5c4d8758f2ca07a36f2a181fb93f51575f",
+   "tree": "0bb51a87cb4f27b68e39fb60efcb1f126c95ad0a",
+   "date": "2026-11-12 10:50:01 UTC",
+   "subject": "Agent v9: ranking and rate parameters, funnel losses, premise check"
+  },
+  {
+   "old": "8ce63019f69156afbbaa8188893d00a3fe89a1ea",
+   "new": "90bd4dba634215b4a34ec7ee82d11f2bc33c4253",
+   "tree": "196a39d82db8d698e51ef91eb33e24062b42f602",
+   "date": "2026-11-12 10:56:43 UTC",
+   "subject": "Add the sixth held-out set, written after agent v9"
+  },
+  {
+   "old": "1ca9e2627647e62d892821efbd11bc027cb59551",
+   "new": "ca4ea787fd76052fa50c7539778139fc02e802ac",
+   "tree": "000ffe5b5c5e06ade935dc728398acc8472a1eb1",
+   "date": "2026-11-12 11:03:40 UTC",
+   "subject": "Describe the MCP server's new drivers arguments and impact columns"
+  },
+  {
+   "old": "f04aa6ddad73a01afd015a9179696435963a0cdc",
+   "new": "d66c6a12a3d4740f1826c82ddf6d332a6cb52f6f",
+   "tree": "ed2999c11c2837a63c9c8a5955b9ff827128fb5b",
+   "date": "2026-11-12 11:35:45 UTC",
+   "subject": "Add the verdicts of Genie run 9 and the sixth held-out set"
+  },
+  {
+   "old": "97caa719e446fc30aed450e08d383be25ebf3ad5",
+   "new": "62a23b51aecc26dba67dba91c5d38542937dd733",
+   "tree": "cef5380f3c52d4c21bf1636bf08478e7e1f00e35",
+   "date": "2026-11-12 11:43:57 UTC",
+   "subject": "Publish Genie run 9 and the sixth held-out set"
+  },
+  {
+   "old": "028c50eb2d03001f7e84952dbca4e3f1d6c04793",
+   "new": "47e09756a52996afc3114e9471145ad715e99ad0",
+   "tree": "2b5a197ead4edecac301b7b6633e1f5790691575",
+   "date": "2026-11-12 12:07:11 UTC",
+   "subject": "Fix what the review of the ninth release found"
+  }
+ ]
+}

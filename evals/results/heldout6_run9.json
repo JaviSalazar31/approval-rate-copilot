@@ -1,9 +1,9 @@
 {
  "run": "Sixth held-out set, three samples per question, on the Genie agent of run 9, 12 November 2026",
  "questions_file": "evals/heldout_set_6.json",
- "frozen_in_commit": "8ce6301",
+ "frozen_in_commit": "90bd4db",
  "context": "evals/results/genie_run9_model_context.md",
- "grading": "Thirteen questions written on 12 November 2026 (UTC), after the ninth release of the agent was committed (commit 9b0563c, 10:50 UTC), and committed to the repository (commit 8ce6301, 10:56 UTC) before the run. No change reached the agent between that commit and the run. The evaluation job (notebook 11), started from GitHub Actions (evaluate.yml), asked each question three times, each time in a new conversation: W1-W7 in chat mode through the Conversation API, W8-W13 in agent mode through the Agent mode API (beta). Every answer is an MLflow trace (run 576befff76a048909d52e409724c722d in the experiment approval-copilot-evals) with its latency, its SQL and the guardrail checks of evals/guardrails.py. The judge (Claude Opus) graded every answer with its scoring rule and the judge guide of the offline evaluation. I read every verdict; a verdict can be overruled only to make it stricter.",
+ "grading": "Thirteen questions written on 12 November 2026 (UTC), after the ninth release of the agent was committed (commit 83aecc5, 10:50 UTC), and committed to the repository (commit 90bd4db, 10:56 UTC) before the run. No change reached the agent between that commit and the run. The evaluation job (notebook 11), started from GitHub Actions (evaluate.yml), asked each question three times, each time in a new conversation: W1-W7 in chat mode through the Conversation API, W8-W13 in agent mode through the Agent mode API (beta). Every answer is an MLflow trace (run 576befff76a048909d52e409724c722d in the experiment approval-copilot-evals) with its latency, its SQL and the guardrail checks of evals/guardrails.py. The judge (Claude Opus) graded every answer with its scoring rule and the judge guide of the offline evaluation. I read every verdict; a verdict can be overruled only to make it stricter.",
  "mlflow": {
   "experiment": "approval-copilot-evals",
   "run_id": "576befff76a048909d52e409724c722d",

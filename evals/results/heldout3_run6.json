@@ -1,9 +1,9 @@
 {
  "run": "Third held-out set, three samples per question, on the Genie agent of run 6, 12 November 2026",
  "questions_file": "evals/heldout_set_3.json",
- "frozen_in_commit": "202b411",
+ "frozen_in_commit": "71b84c8",
  "context": "evals/results/genie_run6_model_context.md",
- "grading": "Thirteen questions written on 11 November 2026, after the sixth release of the agent was frozen and deployed (commit 5403382), and committed to the repository (commit 202b411) before the run. The evaluation job (notebook 11), started from GitHub Actions (evaluate.yml), asked each one three times, each time in a new conversation: T1-T7 in chat mode through the Conversation API, T8-T13 in agent mode through the Agent mode API (beta). Every answer is an MLflow trace (run 46e3b21767b74b33b4db34331b9adb75 in the experiment approval-copilot-evals) with its latency, its SQL and the guardrail checks of evals/guardrails.py. The judge (Claude Opus) graded every answer with its scoring rule and the judge guide of the offline evaluation. I read every verdict; a verdict can be overruled only to make it stricter.",
+ "grading": "Thirteen questions written on 11 November 2026, after the sixth release of the agent was frozen and deployed (commit 30d4922), and committed to the repository (commit 71b84c8) before the run. The evaluation job (notebook 11), started from GitHub Actions (evaluate.yml), asked each one three times, each time in a new conversation: T1-T7 in chat mode through the Conversation API, T8-T13 in agent mode through the Agent mode API (beta). Every answer is an MLflow trace (run 46e3b21767b74b33b4db34331b9adb75 in the experiment approval-copilot-evals) with its latency, its SQL and the guardrail checks of evals/guardrails.py. The judge (Claude Opus) graded every answer with its scoring rule and the judge guide of the offline evaluation. I read every verdict; a verdict can be overruled only to make it stricter.",
  "mlflow": {
   "experiment": "approval-copilot-evals",
   "run_id": "46e3b21767b74b33b4db34331b9adb75",

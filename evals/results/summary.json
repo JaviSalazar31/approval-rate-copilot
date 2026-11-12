@@ -977,7 +977,7 @@
   "heldout2": {
    "run": 5,
    "samples": 3,
-   "frozen_in_commit": "d3065a3",
+   "frozen_in_commit": "eee15b7",
    "answers_passed": 26,
    "answers_total": 39,
    "questions_all_samples": 7,
@@ -1080,7 +1080,7 @@
   "heldout3": {
    "run": 6,
    "samples": 3,
-   "frozen_in_commit": "202b411",
+   "frozen_in_commit": "71b84c8",
    "answers_passed": 35,
    "answers_total": 39,
    "questions_all_samples": 10,
@@ -1187,7 +1187,7 @@
   "heldout4": {
    "run": 7,
    "samples": 3,
-   "frozen_in_commit": "0361c62",
+   "frozen_in_commit": "b38ce2e",
    "answers_passed": 32,
    "answers_total": 39,
    "questions_all_samples": 9,
@@ -1291,7 +1291,7 @@
   "heldout5": {
    "run": 8,
    "samples": 3,
-   "frozen_in_commit": "d9c1f92",
+   "frozen_in_commit": "73fb887",
    "answers_passed": 32,
    "answers_total": 39,
    "questions_all_samples": 9,
@@ -1395,7 +1395,7 @@
   "heldout6": {
    "run": 9,
    "samples": 3,
-   "frozen_in_commit": "8ce6301",
+   "frozen_in_commit": "90bd4db",
    "answers_passed": 31,
    "answers_total": 39,
    "questions_all_samples": 8,

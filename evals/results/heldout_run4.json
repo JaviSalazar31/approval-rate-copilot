@@ -1,9 +1,9 @@
 {
  "run": "Held-out set, run once on the Genie agent of run 4, 29 October 2026",
  "questions_file": "evals/heldout_set.json",
- "frozen_in_commit": "62ecca2",
+ "frozen_in_commit": "7446c91",
  "context": "evals/results/genie_run4_model_context.md",
- "grading": "Fourteen questions written after the last change to the agent and committed to the repository before the run (commit 62ecca2), then run once. H1-H7 were asked in chat mode through the Conversation API and H8-H14 in agent mode through the Agent mode API (beta); the same judge (Claude Opus) graded all of them with their scoring rules and the judge guide of the offline evaluation. A verdict can be overruled only to make it stricter. The first request for H11 ended with a transport error before any answer (ChunkedEncodingError: response ended prematurely); the question was asked once more with the same code, and that answer is the one graded.",
+ "grading": "Fourteen questions written after the last change to the agent and committed to the repository before the run (commit 7446c91), then run once. H1-H7 were asked in chat mode through the Conversation API and H8-H14 in agent mode through the Agent mode API (beta); the same judge (Claude Opus) graded all of them with their scoring rules and the judge guide of the offline evaluation. A verdict can be overruled only to make it stricter. The first request for H11 ended with a transport error before any answer (ChunkedEncodingError: response ended prematurely); the question was asked once more with the same code, and that answer is the one graded.",
  "passed": 11,
  "total": 14,
  "by_group": {

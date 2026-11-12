@@ -42,6 +42,11 @@ This is an offline proxy for Genie. It measures the design of the copilot (instr
 with a capable model; Genie's own benchmark feature runs the same questions inside Databricks (see
 `docs/genie_space_setup.md`, section 5).
 
+On 12 November 2026 I signed the whole history again, with Claude Code as committer, so GitHub can verify every
+commit. Each commit kept its files, author, dates and message; only its hash changed. The hashes below are the new
+ones, and [`results/commit_map.json`](results/commit_map.json) maps them to the old hashes that the GitHub Actions
+runs of those days show.
+
 ## Results
 
 | Run | Context | Passed | SQL that ran without error | Guardrails |
@@ -434,7 +439,7 @@ checks, no errors). The context of run 4 is in
 After four runs on the same 20 questions the agent starts to fit the benchmark, so run 4 also answered a set of
 questions it was never tuned on: [`heldout_set.json`](heldout_set.json), 14 questions in the same four groups, with
 reference SQL and scoring rules of the same kind. They were written after the changes above and committed to this
-repository (commit `62ecca2`) before run 4 started. Most ask about other months, segments and changes than the 20
+repository (commit `7446c91`) before run 4 started. Most ask about other months, segments and changes than the 20
 benchmark questions: approval, fees, installments and 3DS abandonment, rankings of card brands, acquirers and merchant
 segments, a drop that only shows in retries, a check of cross-border traffic during the incident, two changes that had
 no effect (a 3DS SDK upgrade and two new merchants), and three new guardrails (card numbers, a routing change, and
@@ -679,7 +684,7 @@ views in the workspace matched the release ([ADR-19](../docs/decisions.md)). The
 ### The third held-out set
 
 [`heldout_set_3.json`](heldout_set_3.json) holds 13 new questions in the same four groups, written on 12 November
-2026 (UTC), after the agent's sixth release (commit 5403382) was frozen and deployed, and committed before they
+2026 (UTC), after the agent's sixth release (commit 30d4922) was frozen and deployed, and committed before they
 ran. Four KPI lookups ask about cross-border first-attempt approval, retries counted over all traffic, retries
 declined for one reason and acquirer fees. Three comparisons ask which of two acquirers led and by how much, which
 country was lowest and by how far, and which issuer led the second. Three diagnoses ask whether the 15 August
@@ -785,7 +790,7 @@ showed the agent misreading:
   (T11). New example queries show the incident date, the issuer filter, failures summed from `decline_metrics` and
   the funnel view.
 
-One change came after the fourth held-out set was committed (commit c78f5ce, 05:47 UTC), and it bears on B3's
+One change came after the fourth held-out set was committed (commit 652692d, 05:47 UTC), and it bears on B3's
 grade: `fn_drop_impact` names its window the same way however it is passed. B3's reference passes the window
 explicitly and selects every column, and Genie's grader compares every column, so without the change an answer that
 called the function with the incident date would have failed on that label alone, with the same figures. It was
@@ -795,7 +800,7 @@ agent sees is in [`results/genie_run7_model_context.md`](results/genie_run7_mode
 ### The fourth held-out set
 
 [`heldout_set_4.json`](heldout_set_4.json) holds 13 new questions in the same four groups, written on 12 November
-2026 (UTC) after the seventh release was committed (85650ea, 05:40 UTC) and committed before they ran (0361c62,
+2026 (UTC) after the seventh release was committed (db3e1c6, 05:40 UTC) and committed before they ran (b38ce2e,
 05:44 UTC). Four KPI lookups ask for Colombia's conversion in June, Acquirer A's failed first attempts in Mexico on
 10 August, the approved share of Brazil's domestic debit volume in July and Acquirer A's p95 latency in Colombia.
 Three comparisons ask for the lowest acquirer on first-attempt approval of Mexican debit, the card type that
@@ -826,7 +831,7 @@ seconds), and none of the 24 answers failed a guardrail check. The answers, SQL,
 Run 7 passed 19 of 20, against 15 in runs 5 and 6, and is the first Genie run above the PRD's 90% bar. B3 passed
 for the first time: chat mode called `fn_drop_impact` with the incident's date, and the function returned the
 window from the change log and the reference's figures (−10.95 points, 110 approvals, USD 6,354), under the same
-window label as the reference's explicit call (commit c78f5ce, above). B6 now says that conversion fell while
+window label as the reference's explicit call (commit 652692d, above). B6 now says that conversion fell while
 acquirer approval did not. A5 read the new funnel view and returned Brazil's share (2.96%); Genie's grader asked
 for a review because the table differs from the reference's, and I passed it on the number.
 
@@ -901,7 +906,7 @@ functions with their new descriptions, before it updated the agent. The context 
 ### The fifth held-out set
 
 [`heldout_set_5.json`](heldout_set_5.json) holds 13 new questions in the same four groups, written on 12 November
-2026 (UTC) after the eighth release was committed (f5b7b70, 07:17 UTC), and committed before they ran (d9c1f92,
+2026 (UTC) after the eighth release was committed (6f154a9, 07:17 UTC), and committed before they ran (73fb887,
 07:26 UTC). Its questions are numbered V1 to V13; the reworded variants of Genie runs 2 to 4, also numbered with a
 V, are a different set. Four KPI lookups ask for the share of Brazilian intents abandoned in the 3DS challenge in
 August, the Colombian payments approved after a retry in July, the approved volume of Mexico's cross-border
@@ -1013,8 +1018,8 @@ sees is in [`results/genie_run9_model_context.md`](results/genie_run9_model_cont
 ### The sixth held-out set
 
 [`heldout_set_6.json`](heldout_set_6.json) holds 13 new questions in the same four groups (W1 to W13), written on
-12 November 2026 (UTC) after the ninth release was committed (9b0563c, 10:50 UTC), and committed before they ran
-(8ce6301, 10:56 UTC). Four KPI lookups ask for the payments Acquirer C approved in Mexico in August, the share of
+12 November 2026 (UTC) after the ninth release was committed (83aecc5, 10:50 UTC), and committed before they ran
+(90bd4db, 10:56 UTC). Four KPI lookups ask for the payments Acquirer C approved in Mexico in August, the share of
 Colombia's first attempts declined for insufficient funds in July, Colombia's conversion on 14 August and the
 average approved ticket of Brazil's domestic credit in July. Three comparisons ask for the Mexican issuer with the
 highest first-attempt approval on domestic debit in a week given in local time, which of Acquirers A and C approved
