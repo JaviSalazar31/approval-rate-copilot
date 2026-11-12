@@ -22,7 +22,8 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 SITE = os.path.join(ROOT, "site")
 
 CATEGORY = {"kpi": "KPI lookup", "diagnosis": "Diagnosis", "comparison": "Comparison", "guardrail": "Guardrail"}
-ORDINAL = {1: "first", 2: "second", 3: "third", 4: "fourth", 5: "fifth", 6: "sixth"}
+ORDINAL = {1: "first", 2: "second", 3: "third", 4: "fourth", 5: "fifth", 6: "sixth", 7: "seventh",
+           8: "eighth"}
 TIMES = {1: "once", 2: "twice", 3: "three times", 4: "four times", 5: "five times"}
 
 
@@ -122,7 +123,7 @@ def samples_chip(verdicts, mark=""):
 
 DOCS = [("PRD", "Problem, users, goals, requirements, rollout", "docs/PRD.md"),
         ("Metrics", "Metric tree, definitions and pitfalls", "docs/metrics.md"),
-        ("Decision log", "Twenty decisions with their trade-offs", "docs/decisions.md"),
+        ("Decision log", "Twenty-two decisions with their trade-offs", "docs/decisions.md"),
         ("Postmortem INC-0814", "Timeline, root cause, action items", "docs/postmortem_INC-0814.md"),
         ("Impact and detection", "Control-group estimate, forecast alert backtest", "docs/impact_and_detection.md"),
         ("Evaluation", "Question set, rubric, all runs", "evals/README.md"),
@@ -181,8 +182,9 @@ def build():
                               f"<p>{html.escape(f['change'])}</p></div>")
 
     # held-out sets: questions the agent was never tuned on, committed before the run
-    # (evals/results/heldout_run4.json, asked once; heldout2_run5.json and heldout3_run6.json, three samples each)
-    held, held2, held3 = genie["heldout"], genie["heldout2"], genie["heldout3"]
+    # (evals/results/heldout_run4.json, asked once; heldout2_run5.json, heldout3_run6.json and heldout4_run7.json,
+    # three samples each)
+    held, held2, held3, held4 = genie["heldout"], genie["heldout2"], genie["heldout3"], genie["heldout4"]
     hq = {q["id"]: q for q in json.load(open(os.path.join(ROOT, "evals", "heldout_set.json")))}
     heldout_rows = "\n".join(
         f'<tr><td class="mono">{qid}</td><td>{html.escape(q["question"])}</td><td>{CATEGORY[q["category"]]}</td>'
@@ -215,13 +217,30 @@ def build():
         for qid, q in hq3.items())
     g3 = {k: v["answers"] for k, v in held3["by_group"].items()}
     heldout3_intro = (f'The third set: {held3["questions_total"]} new questions, written after the release that addressed '
-                      f'what the second set found and committed before Genie run {held3["run"]}, asked '
+                      f'what the second set found. They were committed before Genie run {held3["run"]} and asked '
                       f'{TIMES[held3["samples"]]} each in the same way. {held3["answers_passed"]} of '
                       f'{held3["answers_total"]} answers passed (KPI lookups {g3.get("kpi", "–")}, comparisons '
                       f'{g3.get("comparison", "–")}, diagnoses {g3.get("diagnosis", "–")}, guardrails '
                       f'{g3.get("guardrail", "–")}), and {held3["questions_all_samples"]} of the '
                       f'{held3["questions_total"]} questions passed in every sample. † marks a question with verdicts I '
                       f'overruled to failures. {held3.get("note", "")}').strip()
+
+    hq4 = {q["id"]: q for q in json.load(open(os.path.join(ROOT, "evals", "heldout_set_4.json")))}
+    heldout4_rows = "\n".join(
+        f'<tr><td class="mono">{qid}</td><td>{html.escape(q["question"])}</td><td>{CATEGORY[q["category"]]}</td>'
+        f'<td data-label="Mode" class="mode">{q["mode"]}</td><td data-label="G{held4["run"]}" class="genie">'
+        f'{samples_chip(held4["samples_by_question"][qid], "†" if any(o.startswith(qid + "_") for o in held4.get("overruled", [])) else "")}</td></tr>'
+        for qid, q in hq4.items())
+    g4 = {k: v["answers"] for k, v in held4["by_group"].items()}
+    heldout4_intro = (f'The fourth set: {held4["questions_total"]} new questions, written after the release that addressed '
+                      f'what run 6 and the third set found. They were committed before Genie run {held4["run"]} and asked '
+                      f'{TIMES[held4["samples"]]} each in the same way. {held4["answers_passed"]} of '
+                      f'{held4["answers_total"]} answers passed (KPI lookups {g4.get("kpi", "–")}, comparisons '
+                      f'{g4.get("comparison", "–")}, diagnoses {g4.get("diagnosis", "–")}, guardrails '
+                      f'{g4.get("guardrail", "–")}), and {held4["questions_all_samples"]} of the '
+                      f'{held4["questions_total"]} questions passed in every sample. '
+                      + ('† marks a question with verdicts I overruled to failures. ' if held4.get("overruled") else '')
+                      + held4.get("note", "")).strip()
 
     answer = summary["showcase"]
     sql_html = "".join(f"<pre><code>{html.escape(s)}</code></pre>" for s in answer["queries"])
@@ -248,8 +267,12 @@ def build():
     score_html += (f'\n      <div class="cell genie" role="listitem"><span class="v">{held3["answers_passed"]}/{held3["answers_total"]}</span>'
                    f'<span class="l">answers to {held3["questions_total"]} more new questions, each asked '
                    f'{TIMES[held3["samples"]]}, in Genie run {held3["run"]}</span></div>')
+    score_html += (f'\n      <div class="cell genie" role="listitem"><span class="v">{held4["answers_passed"]}/{held4["answers_total"]}</span>'
+                   f'<span class="l">answers to {held4["questions_total"]} more new questions, each asked '
+                   f'{TIMES[held4["samples"]]}, in Genie run {held4["run"]}</span></div>')
     genie_last = genie_runs[-1]
     genie_best = max(genie_runs, key=lambda r: r["passed"])
+    genie_prev = genie_runs[-2]  # the run before the last, for the headline figure
     earlier = [str(passed[str(n)]) for n in run_ids[:-1]]
     earlier_passed = ", ".join(earlier[:-1]) + (" and " if len(earlier) > 1 else "") + earlier[-1]
 
@@ -267,6 +290,8 @@ def build():
                   genie_runs=len(genie_runs), genie_findings_html="\n".join(genie_findings),
                   genie_last_ordinal=ORDINAL[len(genie_runs)],
                   genie_best=genie_best["passed"], genie_best_ordinal=ORDINAL[genie_best["run"]],
+                  genie_prev=genie_prev["passed"], genie_prev_ordinal=ORDINAL[genie_prev["run"]],
+                  genie_round3=genie_runs[3]["passed"],  # run 4, after the three tuning rounds of ADR-12
                   genie_variants=genie["variants_passed_run4"].replace("/", " of "),
                   heldout_rows_html=heldout_rows, heldout_intro=html.escape(heldout_intro),
                   heldout_passed=held["passed"], heldout_total=held["total"], heldout_run=held["run"],
@@ -280,7 +305,12 @@ def build():
                   heldout3_total=held3["questions_total"], heldout3_all=held3["questions_all_samples"],
                   heldout3_run=held3["run"],
                   heldout3_mixed=sum(0 < v.count("PASS") < len(v) for v in held3["samples_by_question"].values()),
-                  heldout_questions=held["total"] + held2["questions_total"] + held3["questions_total"]),
+                  heldout4_rows_html=heldout4_rows, heldout4_intro=html.escape(heldout4_intro),
+                  heldout4_answers_passed=held4["answers_passed"], heldout4_answers_total=held4["answers_total"],
+                  heldout4_total=held4["questions_total"], heldout4_run=held4["run"],
+                  heldout4_mixed=sum(0 < v.count("PASS") < len(v) for v in held4["samples_by_question"].values()),
+                  heldout_questions=(held["total"] + held2["questions_total"] + held3["questions_total"]
+                                     + held4["questions_total"])),
         answer=dict(question=html.escape(answer["question"]), html=md_to_html(answer["answer"]),
                     sql_html=sql_html, query_count=len(answer["queries"]),
                     run_label=html.escape(answer.get("run_label", "evaluation run"))),

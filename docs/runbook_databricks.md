@@ -80,8 +80,8 @@ environment with the dependency `dbt-databricks>=1.10,<2`. Run it (about two min
    and 110 lost approvals.
 2. Open `05_column_comments`, Run all. It writes a description on every column the copilot uses. Run it
    again after each dbt run or full refresh of the pipeline; it is idempotent.
-3. Open `09_metric_views`, Run all. It creates the metric views `approval_metrics` and `decline_metrics`, which
-   two dashboard datasets and the Genie agent read.
+3. Open `09_metric_views`, Run all. It creates the metric views `approval_metrics`, `decline_metrics` and
+   `funnel_metrics`, which the Genie agent reads; two dashboard datasets read the first two.
 
 ## 6. Build the dashboard
 
@@ -99,7 +99,7 @@ so nothing more is needed there; in a shared workspace, give analysts read acces
 GRANT USE CATALOG ON CATALOG workspace TO `analysts`;
 GRANT USE SCHEMA ON SCHEMA workspace.approval_copilot TO `analysts`;
 GRANT SELECT ON TABLE workspace.approval_copilot.gold_approval_daily TO `analysts`;  -- and the other nine copilot tables
-GRANT SELECT ON TABLE workspace.approval_copilot.approval_metrics TO `analysts`;     -- and decline_metrics
+GRANT SELECT ON TABLE workspace.approval_copilot.approval_metrics TO `analysts`;     -- and the other two views
 GRANT EXECUTE ON FUNCTION workspace.approval_copilot.fn_drop_impact TO `analysts`;  -- and the other four functions
 ```
 
@@ -110,19 +110,20 @@ analysts need no grant on the reference tables the functions read.
 ## 8. Run the benchmarks
 
 The evaluation job `approval_copilot_eval` (notebook 11) asks the questions and logs each answer to MLflow
-(section 11). Run it with `question_set` set to `benchmark`, `heldout_2` or `heldout_3` and a `run_name`; the
-answers land in `/Volumes/workspace/approval_copilot/landing/evals/runs/<run_name>.json`. From the repository, run
-**Actions > Evaluate the Genie agent** with the same inputs: it waits for the job, keeps the answers file as a
-workflow artifact and prints it to the log, compressed, between a `BEGIN` and an `END` line; `fetch` reads back the
-answers of an earlier run without asking the questions again. Genie's benchmark grader grades the chat-mode
-benchmark questions inside the run. Grade the other answers with the judge guide and the scoring rules
-([evals/README.md](../evals/README.md), [evals/judge_guide.md](../evals/judge_guide.md)), set `verdict` (true or
-false), `note`, `grader` and `grader_type` (`LLM_JUDGE` for the judge, `CODE` for Genie's grader, `HUMAN` for a
-manual review or an overrule) on each record of the answers file, upload it to the volume, and run the job again
-with `action` set to `log_verdicts` and `graded_path` pointing to the file: the verdicts are attached to the same
-traces. With the workflow, commit the graded file under `evals/results/` (as `verdicts_<run>.json`) and pass its
-path as `graded_file`; the workflow uploads it and runs the job. Running it again with a corrected file overrides
-only the verdicts that changed, and MLflow keeps the old ones in each trace's history.
+(section 11). Run it with `question_set` set to `benchmark`, `heldout_2`, `heldout_3` or `heldout_4` and a
+`run_name`; the answers land in `/Volumes/workspace/approval_copilot/landing/evals/runs/<run_name>.json`. From the
+repository, run **Actions > Evaluate the Genie agent** with the same inputs: it waits for the job, keeps the
+answers file as a workflow artifact and prints it to the log, compressed, between a `BEGIN` and an `END` line;
+`fetch` reads back the answers of an earlier run without asking the questions again. Genie's benchmark grader
+grades the chat-mode benchmark questions inside the run. Grade the other answers with the judge guide and the
+scoring rules ([evals/README.md](../evals/README.md), [evals/judge_guide.md](../evals/judge_guide.md)), set
+`verdict` (true or false), `note`, `grader` and `grader_type` (`LLM_JUDGE` for the judge, `CODE` for Genie's
+grader, `HUMAN` for a manual review or an overrule) on each record of the answers file, upload it to the
+volume, and run the job again with `action` set to `log_verdicts` and `graded_path` pointing to the file: the
+verdicts are attached to the same traces. With the workflow, commit the graded file under `evals/results/` (as
+`verdicts_<run>.json`) and pass its path as `graded_file`; the workflow uploads it and runs the job. Running
+it again with a corrected file overrides only the verdicts that changed, and MLflow keeps the old ones in each
+trace's history.
 
 The benchmarks also run by hand in the Genie UI: follow section 5 of [genie_space_setup.md](genie_space_setup.md),
 with two runs, one per mode, each with **Run selected**:
@@ -182,8 +183,9 @@ Lineage is also visible per table in Catalog Explorer, under **Lineage**.
 
 ## 11. Deploy from GitHub Actions with the Asset Bundle
 
-`databricks.yml` describes the pipeline, the three jobs (daily, evaluation, agent update) and the dashboard; it is
-generated from the same definitions as `databricks/jobs/`. The workflow `.github/workflows/deploy.yml` validates it
+`databricks.yml` describes the two pipelines (the copilot's and the late-data test), the four jobs (daily,
+evaluation, agent update, late-data test) and the dashboard; it is generated from the same definitions as
+`databricks/jobs/`. The workflow `.github/workflows/deploy.yml` validates it
 on every push to main that touches it, and deploys when you run it by hand.
 
 1. In Databricks, create a personal access token (**Settings > Developer > Access tokens > Generate new token**).
@@ -213,6 +215,15 @@ is defined but paused.
 Protocol, with a configuration example for Claude Desktop. It needs a SQL warehouse ID and the same kind of
 credentials as the CLI. **Actions > MCP server on Databricks** starts it with the repository's secrets and calls
 its tools on the deployed functions.
+
+## 13. Test late data with AUTO CDC
+
+The job `approval_copilot_late_cdc` checks how a live status feed would be applied ([ADR-22](decisions.md)).
+It writes only to the schema `workspace.approval_copilot_cdc`: notebook 12 lands the first batch of status events
+and a checksum of `gold_approval_daily`, the pipeline of the same name (`databricks/pipeline/late_cdc_test.sql`)
+applies them with a full refresh, notebook 12 lands the late batch, the pipeline runs again, and notebook 13
+checks the result. Run it from **Jobs & Pipelines**; it takes about three minutes and fails if a check fails. The
+deploy creates the job and the pipeline, and nothing schedules them.
 
 ## Alternative: deploy through the APIs
 
