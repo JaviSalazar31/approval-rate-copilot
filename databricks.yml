@@ -235,7 +235,7 @@ resources:
             warehouse_id: ${var.warehouse_id}
         max_retries: 0
         timeout_seconds: 1800
-    approval_copilot_late_cdc:
+    approval_copilot_late_cdc_test:
       name: approval_copilot_late_cdc
       description: 'Approval Rate Copilot: late-data test for AUTO CDC. Lands two batches of synthetic acquirer status events
         in the schema approval_copilot_cdc, the second late and out of order, updates the approval_copilot_late_cdc pipeline
