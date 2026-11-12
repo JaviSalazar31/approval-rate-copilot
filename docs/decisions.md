@@ -655,17 +655,18 @@ parameters of the function, and a check of the change log before the agent accep
 
 ### ADR-24 · Put the ranking and the rate in the function's parameters, and check premises (agent v9)
 
-**Decision.** The ninth release moves into the functions what chat mode did not take from the text.
-`fn_approval_drivers` takes `p_rate` ('final' by default, or 'first_attempt') and `p_rank` ('lowest' or 'highest'),
-which keeps the three values at that end of each dimension, in ranking order, with `gap_to_next_pp`; `rate_type`
-says which rate the rows show, and a call without the new parameters returns what it returned before.
-`fn_drop_impact` adds `window_intents`, `lost_conversions`, `extra_risk_blocks` and `extra_3ds_abandons`, so the
-cost of a drop that happened before the acquirer has a column of its own. The instructions add a rule: before
-accepting a premise about the current state, or recommending a fix, check the changes after the incident and the
-latest state in the data, and if a later change already made the fix, say so with its change ID and date. The
-forecast rule also covers a measured gap applied to other traffic. The ranking examples use the new parameters, and
-one new example ranks issuers on first-attempt approval with `p_rank` set to 'highest'. The MCP server passes
-`rate` and `rank` through.
+**Decision.** The ninth release turns into function parameters and columns the fixes that chat mode did not take
+from the text. `fn_approval_drivers` takes `p_rate` ('final' by default, or 'first_attempt') and `p_rank` ('lowest'
+or 'highest'), which keeps the three values at that end of each dimension, in ranking order, with `gap_to_next_pp`;
+`rate_type` says which rate the rows show, and a call without the new parameters returns the same rows as before,
+with the two new columns. The function's description no longer sends month comparisons to the daily tables; it says
+they hold the same rates. `fn_drop_impact` adds `lost_conversions`, `extra_risk_blocks` and `extra_3ds_abandons`,
+with `window_intents`, so a drop that happened before the acquirer is sized in columns of its own. The instructions
+add a rule: before accepting a premise about the current state, or recommending a fix, check the changes after the
+incident and the latest state in the data, and if a later change already made the fix, say so with its change ID
+and date. The forecast rule also covers a measured gap applied to other traffic. The examples that rank inside a
+window use the new parameters, and one new example ranks issuers on first-attempt approval with `p_rank` set to
+'highest'. The MCP server passes `rate` and `rank` through.
 
 **Why.** In runs 4 to 8, chat mode answered C4 with the same SQL: the drivers function with named parameters and no
 ORDER BY or LIMIT. Rules and examples in the text did not change that call; the function's parameters are what it
@@ -677,21 +678,25 @@ approvals lost at the acquirer as the cost of risk blocks that stopped intents b
 Sorting and cutting the rows by default: the diagnosis steps read every segment of a dimension, so the default
 stays as it was. A rate parameter alone: it fixes the first-attempt gap but not the extra rows of C4.
 
-**Cost.** Two more parameters and four more columns to describe. The premise rule is text again, which has held
-less well on Genie than a function's output (ADR-12); the premise failures so far were all in agent mode, which
-follows the text more closely.
+**Cost.** Two more parameters and six more columns to describe. The premise rule is text again, which has held less
+well on Genie than a function's output (ADR-12); the premise failures so far were all in agent mode, which follows
+the text more closely.
 
 **Result.** Genie run 9, on 12 November (UTC), passed 17 of 20, as run 8 (9 of 10 in chat mode and 8 of 10 in agent
-mode, the four guardrails included), with different questions failing. Chat mode filled the new parameters: C4
-passed for the first time on Genie, and in a sixth held-out set all nine answers to three rankings passed (W5 to
-W7), where the fifth set's first-attempt ranking had passed none of three. The rate parameter also drew chat mode
-to the function for C2, two named acquirers over a month, which it had always answered from the daily table: the
-function returned the third acquirer too, and C2 failed for the first time. The premise check held: B4 named the
-hotfix, and all three answers to a question built on the old classification of code 05 corrected it (W9). B6 gave
-the new lost conversions and failed on a sign, reading a negative `lost_approved_usd` as a loss. B1 passed none of
-three samples: two read figures from another window as the incident's, and one recommended the map fix that the
-hotfix had already made. The sixth held-out set passed 31 of 39 answers, one fewer than the fifth, with 8 questions
-passing in all three samples: two incident summaries made B1's window error (W12), and all three answers on a share
-of first attempts gave 100% (W2). The parameters fixed what they were aimed at, and the totals stayed where they
-were, because each set found failures of another kind. The next release starts with the incident date as a
-parameter of the drivers function and a filter for named acquirers.
+mode, the four guardrails included). B6 failed again, and B1 and C2 failed where B4 and C4 had failed in run 8.
+Chat mode filled the new parameters: C4 passed for the first time on Genie, and in a sixth held-out set all nine
+answers to three rankings passed (W5 to W7), where the fifth set's first-attempt ranking had passed none of three.
+C2, two named acquirers over a month, failed for the first time: chat mode answered it with the drivers function,
+which it had always left for the daily table, probably drawn by the rate parameter and by the description that no
+longer sends month comparisons elsewhere, and the function returned the third acquirer too. In the sixth set, all
+three answers to a question built on the old classification of code 05 corrected it from the change log (W9). The
+rule did not hold everywhere: one B1 sample recommended the map fix that the hotfix had already made, and no answer
+to W13 found the risk tuning of 20 June, though all three refused and checked the block rate. B4 named the hotfix,
+as it had in runs 1 to 7. B6 gave the new lost conversions and failed on a sign, reading a negative
+`lost_approved_usd` as a loss. Two other B1 samples read figures from another window as the incident's. The sixth
+held-out set passed 31 of 39 answers, one fewer than the fifth, with 8 questions passing in all three samples. The
+eight failed answers were all three on a share of first attempts (W2), two incident summaries that made B1's window
+error (W12), and one each on the cost of the risk change (W8), the history before the hotfix (W9) and an issuer's
+next maintenance (W11). The parameters fixed the rankings they were aimed at, the release broke C2, and neither
+total went up. The next release starts with the incident date as a parameter of the drivers and cascade functions,
+and a filter for named acquirers.

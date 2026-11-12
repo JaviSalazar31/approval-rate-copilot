@@ -852,7 +852,7 @@
    "guardrail_failures": {},
    "judge_verdict": "PASS",
    "verdict": "FAIL",
-   "override_note": "The judge passed it and noted as minor that it does not mention the 15 August hotfix. I count it as a failure: its recommended action is to update map v2.3 so that Acquirer B's code 05 is retryable, which hotfix v2.3.1 (CHG-0815) did on 15 August. It did not check the changes after the incident, which the ninth release asks for before recommending a fix, and in the fifth held-out set the judge failed two answers that treated code 05 as still not retryable (V13).",
+   "override_note": "The judge passed it and noted as minor that it does not mention the 15 August hotfix. I count it as a failure: its recommended action is to update map v2.3 so that Acquirer B's code 05 is retryable, which hotfix v2.3.1 (CHG-0815) did on 15 August. Its search of the change log stopped at 00:00 on 15 August, eight hours before the hotfix, where the ninth release asks the agent to check the changes after an incident before it recommends a fix. In the fifth held-out set the judge failed two answers that treated code 05 as still not retryable (V13).",
    "score": 1.0,
    "covered": [
     "K2",

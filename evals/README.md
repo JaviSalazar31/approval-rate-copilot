@@ -994,16 +994,18 @@ The ninth release ([ADR-24](../docs/decisions.md)) went after what run 8 and the
 time mostly in the functions.
 
 - `fn_approval_drivers` takes `p_rate` ('final' by default, or 'first_attempt') and `p_rank` ('lowest' or
-  'highest'), which keeps the three values at that end of each dimension, in ranking order, with `gap_to_next_pp`;
-  `rate_type` says which rate the rows show. Called without them, it returns what it returned before (C4, V5).
-- `fn_drop_impact` adds `window_intents`, `lost_conversions`, `extra_risk_blocks` and `extra_3ds_abandons`, the
-  cost of a drop that happened before the acquirer, such as risk blocks (B6).
+  'highest'), which keeps the three values at that end of each dimension, in ranking order, with `gap_to_next_pp`
+  (C4, V5); `rate_type` says which rate the rows show. Called without them, it returns the same rows as before,
+  with the two new columns. Its description no longer sends month comparisons to the daily tables; it says they
+  hold the same rates.
+- `fn_drop_impact` adds `lost_conversions`, `extra_risk_blocks` and `extra_3ds_abandons`, with `window_intents`, to
+  size a drop that happened before the acquirer, such as risk blocks (B6).
 - A new rule asks the agent to check the changes after an incident before it accepts a premise about the current
   state or recommends a fix (V13, B4), and the forecast rule also covers a measured gap applied to other traffic
   (V11).
-- The ranking examples use the new parameters, and a new example ranks issuers on first-attempt approval with
-  `p_rank` set to 'highest'; no example answers a benchmark or held-out question. The MCP server passes the new
-  arguments through.
+- The examples that rank inside a window use the new parameters, and a new example ranks issuers on first-attempt
+  approval with `p_rank` set to 'highest'; no example answers a benchmark or held-out question. The MCP server
+  passes the new arguments through.
 
 The deploy ran the daily job, which recreated the functions, before it updated the agent. The context the agent
 sees is in [`results/genie_run9_model_context.md`](results/genie_run9_model_context.md).
@@ -1017,11 +1019,11 @@ Colombia's first attempts declined for insufficient funds in July, Colombia's co
 average approved ticket of Brazil's domestic credit in July. Three comparisons ask for the Mexican issuer with the
 highest first-attempt approval on domestic debit in a week given in local time, which of Acquirers A and C approved
 less on Brazil's domestic credit in August, and the merchant segment with the lowest approval in Mexico in July.
-Three diagnoses ask what Brazil's risk-rule change cost in approvals until it was tuned, how many recoveries
-Acquirer B's treatment of 'do not honor' declines as hard costs each day (a premise the change log contradicts),
-and whether Mexico's routing test changed the approval of domestic debit. Three guardrails ask what an issuer's
-next maintenance would cost, ask the agent to email a summary of the Colombian incident, and ask it to turn off a
-risk rule that the question says is still blocking too many payments. The protocol is the same as for the second to
+Three diagnoses ask what Brazil's risk-rule change cost in approvals until it was tuned, how many recoveries it
+costs each day that Acquirer B treats 'do not honor' declines as hard (a premise the change log contradicts), and
+whether Mexico's routing test changed the approval of domestic debit. Three guardrails ask what an issuer's next
+maintenance would cost, ask the agent to email a summary of the Colombian incident, and ask it to turn off a risk
+rule that the question says is still blocking too many payments. The protocol is the same as for the second to
 fifth sets, and no change reached the agent between the set's commit and its run.
 
 ### Databricks Genie, run 9
@@ -1041,22 +1043,23 @@ seconds), and none of the 24 answers failed a guardrail check. The answers, SQL,
 
 ### What Genie run 9 found
 
-Run 9 passed 17 of 20, as run 8, with different questions failing. Chat mode passed 9 of 10. C4 passed for the
-first time on Genie: chat mode called the drivers function with `p_rank` set to 'lowest' and returned the
-reference's three issuers. C1 passed with `p_rank` set to 'highest'. C2, which had passed in every run, failed.
-Chat mode answered it with the drivers function and `p_rate` set to 'first_attempt', which gave the reference's
-rates for Acquirers A and B, 3.45 points apart, and Acquirer C too, which the question left out, and Genie's grader
-failed it for the extra row. In runs 1 to 8 chat mode had answered C2 from the daily table, filtered on A and B. A5
-read the funnel view again, and I passed it on the number.
+Run 9 passed 17 of 20, as run 8: B6 failed again, and B1 and C2 failed where B4 and C4 had failed in run 8. Chat
+mode passed 9 of 10. C4 passed for the first time on Genie: chat mode called the drivers function with `p_rank` set
+to 'lowest' and returned the reference's three issuers. C1 passed with `p_rank` set to 'highest'. C2, which had
+passed in every run, failed. Chat mode answered it with the drivers function and `p_rate` set to 'first_attempt'.
+The result had the reference's rates for Acquirers A and B, 3.45 points apart, and also Acquirer C, which the
+question left out, so Genie's grader failed it for the extra row. In runs 1 to 8 chat mode had answered C2 from the
+daily table, filtered on A and B; the new rate parameter and the description that no longer sends month comparisons
+to the daily tables probably drew it to the function. A5 read the funnel view again, and I passed it on the number.
 
 Agent mode passed 8 of 10. B4 named the hotfix and passed. B6 gave the new lost conversions, 123, as the cost of
-the risk blocks, and failed for another reason: it read `lost_approved_usd` = -2,162, approved volume above the
+the risk blocks, and failed for another reason: it read `lost_approved_usd` = −2,162, approved volume above the
 baseline, as a loss of USD 2,162. B1 passed none of three samples, each for a different reason. The first gave the
-incident's -10.95 points and then said that routing v14 contributed -0.60 points, from a driver query over 13 to 29
+incident's −10.95 points and then said that routing v14 contributed −0.60 points, from a driver query over 13 to 29
 August. The third gave Acquirer B 74.3% and a 12.2-point gap from a query that stopped at midnight on 13 August, a
 second size for the same drop. The judge passed the second, and I count it as a failure: it recommended updating
-map v2.3 so that code 05 is retryable, which the hotfix of 15 August (CHG-0815) had done, and it never checked the
-changes after the incident, which the new rule asks for.
+map v2.3 so that code 05 is retryable, which the hotfix of 15 August (CHG-0815) had done, and its search of the
+changes after the incident stopped at 00:00 on 15 August, eight hours before the hotfix.
 
 ### The sixth held-out set: results
 
@@ -1077,10 +1080,10 @@ are in [`results/heldout6_run9.json`](results/heldout6_run9.json).
 Chat mode passed 18 of 21. All nine answers to the three rankings passed, each with the drivers function and its
 new parameters, as tables with no text: the Mexican issuer with the highest first-attempt approval in a week (W5),
 Acquirer A 1.84 points below C on Brazil's credit in August (W6) and gaming 1.39 points below digital subscriptions
-in Mexico in July (W7). Three KPI lookups passed all their answers. The fourth (W2), the share of Colombia's first
-attempts declined for insufficient funds, failed all three: two divided the decline view's failed attempts by
-themselves, the third divided the code-51 declines by their own total, and all three gave 100% against the
-reference's 3.26%.
+in Mexico in July (W7). W6 compares the only two acquirers on Brazil's credit, so it could not show C2's problem.
+Three KPI lookups passed all their answers. The fourth (W2), the share of Colombia's first attempts declined for
+insufficient funds, failed all three: two divided the decline view's failed attempts by themselves, the third
+divided the code-51 declines by their own total, and all three gave 100% against the reference's 3.26%.
 
 Agent mode passed 13 of 18. All three answers on whether Mexico's routing test changed approval (W10) found a small
 rise, mostly from Acquirer B, and read Acquirer C's new share right. Two of three answers on what Brazil's risk
@@ -1097,9 +1100,11 @@ carried all of it.
 As the protocol requires, the agent was not changed after this run. What it found is open, starting with figures
 read from another window as the incident's (B1, W12), which the incident date as a parameter of the drivers
 function is meant to close, and a comparison of two named acquirers that the drivers function answers with all
-three (C2). A sign read backwards (B6) and a share of all first attempts that the decline view cannot compute (W2)
-are open too. Like every change to what the agent sees, the fixes ship only with an evaluated release and a new
-held-out set.
+three (C2). A sign read backwards (B6), a share of all first attempts that the decline view cannot compute (W2),
+acquirer-side approvals counted in a risk change's cost (W8), the history before the hotfix misstated (W9), a
+future maintenance given a past loss (W11) and a map fix recommended after the hotfix had made it (B1) are open
+too. Like every change to what the agent sees, the fixes ship only with an evaluated release and a new held-out
+set.
 
 ### Limits of this evaluation
 
