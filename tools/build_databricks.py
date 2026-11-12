@@ -367,7 +367,8 @@ def build_eval_notebook():
     sets = {"benchmark": json.load(open(os.path.join(ROOT, "evals", "eval_set.json"))),
             "heldout_2": json.load(open(os.path.join(ROOT, "evals", "heldout_set_2.json"))),
             "heldout_3": json.load(open(os.path.join(ROOT, "evals", "heldout_set_3.json"))),
-            "heldout_4": json.load(open(os.path.join(ROOT, "evals", "heldout_set_4.json")))}
+            "heldout_4": json.load(open(os.path.join(ROOT, "evals", "heldout_set_4.json"))),
+            "heldout_5": json.load(open(os.path.join(ROOT, "evals", "heldout_set_5.json")))}
     questions = {k: [{"id": q["id"], "question": q["question"], **({"mode": q["mode"]} if "mode" in q else {})}
                      for q in v] for k, v in sets.items()}
     return (
@@ -400,7 +401,7 @@ def build_eval_notebook():
         "from databricks.sdk import WorkspaceClient\n"
         "from mlflow.entities import AssessmentSource\n\n"
         "dbutils.widgets.dropdown(\"action\", \"ask\", [\"ask\", \"log_verdicts\"])  # noqa: F821\n"
-        "dbutils.widgets.dropdown(\"question_set\", \"benchmark\", [\"benchmark\", \"heldout_2\", \"heldout_3\", \"heldout_4\"])  # noqa: F821\n"
+        "dbutils.widgets.dropdown(\"question_set\", \"benchmark\", [\"benchmark\", \"heldout_2\", \"heldout_3\", \"heldout_4\", \"heldout_5\"])  # noqa: F821\n"
         "dbutils.widgets.text(\"run_name\", \"\")  # noqa: F821\n"
         "dbutils.widgets.text(\"space_title\", \"Approval Rate Copilot\")  # noqa: F821\n"
         "dbutils.widgets.text(\"experiment\", \"\")  # noqa: F821\n"

@@ -6,14 +6,14 @@ then grades each answer with the question's scoring rule, and the verdicts are a
 On Databricks this is notebook 11, the task of the evaluation job (weekly schedule, paused; or run on demand):
 
   action        ask: run the questions | log_verdicts: attach a graded file's verdicts to the run's traces
-  question_set  benchmark | heldout_2 | heldout_3 | heldout_4
+  question_set  benchmark | heldout_2 | heldout_3 | heldout_4 | heldout_5
   run_name      e.g. "Genie run 5"; the answers go to <volume>/evals/runs/<run_name>.json
 
 The protocol follows evals/README.md:
 - benchmark: the ten chat-mode questions run through Genie's benchmark runner, which grades them by comparing
   result sets (one sample each; it reports no latency); the ten agent-mode questions run through the agent API,
   B1 and C3 three times each.
-- heldout_2 to heldout_4: every question three times, each in a new conversation: KPI and comparison questions in
+- heldout_2 to heldout_5: every question three times, each in a new conversation: KPI and comparison questions in
   chat mode (Conversation API), diagnoses and guardrails in agent mode.
 """
 from __future__ import annotations
