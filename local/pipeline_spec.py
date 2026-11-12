@@ -90,8 +90,8 @@ TABLES = [
      "Hour-by-hour check of every production change in its first 24 hours, in each segment it can affect: the "
      "final approval of the payments sent since the change against the segment's 14 days before it. fires marks "
      "the hours when the drop is at least 2 points, has a binomial z-score of -3.5 or lower and rests on at least 30 "
-     "payments; first_fire_hours is the first of them. Partner notices are left out. The copilot does not query "
-     "this table.", []),
+     "payments, in an hour the data has fully reached; first_fire_hours is the first of them. Hours are counted in "
+     "UTC. Partner notices are left out. The copilot does not query this table.", []),
     ("gold_dq_summary", "dbt/models/marts/gold_dq_summary.sql", "dbt", "Rows rejected by data-quality rules, by source and rule.", []),
 ]
 

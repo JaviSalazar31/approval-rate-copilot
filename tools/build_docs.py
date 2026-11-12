@@ -190,8 +190,11 @@ COL = {
     "z_score": "Distance from the forecast in prediction standard errors (log scale)",
     # change guardrail (gold_change_guardrail)
     "changed_at_local": "When the change happened, in the segment's local time; the 24 hours count from here",
-    "hours_since_change": "Hours since the change, 1 to 24; each row adds up everything from the change to the end of "
-                          "that hour",
+    "hours_since_change": "Hours since the change, 1 to 24, counted in UTC; each row adds up everything from the "
+                          "change to the end of that hour",
+    "hour_complete": "True when the data reaches the end of this hour; the guardrail fires only on complete hours",
+    "baseline_days": "Days of data in the baseline: 14, or fewer when the change came less than 14 days after the "
+                     "data starts",
     "baseline_payments": "Payments sent in the segment during the 14 days before the change",
     "rate_change_pp": "final_approval_rate minus baseline_rate, in percentage points (negative when below the baseline)",
     "lost_approvals": "Approvals below the baseline since the change: payments_sent × baseline_rate minus "
@@ -201,8 +204,8 @@ COL = {
                          "negative",
     "fees_saved_usd": "Acquirer fees saved since the change, USD: the approved amount at the segment's fee rate of the "
                       "previous 14 days minus the fees paid; negative when fees rose",
-    "fires": "True when, from the change to the end of this hour, final approval is at least 2 points below the "
-             "baseline, the binomial z-score is -3.5 or lower and at least 30 payments were sent",
+    "fires": "True when the hour is complete and, from the change to its end, final approval is at least 2 points "
+             "below the baseline, the binomial z-score is -3.5 or lower and at least 30 payments were sent",
     "first_fire_hours": "First hour since the change in which fires is true, for this change and segment; empty when "
                         "it never fired",
 }
@@ -222,6 +225,7 @@ COL_BY_TABLE = {
     ("gold_issuer_daily", "issuer_id"): "Fictional issuer code (e.g. CO-ISS-03); INTL-ISS-* are foreign issuers. This table is daily and includes cross-border payments: to rank domestic issuers inside a window, use fn_approval_drivers (dimension 'issuer')",
     ("gold_volume_alerts_daily", "approved"): "Approved payments that day, first attempt or after a retry, cross-border included",
     ("gold_volume_alerts_daily", "is_alert"): "True when the day is below the lower bound and at least 8% under the forecast",
+    ("gold_change_guardrail", "change_id"): "Change identifier (CHG-*); partner notices (EXT-*) are left out",
     ("gold_change_guardrail", "baseline_rate"): "Final approval of the segment's payments sent in the 14 days before "
                                                 "the change",
     ("gold_change_guardrail", "payments_sent"): "Payments sent from the change to the end of this hour",

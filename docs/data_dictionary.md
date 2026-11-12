@@ -511,18 +511,20 @@ Country time zones and currencies. Grain: one row per country.
 
 ### `gold_change_guardrail`
 
-Hour-by-hour check of every production change in its first 24 hours, in each segment it can affect: the final approval of the payments sent since the change against the segment's 14 days before it. fires marks the hours when the drop is at least 2 points, has a binomial z-score of -3.5 or lower and rests on at least 30 payments; first_fire_hours is the first of them. Partner notices are left out. The copilot does not query this table. Grain: one row per production change × country × card type × cross-border flag × hour since the change (1 to 24).
+Hour-by-hour check of every production change in its first 24 hours, in each segment it can affect: the final approval of the payments sent since the change against the segment's 14 days before it. fires marks the hours when the drop is at least 2 points, has a binomial z-score of -3.5 or lower and rests on at least 30 payments, in an hour the data has fully reached; first_fire_hours is the first of them. Hours are counted in UTC. Partner notices are left out. The copilot does not query this table. Grain: one row per production change × country × card type × cross-border flag × hour since the change (1 to 24).
 
 | Column | Type | Meaning |
 |---|---|---|
-| `change_id` | string | Change identifier (CHG-* internal change, EXT-* partner notice) |
+| `change_id` | string | Change identifier (CHG-*); partner notices (EXT-*) are left out |
 | `change_type` | string | release, routing, rollback, risk_rules, decline_mapping or merchant_onboarding (partner notices are left out) |
 | `scope` | string | Country code(s), acquirer id, or ALL |
 | `country` | string | MX, CO or BR |
 | `card_type` | string | credit or debit |
 | `is_cross_border` | boolean | True when the card was issued abroad (foreign issuer) |
 | `changed_at_local` | timestamp | When the change happened, in the segment's local time; the 24 hours count from here |
-| `hours_since_change` | int | Hours since the change, 1 to 24; each row adds up everything from the change to the end of that hour |
+| `hours_since_change` | int | Hours since the change, 1 to 24, counted in UTC; each row adds up everything from the change to the end of that hour |
+| `hour_complete` | boolean | True when the data reaches the end of this hour; the guardrail fires only on complete hours |
+| `baseline_days` | double | Days of data in the baseline: 14, or fewer when the change came less than 14 days after the data starts |
 | `baseline_payments` | bigint | Payments sent in the segment during the 14 days before the change |
 | `baseline_rate` | double | Final approval of the segment's payments sent in the 14 days before the change |
 | `payments_sent` | bigint | Payments sent from the change to the end of this hour |
@@ -533,7 +535,7 @@ Hour-by-hour check of every production change in its first 24 hours, in each seg
 | `lost_approvals` | double | Approvals below the baseline since the change: payments_sent × baseline_rate minus final_approved, never negative |
 | `lost_approved_usd` | double | Approved amount below the baseline since the change, USD: the amount sent times the share of the amount approved in the previous 14 days, minus the amount approved, never negative |
 | `fees_saved_usd` | double | Acquirer fees saved since the change, USD: the approved amount at the segment's fee rate of the previous 14 days minus the fees paid; negative when fees rose |
-| `fires` | boolean | True when, from the change to the end of this hour, final approval is at least 2 points below the baseline, the binomial z-score is -3.5 or lower and at least 30 payments were sent |
+| `fires` | boolean | True when the hour is complete and, from the change to its end, final approval is at least 2 points below the baseline, the binomial z-score is -3.5 or lower and at least 30 payments were sent |
 | `first_fire_hours` | int | First hour since the change in which fires is true, for this change and segment; empty when it never fired |
 
 ### `gold_volume_alerts_daily`

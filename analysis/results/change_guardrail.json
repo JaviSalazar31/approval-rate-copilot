@@ -15,6 +15,7 @@
      "change_type": "release",
      "scope": "ALL",
      "segments_followed": 12,
+     "baseline_days": 2.2,
      "fired": []
     },
     {
@@ -22,6 +23,7 @@
      "change_type": "risk_rules",
      "scope": "BR",
      "segments_followed": 4,
+     "baseline_days": 14.0,
      "fired": []
     },
     {
@@ -29,6 +31,7 @@
      "change_type": "risk_rules",
      "scope": "BR",
      "segments_followed": 4,
+     "baseline_days": 13.9,
      "fired": []
     },
     {
@@ -36,6 +39,7 @@
      "change_type": "routing",
      "scope": "MX",
      "segments_followed": 4,
+     "baseline_days": 14.0,
      "fired": []
     },
     {
@@ -43,6 +47,7 @@
      "change_type": "release",
      "scope": "MX,CO",
      "segments_followed": 8,
+     "baseline_days": 14.0,
      "fired": []
     },
     {
@@ -50,6 +55,7 @@
      "change_type": "decline_mapping",
      "scope": "B",
      "segments_followed": 2,
+     "baseline_days": 14.0,
      "fired": []
     },
     {
@@ -57,6 +63,7 @@
      "change_type": "routing",
      "scope": "CO",
      "segments_followed": 4,
+     "baseline_days": 14.0,
      "fired": [
       {
        "segment": "CO debit domestic",
@@ -69,6 +76,7 @@
      "change_type": "rollback",
      "scope": "CO",
      "segments_followed": 4,
+     "baseline_days": 14.0,
      "fired": []
     },
     {
@@ -76,6 +84,7 @@
      "change_type": "decline_mapping",
      "scope": "B",
      "segments_followed": 3,
+     "baseline_days": 14.0,
      "fired": []
     },
     {
@@ -83,6 +92,7 @@
      "change_type": "merchant_onboarding",
      "scope": "MX",
      "segments_followed": 4,
+     "baseline_days": 14.0,
      "fired": []
     }
    ],
@@ -91,45 +101,80 @@
     "segment": "CO debit domestic",
     "first_fire_hours": 2,
     "at_fire": {
+     "hours": 2,
      "payments_sent": 120,
      "final_approval_rate": 0.7,
      "baseline_rate": 0.8654,
-     "z_score": -5.31,
-     "lost_approvals": 19.9,
-     "lost_approved_usd": 1265.5,
-     "fees_saved_usd": 21.04
+     "z_score": -5.3104,
+     "lost_approvals": 19.8519,
+     "lost_approved_usd": 1265.4967,
+     "fees_saved_usd": 21.037
     },
     "rollback_one_hour_after_firing": {
      "hours": 3,
-     "lost_approvals": 22.5,
-     "lost_approved_usd": 1362.25
+     "lost_approvals": 22.4903,
+     "lost_approved_usd": 1362.249
     },
     "until_the_actual_rollback": {
-     "hours": 22.2,
+     "hours": 22.1667,
      "payments_sent": 1004,
-     "lost_approvals": 109.9,
-     "lost_approved_usd": 6354.2,
-     "fees_saved_usd": 174.99
+     "lost_approvals": 109.8945,
+     "lost_approved_usd": 6354.2049,
+     "fees_saved_usd": 174.9868
     },
-    "share_of_loss_avoided": 0.795
+    "share_of_loss_avoided": 0.7953
    },
+   "map_change": [
+    {
+     "segment": "CO credit domestic",
+     "rate_change_pp": -0.6151,
+     "lost_approvals": 8.033,
+     "z_score_at_24h": -0.659,
+     "lowest_z_score": -1.1322,
+     "fired": null
+    },
+    {
+     "segment": "MX debit domestic",
+     "rate_change_pp": -2.3015,
+     "lost_approvals": 27.2272,
+     "z_score_at_24h": -2.1215,
+     "lowest_z_score": -2.3605,
+     "fired": null
+    }
+   ],
+   "partner_notice": [
+    {
+     "segment": "BR credit domestic",
+     "first_fire_hours": 1
+    },
+    {
+     "segment": "BR debit domestic",
+     "first_fire_hours": 2
+    }
+   ],
    "false_alarms": {
     "z <= -3.0": {
      "windows": 588,
      "fired": 6,
      "rate": 0.0102,
+     "domestic_windows": 294,
+     "domestic_fired": 5,
      "incident_first_fire_hours": 2
     },
     "z <= -3.5": {
      "windows": 588,
      "fired": 1,
      "rate": 0.0017,
+     "domestic_windows": 294,
+     "domestic_fired": 1,
      "incident_first_fire_hours": 2
     },
     "z <= -4.0": {
      "windows": 588,
      "fired": 0,
      "rate": 0.0,
+     "domestic_windows": 294,
+     "domestic_fired": 0,
      "incident_first_fire_hours": 2
     }
    },
@@ -172,6 +217,7 @@
      "change_type": "release",
      "scope": "ALL",
      "segments_followed": 12,
+     "baseline_days": 2.1,
      "fired": []
     },
     {
@@ -179,6 +225,7 @@
      "change_type": "risk_rules",
      "scope": "BR",
      "segments_followed": 4,
+     "baseline_days": 13.9,
      "fired": []
     },
     {
@@ -186,6 +233,7 @@
      "change_type": "risk_rules",
      "scope": "BR",
      "segments_followed": 4,
+     "baseline_days": 13.9,
      "fired": []
     },
     {
@@ -193,6 +241,7 @@
      "change_type": "routing",
      "scope": "MX",
      "segments_followed": 4,
+     "baseline_days": 14.0,
      "fired": []
     },
     {
@@ -200,6 +249,7 @@
      "change_type": "release",
      "scope": "MX,CO",
      "segments_followed": 8,
+     "baseline_days": 14.0,
      "fired": []
     },
     {
@@ -207,6 +257,7 @@
      "change_type": "decline_mapping",
      "scope": "B",
      "segments_followed": 2,
+     "baseline_days": 14.0,
      "fired": []
     },
     {
@@ -214,6 +265,7 @@
      "change_type": "routing",
      "scope": "CO",
      "segments_followed": 4,
+     "baseline_days": 14.0,
      "fired": [
       {
        "segment": "CO debit domestic",
@@ -226,6 +278,7 @@
      "change_type": "rollback",
      "scope": "CO",
      "segments_followed": 4,
+     "baseline_days": 14.0,
      "fired": []
     },
     {
@@ -233,6 +286,7 @@
      "change_type": "decline_mapping",
      "scope": "B",
      "segments_followed": 3,
+     "baseline_days": 14.0,
      "fired": []
     },
     {
@@ -240,6 +294,7 @@
      "change_type": "merchant_onboarding",
      "scope": "MX",
      "segments_followed": 4,
+     "baseline_days": 14.0,
      "fired": []
     }
    ],
@@ -248,45 +303,80 @@
     "segment": "CO debit domestic",
     "first_fire_hours": 6,
     "at_fire": {
+     "hours": 6,
      "payments_sent": 406,
      "final_approval_rate": 0.8005,
      "baseline_rate": 0.8636,
-     "z_score": -3.7,
-     "lost_approvals": 25.6,
+     "z_score": -3.7028,
+     "lost_approvals": 25.6095,
      "lost_approved_usd": 1789.9,
-     "fees_saved_usd": 78.92
+     "fees_saved_usd": 78.9236
     },
     "rollback_one_hour_after_firing": {
      "hours": 7,
-     "lost_approvals": 31.6,
-     "lost_approved_usd": 2179.23
+     "lost_approvals": 31.6487,
+     "lost_approved_usd": 2179.2347
     },
     "until_the_actual_rollback": {
-     "hours": 22.2,
+     "hours": 22.1667,
      "payments_sent": 1014,
-     "lost_approvals": 98.7,
-     "lost_approved_usd": 6143.62,
-     "fees_saved_usd": 192.26
+     "lost_approvals": 98.6603,
+     "lost_approved_usd": 6143.6221,
+     "fees_saved_usd": 192.257
     },
-    "share_of_loss_avoided": 0.68
+    "share_of_loss_avoided": 0.6792
    },
+   "map_change": [
+    {
+     "segment": "CO credit domestic",
+     "rate_change_pp": -1.1258,
+     "lost_approvals": 14.6019,
+     "z_score_at_24h": -1.2002,
+     "lowest_z_score": -2.0835,
+     "fired": null
+    },
+    {
+     "segment": "MX debit domestic",
+     "rate_change_pp": -2.1462,
+     "lost_approvals": 20.9251,
+     "z_score_at_24h": -1.7826,
+     "lowest_z_score": -2.429,
+     "fired": null
+    }
+   ],
+   "partner_notice": [
+    {
+     "segment": "BR credit domestic",
+     "first_fire_hours": 3
+    },
+    {
+     "segment": "BR debit domestic",
+     "first_fire_hours": null
+    }
+   ],
    "false_alarms": {
     "z <= -3.0": {
      "windows": 588,
      "fired": 7,
      "rate": 0.0119,
+     "domestic_windows": 294,
+     "domestic_fired": 5,
      "incident_first_fire_hours": 6
     },
     "z <= -3.5": {
      "windows": 588,
      "fired": 3,
      "rate": 0.0051,
+     "domestic_windows": 294,
+     "domestic_fired": 2,
      "incident_first_fire_hours": 6
     },
     "z <= -4.0": {
      "windows": 588,
      "fired": 0,
      "rate": 0.0,
+     "domestic_windows": 294,
+     "domestic_fired": 0,
      "incident_first_fire_hours": 7
     }
    },
@@ -327,6 +417,7 @@
      "change_type": "release",
      "scope": "ALL",
      "segments_followed": 12,
+     "baseline_days": 2.1,
      "fired": []
     },
     {
@@ -334,6 +425,7 @@
      "change_type": "risk_rules",
      "scope": "BR",
      "segments_followed": 4,
+     "baseline_days": 14.0,
      "fired": []
     },
     {
@@ -341,6 +433,7 @@
      "change_type": "risk_rules",
      "scope": "BR",
      "segments_followed": 4,
+     "baseline_days": 14.0,
      "fired": []
     },
     {
@@ -348,6 +441,7 @@
      "change_type": "routing",
      "scope": "MX",
      "segments_followed": 4,
+     "baseline_days": 14.0,
      "fired": []
     },
     {
@@ -355,6 +449,7 @@
      "change_type": "release",
      "scope": "MX,CO",
      "segments_followed": 8,
+     "baseline_days": 14.0,
      "fired": []
     },
     {
@@ -362,6 +457,7 @@
      "change_type": "decline_mapping",
      "scope": "B",
      "segments_followed": 2,
+     "baseline_days": 14.0,
      "fired": []
     },
     {
@@ -369,6 +465,7 @@
      "change_type": "routing",
      "scope": "CO",
      "segments_followed": 4,
+     "baseline_days": 14.0,
      "fired": [
       {
        "segment": "CO debit domestic",
@@ -381,6 +478,7 @@
      "change_type": "rollback",
      "scope": "CO",
      "segments_followed": 4,
+     "baseline_days": 14.0,
      "fired": []
     },
     {
@@ -388,6 +486,7 @@
      "change_type": "decline_mapping",
      "scope": "B",
      "segments_followed": 3,
+     "baseline_days": 14.0,
      "fired": []
     },
     {
@@ -395,6 +494,7 @@
      "change_type": "merchant_onboarding",
      "scope": "MX",
      "segments_followed": 4,
+     "baseline_days": 14.0,
      "fired": []
     }
    ],
@@ -403,45 +503,80 @@
     "segment": "CO debit domestic",
     "first_fire_hours": 2,
     "at_fire": {
+     "hours": 2,
      "payments_sent": 130,
      "final_approval_rate": 0.7,
      "baseline_rate": 0.8651,
-     "z_score": -5.51,
-     "lost_approvals": 21.5,
-     "lost_approved_usd": 536.04,
-     "fees_saved_usd": 18.91
+     "z_score": -5.5109,
+     "lost_approvals": 21.4644,
+     "lost_approved_usd": 536.0428,
+     "fees_saved_usd": 18.9099
     },
     "rollback_one_hour_after_firing": {
      "hours": 3,
-     "lost_approvals": 27.3,
-     "lost_approved_usd": 1159.53
+     "lost_approvals": 27.3152,
+     "lost_approved_usd": 1159.5347
     },
     "until_the_actual_rollback": {
-     "hours": 22.2,
+     "hours": 22.1667,
      "payments_sent": 979,
-     "lost_approvals": 109.9,
-     "lost_approved_usd": 5669.07,
-     "fees_saved_usd": 171.44
+     "lost_approvals": 109.9431,
+     "lost_approved_usd": 5669.0669,
+     "fees_saved_usd": 171.4434
     },
-    "share_of_loss_avoided": 0.752
+    "share_of_loss_avoided": 0.7516
    },
+   "map_change": [
+    {
+     "segment": "CO credit domestic",
+     "rate_change_pp": -0.7572,
+     "lost_approvals": 9.3286,
+     "z_score_at_24h": -0.8021,
+     "lowest_z_score": -0.8708,
+     "fired": null
+    },
+    {
+     "segment": "MX debit domestic",
+     "rate_change_pp": -0.1463,
+     "lost_approvals": 1.6635,
+     "z_score_at_24h": -0.1311,
+     "lowest_z_score": -0.9275,
+     "fired": null
+    }
+   ],
+   "partner_notice": [
+    {
+     "segment": "BR credit domestic",
+     "first_fire_hours": 2
+    },
+    {
+     "segment": "BR debit domestic",
+     "first_fire_hours": null
+    }
+   ],
    "false_alarms": {
     "z <= -3.0": {
      "windows": 588,
      "fired": 7,
      "rate": 0.0119,
+     "domestic_windows": 294,
+     "domestic_fired": 6,
      "incident_first_fire_hours": 2
     },
     "z <= -3.5": {
      "windows": 588,
      "fired": 3,
      "rate": 0.0051,
+     "domestic_windows": 294,
+     "domestic_fired": 3,
      "incident_first_fire_hours": 2
     },
     "z <= -4.0": {
      "windows": 588,
      "fired": 1,
      "rate": 0.0017,
+     "domestic_windows": 294,
+     "domestic_fired": 1,
      "incident_first_fire_hours": 2
     }
    },
@@ -482,6 +617,7 @@
      "change_type": "release",
      "scope": "ALL",
      "segments_followed": 12,
+     "baseline_days": 2.3,
      "fired": []
     },
     {
@@ -489,6 +625,7 @@
      "change_type": "risk_rules",
      "scope": "BR",
      "segments_followed": 4,
+     "baseline_days": 14.0,
      "fired": []
     },
     {
@@ -496,6 +633,7 @@
      "change_type": "risk_rules",
      "scope": "BR",
      "segments_followed": 4,
+     "baseline_days": 13.9,
      "fired": []
     },
     {
@@ -503,6 +641,7 @@
      "change_type": "routing",
      "scope": "MX",
      "segments_followed": 4,
+     "baseline_days": 14.0,
      "fired": []
     },
     {
@@ -510,6 +649,7 @@
      "change_type": "release",
      "scope": "MX,CO",
      "segments_followed": 8,
+     "baseline_days": 14.0,
      "fired": []
     },
     {
@@ -517,6 +657,7 @@
      "change_type": "decline_mapping",
      "scope": "B",
      "segments_followed": 2,
+     "baseline_days": 14.0,
      "fired": []
     },
     {
@@ -524,6 +665,7 @@
      "change_type": "routing",
      "scope": "CO",
      "segments_followed": 4,
+     "baseline_days": 14.0,
      "fired": [
       {
        "segment": "CO debit domestic",
@@ -536,6 +678,7 @@
      "change_type": "rollback",
      "scope": "CO",
      "segments_followed": 4,
+     "baseline_days": 14.0,
      "fired": []
     },
     {
@@ -543,6 +686,7 @@
      "change_type": "decline_mapping",
      "scope": "B",
      "segments_followed": 3,
+     "baseline_days": 14.0,
      "fired": []
     },
     {
@@ -550,6 +694,7 @@
      "change_type": "merchant_onboarding",
      "scope": "MX",
      "segments_followed": 4,
+     "baseline_days": 14.0,
      "fired": []
     }
    ],
@@ -558,45 +703,80 @@
     "segment": "CO debit domestic",
     "first_fire_hours": 5,
     "at_fire": {
+     "hours": 5,
      "payments_sent": 341,
      "final_approval_rate": 0.8035,
      "baseline_rate": 0.8738,
-     "z_score": -3.91,
-     "lost_approvals": 24.0,
-     "lost_approved_usd": 1271.25,
-     "fees_saved_usd": 80.53
+     "z_score": -3.9059,
+     "lost_approvals": 23.9545,
+     "lost_approved_usd": 1271.2481,
+     "fees_saved_usd": 80.5316
     },
     "rollback_one_hour_after_firing": {
      "hours": 6,
-     "lost_approvals": 32.4,
-     "lost_approved_usd": 1779.99
+     "lost_approvals": 32.3509,
+     "lost_approved_usd": 1779.9927
     },
     "until_the_actual_rollback": {
-     "hours": 22.2,
+     "hours": 22.1667,
      "payments_sent": 1056,
-     "lost_approvals": 96.7,
-     "lost_approved_usd": 5160.44,
-     "fees_saved_usd": 233.16
+     "lost_approvals": 96.6977,
+     "lost_approved_usd": 5160.4423,
+     "fees_saved_usd": 233.1603
     },
-    "share_of_loss_avoided": 0.665
+    "share_of_loss_avoided": 0.6654
    },
+   "map_change": [
+    {
+     "segment": "CO credit domestic",
+     "rate_change_pp": -1.5664,
+     "lost_approvals": 20.0024,
+     "z_score_at_24h": -1.6863,
+     "lowest_z_score": -1.7962,
+     "fired": null
+    },
+    {
+     "segment": "MX debit domestic",
+     "rate_change_pp": -1.8857,
+     "lost_approvals": 22.2511,
+     "z_score_at_24h": -1.7343,
+     "lowest_z_score": -1.7343,
+     "fired": null
+    }
+   ],
+   "partner_notice": [
+    {
+     "segment": "BR credit domestic",
+     "first_fire_hours": 1
+    },
+    {
+     "segment": "BR debit domestic",
+     "first_fire_hours": null
+    }
+   ],
    "false_alarms": {
     "z <= -3.0": {
      "windows": 588,
      "fired": 11,
      "rate": 0.0187,
+     "domestic_windows": 294,
+     "domestic_fired": 7,
      "incident_first_fire_hours": 5
     },
     "z <= -3.5": {
      "windows": 588,
      "fired": 2,
      "rate": 0.0034,
+     "domestic_windows": 294,
+     "domestic_fired": 2,
      "incident_first_fire_hours": 5
     },
     "z <= -4.0": {
      "windows": 588,
      "fired": 0,
      "rate": 0.0,
+     "domestic_windows": 294,
+     "domestic_fired": 0,
      "incident_first_fire_hours": 6
     }
    },

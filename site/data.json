@@ -47,7 +47,7 @@
   "duplicates": 1537,
   "segment_days": 540,
   "anomalies_flagged": 1,
-  "checks": 64
+  "checks": 65
  },
  "analysis": {
   "before_after_pp": -10.95,
@@ -123,16 +123,17 @@
   "guardrail_hours": 2,
   "guardrail_hours_min": 2,
   "guardrail_hours_max": 6,
-  "guardrail_lost_at_fire": 19.9,
-  "guardrail_usd_at_fire": 1265.5,
-  "guardrail_fees_at_fire": 21.04,
-  "guardrail_lost_rolled_back": 22.5,
-  "guardrail_lost_actual": 109.9,
-  "guardrail_avoided": 0.795,
-  "guardrail_avoided_min": 0.665,
+  "guardrail_lost_at_fire": 19.8519,
+  "guardrail_usd_at_fire": 1265.4967,
+  "guardrail_fees_at_fire": 21.037,
+  "guardrail_lost_rolled_back": 22.4903,
+  "guardrail_lost_actual": 109.8945,
+  "guardrail_avoided": 0.7953,
+  "guardrail_avoided_min": 0.6654,
   "guardrail_other_fires": 0,
   "guardrail_quiet_windows": 588,
-  "guardrail_quiet_fired_max": 3
+  "guardrail_quiet_fired_max": 3,
+  "guardrail_map_pp": -2.3015
  },
  "hourly_co_debit": [
   {

@@ -42,6 +42,12 @@ def test_follows_every_change_but_partner_notices():
     assert (t.groupby(KEY[:4]).size() == cg.HOURS).all()
 
 
+def test_every_hour_is_complete_in_the_reference_data():
+    t = table()
+    assert t["hour_complete"].all()
+    assert (t.loc[t["change_id"] != "CHG-0601", "baseline_days"] >= 13.9).all()  # the data starts on 1 June
+
+
 def test_acquirer_scope_follows_the_segments_it_served():
     t = table()
     segs = t[t["change_id"] == "CHG-0806"].drop_duplicates(KEY[:4])
@@ -54,13 +60,13 @@ def test_backtest_rule_matches_the_dbt_model():
     py = cg.guardrail_table(sent, changes).sort_values(KEY).reset_index(drop=True)
     sql = table()
     assert len(py) == len(sql)
-    for col in ["change_id", "country", "card_type", "is_cross_border", "hours_since_change", "baseline_payments",
-                "payments_sent", "final_approved", "fires"]:
+    for col in ["change_id", "country", "card_type", "is_cross_border", "hours_since_change", "hour_complete",
+                "baseline_payments", "payments_sent", "final_approved", "fires"]:
         assert (py[col].values == sql[col].values).all(), col
     # rounded columns: Spark rounds half up and Python half to even, so allow one unit of the last decimal
-    for col, unit in [("baseline_rate", 1e-4), ("final_approval_rate", 1e-4), ("rate_change_pp", 0.01),
-                      ("z_score", 0.01), ("lost_approvals", 0.1), ("lost_approved_usd", 0.01),
-                      ("fees_saved_usd", 0.01)]:
+    for col, unit in [("baseline_days", 0.1), ("baseline_rate", 1e-4), ("final_approval_rate", 1e-4),
+                      ("rate_change_pp", 0.01), ("z_score", 0.01), ("lost_approvals", 0.1),
+                      ("lost_approved_usd", 0.01), ("fees_saved_usd", 0.01)]:
         diff = (pd.to_numeric(py[col]) - pd.to_numeric(sql[col])).abs()
         assert (diff.fillna(0) <= unit * 1.01).all(), (col, diff.max())
         assert (py[col].isna() == sql[col].isna()).all(), col

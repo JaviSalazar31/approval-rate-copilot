@@ -551,9 +551,10 @@ models:
 - name: gold_change_guardrail
   description: 'Hour-by-hour check of every production change in its first 24 hours, in each segment it can affect: the final
     approval of the payments sent since the change against the segment''s 14 days before it. fires marks the hours when the
-    drop is at least 2 points, has a binomial z-score of -3.5 or lower and rests on at least 30 payments; first_fire_hours
-    is the first of them. Partner notices are left out. The copilot does not query this table. Grain: one row per production
-    change × country × card type × cross-border flag × hour since the change (1 to 24).'
+    drop is at least 2 points, has a binomial z-score of -3.5 or lower and rests on at least 30 payments, in an hour the data
+    has fully reached; first_fire_hours is the first of them. Hours are counted in UTC. Partner notices are left out. The
+    copilot does not query this table. Grain: one row per production change × country × card type × cross-border flag × hour
+    since the change (1 to 24).'
   data_tests:
   - unique_combination_of_columns:
       arguments:
@@ -565,7 +566,7 @@ models:
         - hours_since_change
   columns:
   - name: change_id
-    description: Change identifier (CHG-* internal change, EXT-* partner notice)
+    description: Change identifier (CHG-*); partner notices (EXT-*) are left out
     data_tests:
     - not_null
   - name: change_type
@@ -597,7 +598,12 @@ models:
   - name: changed_at_local
     description: When the change happened, in the segment's local time; the 24 hours count from here
   - name: hours_since_change
-    description: Hours since the change, 1 to 24; each row adds up everything from the change to the end of that hour
+    description: Hours since the change, 1 to 24, counted in UTC; each row adds up everything from the change to the end of
+      that hour
+  - name: hour_complete
+    description: True when the data reaches the end of this hour; the guardrail fires only on complete hours
+  - name: baseline_days
+    description: 'Days of data in the baseline: 14, or fewer when the change came less than 14 days after the data starts'
   - name: baseline_payments
     description: Payments sent in the segment during the 14 days before the change
   - name: baseline_rate
@@ -624,8 +630,8 @@ models:
     description: 'Acquirer fees saved since the change, USD: the approved amount at the segment''s fee rate of the previous
       14 days minus the fees paid; negative when fees rose'
   - name: fires
-    description: True when, from the change to the end of this hour, final approval is at least 2 points below the baseline,
-      the binomial z-score is -3.5 or lower and at least 30 payments were sent
+    description: True when the hour is complete and, from the change to its end, final approval is at least 2 points below
+      the baseline, the binomial z-score is -3.5 or lower and at least 30 payments were sent
   - name: first_fire_hours
     description: First hour since the change in which fires is true, for this change and segment; empty when it never fired
 - name: gold_dq_summary

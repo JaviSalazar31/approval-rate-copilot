@@ -2,20 +2,27 @@
 -- (country, card type, domestic or cross-border). Each hour adds up the payments sent since the change and compares
 -- their final approval with the segment's approval over the 14 days before it. The guardrail fires when the drop is
 -- at least 2 points, unlikely at that volume (binomial z-score of -3.5 or lower, which keeps the chance of a false alarm
--- in 24 hourly looks under about 0.6%) and based on at least 30 payments.
+-- in 24 hourly looks under about 0.6% under the normal approximation) and based on at least 30 payments, in an hour
+-- the data has fully reached. Hours are counted in UTC, so they stay right where clocks change.
 -- Scope: ALL is every segment, country codes are their segments, and an acquirer (A, B or C) is the segments it
--- served in those 14 days. Partner notices (external_notice) are left out: they are not changes of the orchestrator.
+-- served in those 14 days. Partner notices (external_notice) are left out: there is nothing of ours to roll back.
 -- analysis/change_guardrail.py runs the same rule on other datasets and on days with no change.
 WITH changes AS (
-  SELECT change_id, change_type, scope, changed_at_mexico_city, changed_at_bogota, changed_at_sao_paulo
+  SELECT change_id, change_type, scope, changed_at_utc, changed_at_mexico_city, changed_at_bogota,
+         changed_at_sao_paulo
   FROM {{ ref('gold_change_log') }}
   WHERE change_type <> 'external_notice'
 ),
 segments AS (
-  SELECT DISTINCT country, card_type, is_cross_border
+  SELECT
+    country,
+    card_type,
+    is_cross_border,
+    max(max(created_ts_utc)) OVER (PARTITION BY country) AS data_end_utc
   FROM {{ ref('int_payments_sent') }}
+  GROUP BY country, card_type, is_cross_border
 ),
-changes_local AS (
+changes_by_segment AS (
   SELECT
     c.change_id,
     c.change_type,
@@ -23,6 +30,8 @@ changes_local AS (
     s.country,
     s.card_type,
     s.is_cross_border,
+    s.data_end_utc,
+    c.changed_at_utc,
     CASE s.country
       WHEN 'MX' THEN c.changed_at_mexico_city
       WHEN 'CO' THEN c.changed_at_bogota
@@ -33,27 +42,30 @@ changes_local AS (
 ),
 baseline AS (
   SELECT
-    cl.change_id,
-    cl.change_type,
-    cl.scope,
-    cl.country,
-    cl.card_type,
-    cl.is_cross_border,
-    cl.changed_at_local,
+    cs.change_id,
+    cs.change_type,
+    cs.scope,
+    cs.country,
+    cs.card_type,
+    cs.is_cross_border,
+    cs.data_end_utc,
+    cs.changed_at_utc,
+    cs.changed_at_local,
+    (unix_timestamp(cs.changed_at_utc) - unix_timestamp(min(p.created_ts_utc))) / 86400 AS baseline_days,
     count(*) AS baseline_payments,
     sum(CAST(p.final_approved AS INT)) / count(*) AS baseline_rate,
     sum(p.approved_usd) / nullif(sum(p.amount_usd), 0) AS baseline_volume_rate,
     sum(p.fee_usd) / nullif(sum(p.approved_usd), 0) AS baseline_fee_rate,
-    sum(CASE WHEN p.first_acquirer_id = cl.scope THEN 1 ELSE 0 END) AS scope_acquirer_payments
-  FROM changes_local cl
+    sum(CASE WHEN p.first_acquirer_id = cs.scope THEN 1 ELSE 0 END) AS scope_acquirer_payments
+  FROM changes_by_segment cs
   JOIN {{ ref('int_payments_sent') }} p
-    ON p.country = cl.country
-   AND p.card_type = cl.card_type
-   AND p.is_cross_border = cl.is_cross_border
-   AND p.created_ts_local >= cl.changed_at_local - INTERVAL 14 DAYS
-   AND p.created_ts_local < cl.changed_at_local
-  GROUP BY cl.change_id, cl.change_type, cl.scope, cl.country, cl.card_type, cl.is_cross_border,
-           cl.changed_at_local
+    ON p.country = cs.country
+   AND p.card_type = cs.card_type
+   AND p.is_cross_border = cs.is_cross_border
+   AND p.created_ts_utc >= cs.changed_at_utc - INTERVAL 14 DAYS
+   AND p.created_ts_utc < cs.changed_at_utc
+  GROUP BY cs.change_id, cs.change_type, cs.scope, cs.country, cs.card_type, cs.is_cross_border, cs.data_end_utc,
+           cs.changed_at_utc, cs.changed_at_local
 ),
 monitored AS (
   SELECT *
@@ -68,7 +80,7 @@ after_change AS (
     m.country,
     m.card_type,
     m.is_cross_border,
-    CAST(floor((unix_timestamp(p.created_ts_local) - unix_timestamp(m.changed_at_local)) / 3600) AS INT) + 1
+    CAST(floor((unix_timestamp(p.created_ts_utc) - unix_timestamp(m.changed_at_utc)) / 3600) AS INT) + 1
       AS hour_number,
     CAST(p.final_approved AS INT) AS approved,
     p.amount_usd,
@@ -79,8 +91,8 @@ after_change AS (
     ON p.country = m.country
    AND p.card_type = m.card_type
    AND p.is_cross_border = m.is_cross_border
-   AND p.created_ts_local >= m.changed_at_local
-   AND p.created_ts_local < m.changed_at_local + INTERVAL 24 HOURS
+   AND p.created_ts_utc >= m.changed_at_utc
+   AND p.created_ts_utc < m.changed_at_utc + INTERVAL 24 HOURS
 ),
 hourly AS (
   SELECT
@@ -106,11 +118,13 @@ cumulative AS (
     m.card_type,
     m.is_cross_border,
     m.changed_at_local,
+    m.baseline_days,
     m.baseline_payments,
     m.baseline_rate,
     m.baseline_volume_rate,
     m.baseline_fee_rate,
     h.hours_since_change,
+    timestampadd(HOUR, h.hours_since_change, m.changed_at_utc) <= m.data_end_utc AS hour_complete,
     coalesce(sum(x.payments_sent), 0) AS payments_sent,
     coalesce(sum(x.final_approved), 0) AS final_approved,
     coalesce(sum(x.attempted_usd), 0) AS attempted_usd,
@@ -125,7 +139,8 @@ cumulative AS (
    AND x.is_cross_border = m.is_cross_border
    AND x.hour_number <= h.hours_since_change
   GROUP BY m.change_id, m.change_type, m.scope, m.country, m.card_type, m.is_cross_border, m.changed_at_local,
-           m.baseline_payments, m.baseline_rate, m.baseline_volume_rate, m.baseline_fee_rate, h.hours_since_change
+           m.changed_at_utc, m.data_end_utc, m.baseline_days, m.baseline_payments, m.baseline_rate,
+           m.baseline_volume_rate, m.baseline_fee_rate, h.hours_since_change
 ),
 scored AS (
   SELECT
@@ -138,7 +153,8 @@ scored AS (
 flagged AS (
   SELECT
     *,
-    coalesce(payments_sent >= 30
+    coalesce(hour_complete
+             AND payments_sent >= 30
              AND final_approval_rate <= baseline_rate - 0.02
              AND z <= -3.5, false) AS fires
   FROM scored
@@ -152,6 +168,8 @@ SELECT
   is_cross_border,
   changed_at_local,
   hours_since_change,
+  hour_complete,
+  round(baseline_days, 1) AS baseline_days,
   baseline_payments,
   round(baseline_rate, 4) AS baseline_rate,
   payments_sent,
