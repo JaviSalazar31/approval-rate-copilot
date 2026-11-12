@@ -884,21 +884,22 @@ queries were added.
   first-attempt ranking reads `first_attempt_approved`, and a new example ranks acquirers on it with the gap (U5).
 - When the question asks for the lowest or the highest item, the query itself orders the rows and keeps that item
   and the next two, also when they come from a function. A new example ranks issuers inside a window (C4).
-- A total comes from the query, never from rows added up in the text (U2); a baseline is the 14 days before the
-  window, never a shorter average (U8); and counts are compared only over periods of the same length.
+- A total comes from the query itself (U2); a baseline is the 14 days before the window, never a shorter average
+  (U8); and counts are compared only over periods of the same length.
 - Traffic that moves onto a segment with no baseline shows in that segment's rate effect, so the agent compares the
   shares before it says whether traffic moved, and does not read a zero mix effect as unchanged traffic (the B1
   sample I failed in run 7).
 
-The new examples use segments and periods that no benchmark or held-out question asks about. The deploy ran the
-daily job, which recreated the functions with their new descriptions, before it updated the agent. The context the
-agent sees is in [`results/genie_run8_model_context.md`](results/genie_run8_model_context.md).
+Neither new example answers a benchmark or held-out question. The deploy ran the daily job, which recreated the
+functions with their new descriptions, before it updated the agent. The context the agent sees is in
+[`results/genie_run8_model_context.md`](results/genie_run8_model_context.md).
 
 ### The fifth held-out set
 
 [`heldout_set_5.json`](heldout_set_5.json) holds 13 new questions in the same four groups, written on 12 November
-2026 (UTC) after the eighth release was committed (f5b7b70, 07:17 UTC) and deployed, and committed before they ran
-(d9c1f92, 07:26 UTC). Four KPI lookups ask for the share of Brazilian intents abandoned in the 3DS challenge in
+2026 (UTC) after the eighth release was committed (f5b7b70, 07:17 UTC), and committed before they ran (d9c1f92,
+07:26 UTC). Its questions are numbered V1 to V13; the reworded variants of Genie runs 2 to 4, also numbered with a
+V, are a different set. Four KPI lookups ask for the share of Brazilian intents abandoned in the 3DS challenge in
 August, the Colombian payments approved after a retry in July, the approved volume of Mexico's cross-border
 payments in June and Acquirer C's median latency in Mexico in August. Three comparisons ask for the lowest acquirer
 on first-attempt approval of Colombian credit, the lowest Colombian issuer on credit inside a week given in local
@@ -930,19 +931,19 @@ Run 8 passed 17 of 20, two fewer than run 7. Chat mode passed 9 of 10 again. B3 
 with its gap (0.66 points), and A5 read the funnel view; Genie's grader asked for a review because the table
 differs from the reference's, and I passed it on the number. C4 failed with the same SQL as in runs 4 to 7: chat
 mode calls `fn_approval_drivers` with named parameters and adds no ORDER BY or LIMIT, so neither the ranking rule
-nor the new example reached it.
+nor the new example changed its SQL.
 
 Agent mode passed 8 of 10, against 10 in run 7. B4 found the stopped retries of code 05 on Acquirer B and estimated
 about 169 lost recoveries at a 38% rate, then recommended making the code retryable again or issuing a new map,
 although its own results show hotfix v2.3.1 cascading those declines from 15 August. Every earlier B4 answer,
 offline and on Genie, named the hotfix. The judge passed it with a missed optional fact; I count it as a failure,
-the bar the judge itself applied to two answers that accepted the same premise in the fifth held-out set (V13). B6
-named the cause, the risk rules of CHG-0618, and showed acquirer approval flat, but gave the impact function's 16
-lost approvals as what the blocks cost. Those count approvals lost at the acquirer; the blocks stopped about 120
-intents before they got there. B6 has failed in four of the eight runs. B1 passed two of three samples. All three
-sized the window from 14:00 to the rollback at 12:10; the third said code 05 had not appeared on Acquirer A in the
-baseline, where A had 628 such declines (4.1% of its payments), reading Acquirer B's empty baseline as A's, as one
-sample did in run 3.
+as the judge itself did for two answers that accepted the same premise in the fifth held-out set (V13). B6 named
+the cause, the risk rules of CHG-0618, and showed acquirer approval flat, but gave the impact function's 16 lost
+approvals as what the blocks cost. Those count approvals lost at the acquirer; the blocks stopped about 120 intents
+before they got there. B6 has failed in four of the eight runs. B1 passed two of three samples. All three sized the
+window from 14:00 to the rollback at 12:10; the third said code 05 had not appeared on Acquirer A in the baseline,
+where A had 628 such declines (4.1% of its payments). It read Acquirer B's empty baseline as A's, as one sample did
+in run 3.
 
 ### The fifth held-out set: results
 
@@ -966,10 +967,10 @@ view in the query and computed the gap there (V7). The three that ranked Colombi
 the drivers function's table with no text and passed, because there its rate is the one asked (V6). All three
 answers to a first-attempt ranking (V5) returned the same table: its rate is final approval, so they put Acquirer B
 2.05 points below A, where first-attempt approval puts it 2.95 below. Chat mode called the function directly, as it
-does for C4, and the new definition and example did not reach it.
+does for C4, and the new definition and example made no difference there.
 
-Agent mode passed 14 of 18. All three answers on the Colombian incident compared the shares and said the traffic
-moved, from Acquirer A (15,182 payments in the baseline) to Acquirer B (all 1,004 in the window) (V8), and all
+Agent mode passed 14 of 18. All three answers on the Colombian incident (V8) compared the shares and said the
+traffic moved, from Acquirer A (15,182 payments in the baseline) to Acquirer B (all 1,004 in the window), and all
 three said the detector flagged no Mexican segment (V10). Two of three answers on Brazil's risk rules found about
 117 and 113 more blocked intents, against 119 in the reference; the third applied the rise to the three calendar
 days and said about 153 (V9). Asked how many more approvals Brazil would get next month with all its credit traffic
@@ -980,10 +981,12 @@ August and gave about 800 more approvals, which fails it. No answer listed a car
 treated 05 as still not retryable and cited map versions, when hotfix v2.3.1 (CHG-0815) had made it retryable on 15
 August. B4 accepted the same premise in run 8.
 
-As the protocol requires, the agent was not changed after this run. What it found is open: chat mode's direct
-function calls (C4, V5), which the instructions did not reach, so the next fix goes into the function's parameters,
-and a premise the change log contradicts (V13, B4), which the agent has to check before it accepts one or
-recommends a fix. Like every change to what the agent sees, the fix ships only with an evaluated release and a new
+As the protocol requires, the agent was not changed after this run. What it found is open, starting with chat
+mode's direct function calls (C4, V5), which the instructions did not change, so the next fix goes into the
+function's parameters, and a premise the change log contradicts (V13, B4), which the agent has to check before it
+accepts one or recommends a fix. One what-if answer still gave a number (V11), one count used the calendar days
+(V9), B6 gave the acquirer stage's loss as the cost of the risk blocks, and one B1 sample misread an empty
+baseline. Like every change to what the agent sees, the fixes ship only with an evaluated release and a new
 held-out set.
 
 ### Limits of this evaluation
@@ -993,16 +996,16 @@ held-out set.
   passed). Every run after the first re-asks the questions that drove the fixes, so it shows the fixes work on
   those cases, not that they generalize. The held-out sets are that check: 14 questions asked once, then four sets
   of 13 asked three times each. The repeated samples show how much one sample hides: 4 of the second set's
-  questions, 3 of the third's, 3 of the fourth's and 3 of the fifth's passed in some samples and failed in others. Each set is new
-  and was committed to the repository before its run. Offline runs 4 to 6 differ only in table and function
-  descriptions, so together they are three samples of almost the same design.
+  questions, 3 of the third's, 3 of the fourth's and 3 of the fifth's passed in some samples and failed in others.
+  Each set is new and was committed to the repository before its run. Offline runs 4 to 6 differ only in table and
+  function descriptions, so together they are three samples of almost the same design.
 - The judge is a model. Its verdicts and notes are published in `results/` so anyone can re-check them. On
   Genie it also graded the agent-mode answers (in place of Genie's own agent-mode grader), the reworded variants
   and the held-out sets.
-- The offline model under test is not Genie, and the gap was large: 20 of 20 offline, 13 of 20 on Genie with
-  the same context. Three rounds of fixes on Genie took it to 17, the next two runs scored 15, the seventh
-  release 19 and the eighth 17. The offline runs show whether the design can work; only Genie runs show whether it works in the
-  product.
+- The offline model under test is not Genie, and the gap was large: 20 of 20 offline, 13 of 20 on Genie with the
+  same context. Three rounds of fixes on Genie took it to 17, the next two runs scored 15, the seventh release 19
+  and the eighth 17. The offline runs show whether the design can work; only Genie runs show whether it works in
+  the product.
 - Chat-mode benchmark questions are graded by Genie's grader, which compares result sets: it fails a right answer
   in the wrong shape (C4) and passes a table that answers half of the question (C1, overruled). Agent-mode
   questions, the reworded variants and the held-out sets are graded by the judge with the scoring rules. The two

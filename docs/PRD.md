@@ -162,10 +162,10 @@ Full definitions, formulas and pitfalls are in [metrics.md](metrics.md).
 7. Phase 0g, done (12 November 2026, UTC): the eighth release added rules and example queries for what the fourth
    set found, on what-if questions, rankings, totals and baselines (ADR-23). The eighth benchmark run passed 17/20;
    a fifth held-out set, 13 new questions asked three times each, passed 32 of 39 answers.
-8. Phase 0h, next: what the fifth set found. Chat mode calls the drivers function directly and adds no ORDER BY or
-   LIMIT, so a first-attempt rate and a row limit go into the function's parameters, and the agent checks the change
-   log before it accepts a premise or recommends a fix; then the benchmark and a sixth held-out set. The pilot starts
-   when the held-out sets also reach R8's 90%, the number to watch.
+8. Phase 0h, next: what the fifth set found, starting with a first-attempt rate and a row limit as parameters of
+   the drivers function, which chat mode calls directly without ORDER BY or LIMIT, and a check of the change log
+   before the agent accepts a premise or recommends a fix; then the benchmark and a sixth held-out set. The pilot
+   starts when the held-out sets also reach R8's 90%, the number to watch.
 9. Phase 1, pilot (4 weeks): first, 20-minute interviews with three analysts to confirm the jobs and
    today's time to diagnosis. Then three analysts on real data; measure time to diagnosis against the
    current process and keep a log of wrong or missing answers.

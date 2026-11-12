@@ -16,7 +16,7 @@ same wording as in the evaluation.
 | 0:50–1:40 | Genie: "Why did the approval rate for debit cards in Colombia drop on 13 August 2026?" Let it run, scroll the answer and open "Show code" once | "I ask the copilot why. It has five SQL functions for this: the size of the drop, which segments moved, which decline codes grew, whether retries still worked, and what changed in production. It finds that a routing change sent all Colombian debit to Acquirer B to save forty basis points. B approved less, and a decline-map change a week earlier had stopped its 'do not honor' declines from being retried on another acquirer. In twenty-two hours, that cost about eleven points of approval, a hundred and ten approvals and around six thousand four hundred dollars in approved sales. I can open the query behind every number." |
 | 1:40–2:00 | Genie, new conversation: "Was there any early warning before the Colombia debit incident of 13 August 2026?" | "There was an early warning. Retries for B's 'do not honor' declines collapsed on August sixth, a week before the incident, and the retry alert flagged them every day from then on. In the scenario, the alert had no owner, so nobody acted on it." |
 | 2:00–2:12 | Genie, new conversation: "Which real bank is issuer CO-ISS-03?" | "When I ask which real bank an issuer code belongs to, it says the issuers are fictional codes and doesn't guess. It refuses to delete data, and asked straight out for a forecast, it declines." |
-| 2:12–2:42 | Eval results table | "I tested it on twenty questions with scoring rules. The Genie agent passed thirteen at first and nineteen with its seventh release, after I moved more of the method into its functions; the eighth passed seventeen. On four sets of new questions, committed to the repo before each run and asked three times each, it got twenty-six, thirty-five, thirty-two and thirty-two answers right out of thirty-nine. Every answer and every failure is published." |
+| 2:12–2:42 | Eval results table | "I tested it on twenty questions with scoring rules. The Genie agent passed thirteen at first. After I moved more of the method into its functions, the seventh release passed nineteen, and the eighth, seventeen. On four sets of new questions, committed to the repo before each run and asked three times each, it got twenty-six answers right out of thirty-nine, then thirty-five, then thirty-two twice. Every answer and every failure is published." |
 | 2:42–3:05 | Project page or README top | "I built it with an AI coding assistant: I wrote the brief and reviewed the work against it. The same five functions also work from other AI assistants, through an MCP server. Next, I'd add hourly alerts and a guardrail that checks routing changes against approved volume instead of fee savings. The PRD, the postmortem and the code are linked below." |
 
 ## 60 to 90 second cut
@@ -29,7 +29,7 @@ problem, the diagnosis, the early warning and the evaluation, and drops the pipe
 | 0:00–0:14 | Dashboard, page 1, the dip in the "CO debit" line | The whole 0:00 line: "When card approval rates drop, every hour costs approved sales, and finding out why means going through four data sources. As a personal project, I built a copilot that does it from a single question." |
 | 0:14–0:42 | Genie, the main question: the answer scrolling, then "Show code" | From the 0:50 line, the three sentences that start with "It finds that a routing change...", "B approved less..." and "In twenty-two hours..." |
 | 0:42–0:54 | Genie, the early-warning question | From the 1:40 line: "Retries for B's 'do not honor' declines collapsed on August sixth, a week before the incident, and the retry alert flagged them every day from then on." |
-| 0:54–1:22 | Eval results table | The 2:12 line without its last sentence: from "I tested it on twenty questions..." to "...thirty-two and thirty-two answers right out of thirty-nine." |
+| 0:54–1:22 | Eval results table | The 2:12 line without its last sentence: from "I tested it on twenty questions..." to "...then thirty-five, then thirty-two twice." |
 | 1:22–1:26 | Project page or README top | The last sentence of the 2:42 line: "The PRD, the postmortem and the code are linked below." |
 
 The length depends on the pace of the recording, about 85 to 90 seconds at a normal speaking pace. If it runs
@@ -41,10 +41,10 @@ over 90 seconds, the first cut is the 0:42 segment.
   take.
 - Ask the three questions in Agent mode, the mode the evaluation graded them in. You pick the mode when you start
   a conversation, and you can't change it inside that conversation.
-- The main question passed two of three samples in the last benchmark run and none in the run before, each failure
-  on a different misreading of its own results, so read the whole answer before you keep a take. It should size the
-  window from 14:00 on 13 August to the rollback at 12:10 the next day (about −10.9 points, 110 approvals and USD
-  6,354), treat the 'do not honor' declines as acquirer-side, and state nothing that its own query results
+- The main question passed two of three samples in each of the last two benchmark runs (none in run 6), each
+  failure on a different misreading of its own results, so read the whole answer before you keep a take. It should
+  size the window from 14:00 on 13 August to the rollback at 12:10 the next day (about −10.9 points, 110 approvals
+  and USD 6,354), treat the 'do not honor' declines as acquirer-side, and state nothing that its own query results
   contradict. If it doesn't, start a new conversation and ask again. A retake is fine because the pass rate is
   published. Never edit an answer.
 - Read Genie's answer before recording the voice-over. If its wording or numbers differ from the script, say what

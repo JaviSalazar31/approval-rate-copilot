@@ -618,17 +618,17 @@ something were done or repeated, even when it asks only for a number: the agent 
 29 August 2026, scales no measured figure to another period and gives what was measured as history. The definitions
 and the description of `fn_approval_drivers` say that it measures final approval, so a first-attempt ranking reads
 `first_attempt_approved`. A ranking orders its rows and keeps three in the query itself, also when they come from a
-function. A total comes from the query, never from rows added up in the text, and a baseline is the 14 days before
-the window, never a shorter average. Before it says whether traffic moved between segments, the agent compares the
-shares, because traffic that moves onto a segment with no baseline shows in that segment's rate effect, and its mix
-effect stays near zero. Two new example queries rank acquirers on first-attempt approval and issuers inside a
-window, on segments and periods that no evaluation question uses.
+function. A total comes from the query itself, and a baseline is the 14 days before the window, never a shorter
+average. Before it says whether traffic moved between segments, the agent compares the shares, because traffic that
+moves onto a segment with no baseline shows in that segment's rate effect, and its mix effect stays near zero. Two
+new example queries rank acquirers on first-attempt approval and issuers inside a window, and neither answers an
+evaluation question.
 
 **Why.** In the fourth held-out set, all three answers to a what-if about next month scaled the 22-hour incident up
 to a month (U13), two of three answers to a first-attempt ranking used the drivers function's final rate (U5), one
 gave a total that its own rows did not add up to (U2), and one measured a drop against a three-day average (U8). In
-run 7, one B1 sample read a zero mix effect as unchanged traffic, and C4 returned all eight issuers. Each was a
-misreading of data the agent already had.
+run 7, one B1 sample read a zero mix effect as unchanged traffic, and C4 returned all eight issuers. None of them
+needed data the agent did not have.
 
 **Alternatives.** A rate parameter and a row limit in `fn_approval_drivers`: a change to a function that the MCP
 server, its tests and the docs describe, made for two questions, so I tried the instructions first. Keeping chat
@@ -642,11 +642,11 @@ the retry of code 05 for Acquirer B, although its own results showed hotfix v2.3
 August; the judge passed it, and I count it as a failure. B6 gave the impact function's 16 lost approvals, which
 count the acquirer stage, as the cost of risk blocks that stopped about 120 intents before they got there. On a
 fifth held-out set, 13 new questions asked three times each, the agent got 32 of 39 answers right, as on the
-fourth, and 9 questions passed in all three samples. The rules held where the agent writes its own query and text:
-all three answers on whether the traffic moved compared the shares (V8), all three totals came from one row of the
-query (V2), and two of three answers to a what-if gave no number (V11), against none of three in the fourth set.
-They did not reach chat mode's direct function calls: C4 ran the same SQL as in runs 4 to 7, `fn_approval_drivers`
-with named parameters and no ORDER BY or LIMIT, and all three first-attempt rankings returned its final rate again
-(V5). Two answers to a request to make code 05 retryable for Acquirer B also treated it as still not retryable
-(V13), the premise B4 accepted. The next release has to put the rate and the row limit in the function's
-parameters, and have the agent check the change log before it accepts a premise or recommends a fix.
+fourth, and 9 questions passed in all three samples. Answers followed the new rules where the agent writes its own
+query and text: all three answers on whether the traffic moved compared the shares (V8), and two of three answers
+to a what-if gave no number (V11), against none of three in the fourth set; the third turned a past gap into about
+800 approvals. Chat mode's direct function calls did not follow them: C4 ran the same SQL as in runs 4 to 7,
+`fn_approval_drivers` with named parameters and no ORDER BY or LIMIT, and all three first-attempt rankings returned
+its final rate again (V5). Two answers to a request to make code 05 retryable for Acquirer B also treated it as
+still not retryable (V13), the premise B4 accepted. The next release starts there: the rate and the row limit as
+parameters of the function, and a check of the change log before the agent accepts a premise or recommends a fix.
