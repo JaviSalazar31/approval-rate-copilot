@@ -35,6 +35,13 @@ def test_window_and_choices_are_checked():
         srv._choice("card_type", "prepaid", srv.CARD_TYPES)
     with pytest.raises(ValueError):
         srv._integer("baseline_days", 365, 1, 90, 14)
+    assert srv._date("incident_date", " 2026-08-13") == "2026-08-13"
+    assert srv._issuer("br-iss-03") == "BR-ISS-03" and srv._issuer("NULL") is None
+    for bad in ("13/08/2026", "2026-08-13'; DROP TABLE x; --"):
+        with pytest.raises(ValueError):
+            srv._date("incident_date", bad)
+    with pytest.raises(ValueError):
+        srv._issuer("BR-ISS-03' OR 1=1 --")
 
 
 def test_a_text_null_means_no_value():
@@ -101,7 +108,10 @@ async def _call_tools(server_or_params):
         impact = await client.call_tool("drop_impact", {**WINDOW, "card_type": "debit"})
         drivers = await client.call_tool("approval_drivers", {**WINDOW, "card_type": "debit", "dimension": "issuer"})
         bad = await client.call_tool("drop_impact", {**WINDOW, "country": "AR"})
-        return tools, impact, drivers, bad
+        incident = await client.call_tool("drop_impact", {"country": "CO", "card_type": "debit",
+                                                          "incident_date": "2026-08-13"})
+        no_window = await client.call_tool("drop_impact", {"country": "CO"})
+        return tools, impact, drivers, bad, incident, no_window
 
 
 def _rows(result) -> list[dict]:
@@ -112,7 +122,7 @@ def _rows(result) -> list[dict]:
 @pytest.mark.skipif(not LOCAL_OUTPUT, reason="needs the local pipeline output (python local/run_local.py)")
 def test_tools_over_mcp_return_the_copilot_numbers():
     pytest.importorskip("mcp")
-    tools, impact, drivers, bad = asyncio.run(_call_tools(srv.create_server(srv.LocalBackend())))
+    tools, impact, drivers, bad, incident, no_window = asyncio.run(_call_tools(srv.create_server(srv.LocalBackend())))
     assert sorted(tools) == ["approval_drivers", "cascade_health", "changes_near", "decline_shift", "drop_impact"]
     assert all(t.annotations.read_only_hint for t in tools.values())
     row = _rows(impact)[0]
@@ -121,6 +131,10 @@ def test_tools_over_mcp_return_the_copilot_numbers():
     issuers = _rows(drivers)
     assert issuers[0]["segment_value"] == "CO-ISS-07" and {r["dimension"] for r in issuers} == {"issuer"}
     assert bad.is_error and "country must be one of MX, CO, BR" in bad.content[0].text
+    inc = _rows(incident)[0]   # the window comes from the change log: CHG-0813 to its rollback, CHG-0814
+    assert (inc["window_start_local"], inc["window_end_local"], inc["lost_approvals"]) == (
+        "2026-08-13 14:00:00", "2026-08-14 12:10:00", row["lost_approvals"])
+    assert no_window.is_error and "incident_date" in no_window.content[0].text
 
 
 @pytest.mark.skipif(not LOCAL_OUTPUT, reason="needs the local pipeline output (python local/run_local.py)")
@@ -129,5 +143,5 @@ def test_server_runs_over_stdio():
     from mcp import StdioServerParameters
     params = StdioServerParameters(command=sys.executable, cwd=ROOT,
                                    args=[os.path.join(ROOT, "mcp_server", "approval_copilot_mcp.py"), "--backend", "local"])
-    tools, impact, _, _ = asyncio.run(_call_tools(params))
+    tools, impact, *_ = asyncio.run(_call_tools(params))
     assert len(tools) == 5 and _rows(impact)[0]["lost_approvals"] == 110

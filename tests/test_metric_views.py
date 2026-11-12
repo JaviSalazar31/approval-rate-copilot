@@ -53,7 +53,7 @@ def reference(qid: str) -> dict:
 
 
 def test_definitions_are_valid():
-    for view in ("approval_metrics", "decline_metrics"):
+    for view in ("approval_metrics", "decline_metrics", "funnel_metrics"):
         s = spec(view)
         assert s["version"] == 1.1 and s["source"].startswith("workspace.approval_copilot.gold_")
         names = [d["name"] for d in s["dimensions"]] + [m["name"] for m in s["measures"]]
@@ -96,6 +96,16 @@ def test_decline_metrics_split_first_attempts_and_retries():
     total = spark().sql("SELECT sum(attempts) AS n FROM gold_decline_reasons_daily WHERE country = 'CO' "
                         "AND acquirer_id = 'B' AND business_date = DATE'2026-08-13'").collect()[0]["n"]
     assert sum(by_attempt.values()) == total and by_attempt["first attempt"] > 0
+
+
+def test_funnel_rates_sum_both_card_types():
+    # A5: share of Brazilian payment intents blocked by risk on 18 June, over both card types
+    got = measure("funnel_metrics", ["risk_block_rate", "payment_intents"], [],
+                  "country = 'BR' AND business_date = DATE'2026-06-18'")[0]
+    assert round(got["risk_block_rate"], 4) == reference("A5")["risk_block_rate"]
+    by_card = measure("funnel_metrics", ["payment_intents"], ["card_type"],
+                      "country = 'BR' AND business_date = DATE'2026-06-18'")
+    assert len(by_card) == 2 and sum(r["payment_intents"] for r in by_card) == got["payment_intents"]
 
 
 if __name__ == "__main__":

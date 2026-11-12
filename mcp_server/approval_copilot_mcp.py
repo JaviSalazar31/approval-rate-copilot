@@ -37,13 +37,13 @@ TS_FORMAT = "%Y-%m-%d %H:%M:%S"
 # function name -> its parameters in order: (name, SQL type)
 SIGNATURES = {
     "fn_drop_impact": [("p_country", "STRING"), ("p_start_local", "STRING"), ("p_end_local", "STRING"),
-                       ("p_card_type", "STRING"), ("p_baseline_days", "INT")],
+                       ("p_card_type", "STRING"), ("p_baseline_days", "INT"), ("p_incident_date", "STRING")],
     "fn_approval_drivers": [("p_country", "STRING"), ("p_start_local", "STRING"), ("p_end_local", "STRING"),
                             ("p_card_type", "STRING"), ("p_baseline_days", "INT"), ("p_dimension", "STRING")],
     "fn_decline_shift": [("p_country", "STRING"), ("p_start_local", "STRING"), ("p_end_local", "STRING"),
                          ("p_card_type", "STRING"), ("p_baseline_days", "INT")],
     "fn_cascade_health": [("p_country", "STRING"), ("p_start_local", "STRING"), ("p_end_local", "STRING"),
-                          ("p_card_type", "STRING"), ("p_baseline_days", "INT")],
+                          ("p_card_type", "STRING"), ("p_baseline_days", "INT"), ("p_issuer", "STRING")],
     "fn_changes_near": [("p_country", "STRING"), ("p_start_local", "STRING"), ("p_end_local", "STRING"),
                         ("p_hours_before", "INT"), ("p_hours_after", "INT")],
 }
@@ -76,6 +76,22 @@ def _timestamp(name: str, value) -> datetime.datetime:
     if ts.tzinfo is not None:
         raise ValueError(f"{name} is the country's local time, without a time zone offset; got {value!r}")
     return ts
+
+
+def _date(name: str, value) -> str:
+    try:
+        return datetime.date.fromisoformat(str(value).strip()).isoformat()
+    except ValueError:
+        raise ValueError(f"{name} must be a date as 'YYYY-MM-DD'; got {value!r}") from None
+
+
+def _issuer(value):
+    if _empty(value):
+        return None
+    v = str(value).strip().upper()
+    if not re.fullmatch(r"(MX|CO|BR)-ISS-\d{2}", v):
+        raise ValueError(f"issuer must be a code such as 'BR-ISS-03'; got {value!r}")
+    return v
 
 
 def _integer(name: str, value, low: int, high: int, default: int) -> int:
@@ -218,8 +234,11 @@ Diagnostic functions of the Approval Rate Copilot, on synthetic card payments of
 in Mexico (MX), Colombia (CO) and Brazil (BR), routed to acquirers A, B and C. Data covers 2026-06-01 to 2026-08-29.
 Windows are in the country's local time ('YYYY-MM-DD HH:MM:SS'; MX UTC-6, CO UTC-5, BR UTC-3), the end exclusive.
 Every function covers domestic payments and compares the window with a baseline of the days before it.
-To explain a drop: find the window with changes_near, size it with drop_impact, then use approval_drivers,
-decline_shift and cascade_health. Rates are fractions (0.756 is 75.6%), and _pp columns are percentage points.
+To explain a drop: find the window with changes_near, or pass drop_impact the date of the change that started an
+incident and it reads the window from the change log; size it with drop_impact, then use approval_drivers,
+decline_shift and cascade_health. In cascade_health, map_stopped_retries = true means a decline-map change
+stopped retries the acquirer used to get, which is a cause, not a correct classification. Rates are fractions
+(0.756 is 75.6%), and _pp columns are percentage points.
 All data is synthetic: issuers, merchants and acquirers are fictional codes, never real companies."""
 
 
@@ -240,15 +259,25 @@ def create_server(backend):
             raise ToolError(str(exc)) from None
 
     @server.tool(annotations=read_only)
-    def drop_impact(country: str, start_local: str, end_local: str, card_type: str | None = None,
-                    baseline_days: int = 14) -> Table:
-        """Size an approval drop in a window against the baseline rate: payments, first-attempt and final approval
-        rates, the change in points, lost approvals, lost approved volume (USD) and fees. Pass the window of the
-        drop, from the change or hour it started to the change or hour it ended, not a calendar day. Lost figures
-        are expected minus actual at the baseline rates: positive means the window approved less."""
-        return call("fn_drop_impact", lambda: {**check_window(country, start_local, end_local),
-                                       "p_card_type": _choice("card_type", card_type, CARD_TYPES, optional=True),
-                                       "p_baseline_days": _integer("baseline_days", baseline_days, 1, 90, 14)})
+    def drop_impact(country: str, start_local: str | None = None, end_local: str | None = None,
+                    card_type: str | None = None, baseline_days: int = 14, incident_date: str | None = None) -> Table:
+        """Size an incident or an approval drop against the baseline rate: payments, first-attempt and final approval
+        rates, the change in points, lost approvals, lost approved volume (USD) and fees, plus the funnel of the
+        same segment (conversion, risk blocks, 3DS abandonment). Pass incident_date, the date of the change that
+        started an incident, and the window is read from the change log (window_start_local, window_end_local);
+        or pass the window of the drop, from the change or hour it started to the change or hour it ended, not a
+        calendar day. Lost figures are expected minus actual at the baseline rates: positive means the window
+        approved less."""
+        def args():
+            common = {"p_card_type": _choice("card_type", card_type, CARD_TYPES, optional=True),
+                      "p_baseline_days": _integer("baseline_days", baseline_days, 1, 90, 14)}
+            if not _empty(start_local) or not _empty(end_local):
+                return {**check_window(country, start_local, end_local), **common}
+            if _empty(incident_date):
+                raise ValueError("pass start_local and end_local, or incident_date")
+            return {"p_country": _choice("country", country, COUNTRIES),
+                    "p_incident_date": _date("incident_date", incident_date), **common}
+        return call("fn_drop_impact", args)
 
     @server.tool(annotations=read_only)
     def approval_drivers(country: str, start_local: str, end_local: str, card_type: str | None = None,
@@ -274,14 +303,16 @@ def create_server(backend):
 
     @server.tool(annotations=read_only)
     def cascade_health(country: str, start_local: str, end_local: str, card_type: str | None = None,
-                       baseline_days: int = 14) -> Table:
+                       baseline_days: int = 14, issuer: str | None = None) -> Table:
         """Whether failed first attempts were retried on another acquirer and recovered, per acquirer and code, in
         the baseline and the window, with how the decline-code map classified each code and whether it allowed a
-        retry. lost_recoveries is what stopped retries cost: the recoveries the window missed at the baseline
-        recovery rate of the same acquirer and code."""
+        retry. map_stopped_retries is true when a decline-map change stopped retries the acquirer used to get.
+        lost_recoveries is what stopped retries cost: the recoveries the window missed at the baseline recovery
+        rate of the same acquirer and code. Pass issuer (such as 'BR-ISS-03') to look at one issuer."""
         return call("fn_cascade_health", lambda: {**check_window(country, start_local, end_local),
                                           "p_card_type": _choice("card_type", card_type, CARD_TYPES, optional=True),
-                                          "p_baseline_days": _integer("baseline_days", baseline_days, 1, 90, 14)})
+                                          "p_baseline_days": _integer("baseline_days", baseline_days, 1, 90, 14),
+                                          "p_issuer": _issuer(issuer)})
 
     @server.tool(annotations=read_only)
     def changes_near(country: str, start_local: str, end_local: str, hours_before: int = 72,

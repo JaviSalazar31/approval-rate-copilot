@@ -4,7 +4,8 @@ function, fn_approval_drivers, run on the local pipeline output.
 
   python analysis/mix_rate_split.py           # needs local/out (python local/run_local.py)
 
-For each dimension, the function's rate effects plus mix effects add up to the total change. A mix
+For each dimension, the function's rate effects plus mix effects add up to the total change, which
+fn_drop_impact returns for the same window. A mix
 effect means traffic moved toward segments that approve less; a rate effect means segments approved
 less than before. The acquirer dimension is left out: Acquirer B had no Colombian debit in the
 baseline, so the function gives it the baseline average and books all of its change as rate.
@@ -21,6 +22,8 @@ OUT = os.path.join(ROOT, "analysis", "results", "mix_rate_split.json")
 
 QUERY = ("SELECT * FROM fn_approval_drivers('CO', '2026-08-13 14:00:00', '2026-08-14 12:10:00', "
          "'debit', 14, NULL)")
+TOTAL = ("SELECT final_rate_change_pp FROM fn_drop_impact('CO', '2026-08-13 14:00:00', '2026-08-14 12:10:00', "
+         "'debit', 14)")
 DIMENSIONS = ["issuer", "three_ds_authenticated", "merchant_segment", "card_brand"]
 
 
@@ -30,7 +33,7 @@ def main() -> dict:
 
     spark = load_outputs()
     rows = run_sql(spark, QUERY, limit=500)
-    total = float(rows.total_change_pp.iloc[0])
+    total = float(run_sql(spark, TOTAL).final_rate_change_pp.iloc[0])
     result = {"query": QUERY, "total_change_pp": total, "dimensions": []}
     for dim in DIMENSIONS:
         d = rows[rows.dimension == dim].copy()

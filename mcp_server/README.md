@@ -6,14 +6,14 @@ this server lets an assistant outside the workspace run the same method and get 
 
 | Tool | Function in Unity Catalog | Returns |
 |---|---|---|
-| `drop_impact` | `fn_drop_impact` | The size of a drop: change in final approval, lost approvals, lost approved volume (USD) and fees |
+| `drop_impact` | `fn_drop_impact` | The size of a drop: change in final approval, lost approvals, lost approved volume (USD), fees and the payment funnel. Given the date of the change that started an incident, it reads the window from the change log |
 | `approval_drivers` | `fn_approval_drivers` | Which acquirers, issuers, card brands, 3DS outcomes, merchant segments and routing versions moved the rate |
 | `decline_shift` | `fn_decline_shift` | Which first-attempt decline codes grew, per acquirer and across acquirers |
-| `cascade_health` | `fn_cascade_health` | Whether failed attempts were retried on another acquirer and recovered, and what stopped retries cost |
+| `cascade_health` | `fn_cascade_health` | Whether failed attempts were retried on another acquirer and recovered, whether a decline-map change stopped them, and what that cost; optionally for one issuer |
 | `changes_near` | `fn_changes_near` | Production changes before, during and after a window |
 
 Every tool takes a country (MX, CO or BR) and a window in the country's local time, and compares it with the days
-before it. The answer is a table: its columns, its rows and whether it was cut at 200 rows.
+before it; `drop_impact` can take the date of the change that started an incident instead of the window. The answer is a table: its columns, its rows and whether it was cut at 200 rows.
 
 ## How it stays read-only
 

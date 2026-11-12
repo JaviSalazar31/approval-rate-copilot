@@ -37,10 +37,19 @@ async def main():
         print("lowest issuer:", issuers[0]["segment_value"], issuers[0]["window_rate"], issuers[0]["pp_below_next"])
         changes = rows(await client.call_tool("changes_near", {k: v for k, v in WINDOW.items() if k != "card_type"}))
         print("changes:", [(c["change_id"], c["position"]) for c in changes])
+        incident = rows(await client.call_tool("drop_impact", {"country": "CO", "card_type": "debit",
+                                                               "incident_date": "2026-08-13"}))[0]
+        print("incident window:", incident["window_start_local"], incident["window_end_local"], incident["window_source"])
+        retries = rows(await client.call_tool("cascade_health", WINDOW))
+        stopped = [(r["acquirer_id"], r["reason_code"]) for r in retries if r["map_stopped_retries"]]
+        print("retries the map stopped:", stopped)
         assert len(tools) == 5
         assert (impact["window_payments"], impact["lost_approvals"]) == (1004, 110), impact
         assert issuers[0]["segment_value"] == "CO-ISS-07", issuers[0]
         assert {"CHG-0813", "CHG-0814"} <= {c["change_id"] for c in changes}, changes
+        assert (incident["window_start_local"], incident["window_end_local"], incident["window_payments"]) == (
+            "2026-08-13 14:00:00", "2026-08-14 12:10:00", 1004), incident
+        assert stopped == [("B", "05")], stopped
     print("MCP server on Databricks: OK")
 
 

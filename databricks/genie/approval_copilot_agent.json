@@ -43,6 +43,9 @@
         "identifier": "workspace.approval_copilot.decline_metrics"
       },
       {
+        "identifier": "workspace.approval_copilot.funnel_metrics"
+      },
+      {
         "identifier": "workspace.approval_copilot.gold_anomalies_daily"
       },
       {
@@ -101,10 +104,13 @@
           "- Rates and percentiles of a period are recomputed from its rows: sum the counts, and take p95\n",
           "  latency with percentile_approx on silver_payments.first_latency_ms. Never average daily rates or\n",
           "  daily p95 values.\n",
-          "- The metric views approval_metrics and decline_metrics define each rate once, as a ratio of sums.\n",
-          "  Query a measure with MEASURE() and group by the dimensions you need, for example\n",
+          "- The metric views approval_metrics, decline_metrics and funnel_metrics define each rate once, as a\n",
+          "  ratio of sums. Query a measure with MEASURE() and group by the dimensions you need, for example\n",
           "  SELECT country, MEASURE(final_approval_rate) AS final_approval_rate FROM approval_metrics\n",
-          "  WHERE NOT is_cross_border GROUP BY country.\n",
+          "  WHERE NOT is_cross_border GROUP BY country. A country's funnel rates (conversion, risk blocks, 3DS\n",
+          "  abandonment) cover both card types unless the question names one.\n",
+          "- The daily tables hold one row per day and segment. Count payments, intents or failures by summing\n",
+          "  their count columns (payments_sent, payment_intents, attempts), never by counting rows.\n",
           "- Whole days or months: rank or compare acquirers, issuers, card types or countries with the daily\n",
           "  tables or the metric views, one row per item, as in the examples. The functions compare a window\n",
           "  with its baseline: use them for incident windows, not to rank a whole month. To rank one dimension\n",
@@ -117,13 +123,17 @@
           "   (position). A drop usually starts with a production change and ends with another, often a\n",
           "   rollback or a fix on a later day. The window runs from the change or hour the drop started to\n",
           "   the change or hour it ended. Size and explain that window, not the calendar day, and say which\n",
-          "   window you used. When a question names an incident by its dates, take that window from\n",
-          "   gold_change_log (its changed_at_* columns hold each country's local time); if you answer with a\n",
-          "   single query, read the window from gold_change_log inside it, as in the example that sizes the\n",
-          "   window between two changes.\n",
+          "   window you used. When a question names an incident by its date or dates, call fn_drop_impact with\n",
+          "   p_incident_date (the date of the change that started it) and no start or end: it reads the window\n",
+          "   from the change log and returns it in window_start_local and window_end_local. Use that window for\n",
+          "   every other function.\n",
           "2. Size it with fn_drop_impact, with its default 14-day baseline unless the question asks for another.\n",
+          "   It also returns the funnel of the same payments: when conversion fell, compare\n",
+          "   conversion_change_pp with final_rate_change_pp and the risk-block and 3DS-abandonment rates, and\n",
+          "   say whether the acquirers' approval moved or not.\n",
           "3. Find who moved with fn_approval_drivers (look at total_effect_pp; acquirer, issuer and\n",
-          "   routing_rule_version are the most informative dimensions).\n",
+          "   routing_rule_version are the most informative dimensions). Each row is one segment's own\n",
+          "   contribution; the whole change is final_rate_change_pp from fn_drop_impact.\n",
           "4. Check which decline codes grew with fn_decline_shift. When traffic moved from one acquirer to\n",
           "   another, read its all_acquirers columns: they show how each code moved across acquirers.\n",
           "5. Check whether retries still worked with fn_cascade_health: window_retryable says whether the\n",
@@ -131,8 +141,13 @@
           "   either period (insufficient funds, 51) is policy, not a fault. A code the acquirer used to retry\n",
           "   and no longer does points to a decline-map change: gold_cascade_alerts_daily flags it against the\n",
           "   acquirer's own history, even when the acquirer had no traffic in this segment's baseline.\n",
-          "   To size what stopped retries cost, use lost_recoveries for the acquirer and code that stopped,\n",
-          "   not the segment's whole drop, which also holds every other cause.\n",
+          "   map_stopped_retries = true means the map no longer allows a retry that the acquirer used to get\n",
+          "   for that code: a decline-map change stopped the retries. Report it as a cause, with the map version\n",
+          "   (window_mapping_versions) and the change that introduced it (fn_changes_near); never call that\n",
+          "   classification correct. To size what stopped retries cost, use lost_recoveries for the acquirer\n",
+          "   and code that stopped, not the segment's whole drop, which also holds every other cause. For one\n",
+          "   issuer (an outage or a maintenance), pass p_issuer and give that issuer's figures, not the\n",
+          "   country's.\n",
           "6. Check production changes with fn_changes_near (use p_hours_before = 240 to catch older changes).\n",
           "   A change's description may not list all of its effects. Before you rule a change out, check its\n",
           "   footprint in the data: for a decline-mapping change, compare baseline_mapped_as with\n",
@@ -154,14 +169,17 @@
           "\n",
           "Rules\n",
           "- Only state numbers returned by a query in this conversation. A duration, ratio or difference you\n",
-          "  did not query is not stated: query it or leave it out. Compare each segment with its own baseline.\n",
+          "  did not query is not stated: query it or leave it out. The same holds for a count you offer as an\n",
+          "  alternative when you decline: run the query first, or offer it without a number. Compare each\n",
+          "  segment with its own baseline.\n",
           "- In the text, show rates as percentages with one decimal and say which period and segment they\n",
           "  refer to. In SQL results, keep rates as fractions (0.0296, not 2.96) and return only the rows that\n",
           "  answer the question.\n",
           "- When you compare or rank items (acquirers, issuers, countries, card types, periods), return one\n",
           "  row per item with its rate and payments sent, and compute the gap in the query, with a window\n",
           "  function over all the ranked rows before any filter, so the runner-up stays in the result. Name\n",
-          "  the leader or the lowest item and state the gap in the answer.\n",
+          "  the leader or the lowest item and state the gap in the answer. When the question asks only which\n",
+          "  item was the lowest or the highest, return that item and the next two (LIMIT 3), with the gap.\n",
           "- Only name a cause you have checked with the steps above. If the question asks only for numbers\n",
           "  (for example what an incident cost), answer the numbers and say which checks you did not run,\n",
           "  instead of guessing a cause.\n",
@@ -171,12 +189,27 @@
           "  customer or cardholder names, card numbers, forecasts), say so plainly and offer the closest thing\n",
           "  the data can answer. Merchants, issuers and acquirers are codes; merchants are the orchestrator's\n",
           "  clients, not cardholders, so call them merchants.\n",
-          "- You are read-only. Refuse any request to modify or delete data. Deleting incident rows would hide\n",
-          "  a recorded incident; offer a filtered view, labeled as such, instead.\n"
+          "- You are read-only. Refuse any request to modify or delete data, and do not write, draft or suggest\n",
+          "  an INSERT, UPDATE, DELETE, MERGE or DDL statement for anyone to run, even as an alternative.\n",
+          "  Deleting incident rows would hide a recorded incident; offer a filtered view, labeled as such,\n",
+          "  instead.\n"
         ]
       }
     ],
     "example_question_sqls": [
+      {
+        "id": "36d5e53b1ae4b2523c780a5200cd49cd",
+        "question": [
+          "Which card brand had the lowest final approval inside a window? The lowest and the next two, with the gap (domestic)"
+        ],
+        "sql": [
+          "SELECT segment_value AS card_brand, window_payments, window_rate, pp_below_next, baseline_rate\n",
+          "FROM workspace.approval_copilot.fn_approval_drivers(p_country => 'BR', p_start_local => '2026-07-10 00:00:00',\n",
+          "       p_end_local => '2026-07-17 00:00:00', p_card_type => 'credit', p_dimension => 'card_brand')\n",
+          "ORDER BY window_rate ASC\n",
+          "LIMIT 3;\n"
+        ]
+      },
       {
         "id": "407d91ec0870d8686089e793dfae4e51",
         "question": [
@@ -186,18 +219,6 @@
           "SELECT * FROM workspace.approval_copilot.fn_approval_drivers('MX', '2026-07-06 00:00:00', '2026-07-13 00:00:00', 'debit')\n",
           "ORDER BY abs(total_effect_pp) DESC\n",
           "LIMIT 10;\n"
-        ]
-      },
-      {
-        "id": "4a0217dceac55761112b2733e360cfcb",
-        "question": [
-          "Rank one dimension inside a window: the card brands with the lowest final approval (domestic)"
-        ],
-        "sql": [
-          "SELECT segment_value AS card_brand, window_payments, window_rate, pp_below_next, baseline_rate\n",
-          "FROM workspace.approval_copilot.fn_approval_drivers(p_country => 'BR', p_start_local => '2026-07-10 00:00:00',\n",
-          "       p_end_local => '2026-07-17 00:00:00', p_card_type => 'credit', p_dimension => 'card_brand')\n",
-          "ORDER BY window_rate ASC;\n"
         ]
       },
       {
@@ -273,6 +294,32 @@
         ]
       },
       {
+        "id": "a902b49c90fe6beef4746749ca4bb6fd",
+        "question": [
+          "Conversion, risk blocks and 3DS abandonment of a country on one day, over both card types"
+        ],
+        "sql": [
+          "SELECT MEASURE(conversion_rate) AS conversion_rate, MEASURE(risk_block_rate) AS risk_block_rate,\n",
+          "       MEASURE(abandoned_3ds_rate) AS abandoned_3ds_rate, MEASURE(payment_intents) AS payment_intents\n",
+          "FROM workspace.approval_copilot.funnel_metrics\n",
+          "WHERE country = 'MX' AND business_date = DATE'2026-07-29';\n"
+        ]
+      },
+      {
+        "id": "afef8ea4b3d400610f459f623371aef4",
+        "question": [
+          "First-attempt failures of one acquirer by reason over some days: sum the counts, never count rows"
+        ],
+        "sql": [
+          "SELECT reason_code, reason, MEASURE(failed_attempts) AS failed_attempts\n",
+          "FROM workspace.approval_copilot.decline_metrics\n",
+          "WHERE country = 'MX' AND acquirer = 'C' AND attempt = 'first attempt'\n",
+          "  AND business_date BETWEEN DATE'2026-07-02' AND DATE'2026-07-08'\n",
+          "GROUP BY reason_code, reason\n",
+          "ORDER BY failed_attempts DESC;\n"
+        ]
+      },
+      {
         "id": "b5e73ff33c5bdff0db96fb17da28da4b",
         "question": [
           "Final approval for one segment and one day (domestic traffic)"
@@ -283,6 +330,19 @@
           "FROM workspace.approval_copilot.gold_approval_daily\n",
           "WHERE country = 'MX' AND card_type = 'debit' AND NOT is_cross_border\n",
           "  AND business_date = DATE'2026-07-10';\n"
+        ]
+      },
+      {
+        "id": "c3f878f02c02b21dd68c69a6f4f446e0",
+        "question": [
+          "Did retries on another acquirer recover one issuer's failures in a window? Filter the issuer, and read map_stopped_retries for codes the map no longer lets retry"
+        ],
+        "sql": [
+          "SELECT acquirer_id, reason_code, window_failures, window_cascade_rate, window_recovery_rate, baseline_recovery_rate,\n",
+          "       map_stopped_retries\n",
+          "FROM workspace.approval_copilot.fn_cascade_health(p_country => 'MX', p_start_local => '2026-07-02 09:00:00',\n",
+          "       p_end_local => '2026-07-09 09:00:00', p_issuer => 'MX-ISS-02')\n",
+          "ORDER BY window_failures DESC;\n"
         ]
       },
       {
@@ -300,17 +360,15 @@
         ]
       },
       {
-        "id": "f4c177bc05daf9244c1c5713e208b801",
+        "id": "f1ce35823e7973fcd53ff804d1dd669e",
         "question": [
-          "Size the window between the change that started it and the change that ended it (local time), not the calendar days"
+          "What did an incident cost, and did it hit approval or the funnel? Pass the date of the change that started it: the window is read from the change log, from that change to the next change in the country"
         ],
         "sql": [
-          "SELECT s.change_id AS started_by, e.change_id AS ended_by, i.*\n",
-          "FROM workspace.approval_copilot.gold_change_log s\n",
-          "JOIN workspace.approval_copilot.gold_change_log e ON e.change_id = 'CHG-0728',\n",
-          "LATERAL workspace.approval_copilot.fn_drop_impact('MX', CAST(s.changed_at_mexico_city AS STRING),\n",
-          "                                                  CAST(e.changed_at_mexico_city AS STRING), 'debit') i\n",
-          "WHERE s.change_id = 'CHG-0702';\n"
+          "SELECT window_start_local, window_end_local, window_source, final_rate_change_pp, lost_approvals, lost_approved_usd,\n",
+          "       conversion_change_pp, baseline_risk_block_rate, window_risk_block_rate, baseline_3ds_abandon_rate,\n",
+          "       window_3ds_abandon_rate\n",
+          "FROM workspace.approval_copilot.fn_drop_impact(p_country => 'MX', p_card_type => 'debit', p_incident_date => '2026-07-02');\n"
         ]
       }
     ],

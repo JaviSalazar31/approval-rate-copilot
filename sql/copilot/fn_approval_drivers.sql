@@ -2,7 +2,8 @@
 -- For each dimension value, splits its contribution into:
 --   rate_effect_pp: the segment approved more/less than before (weighted by its share in the window)
 --   mix_effect_pp:  traffic moved into/out of a segment that was better/worse than average
--- rate_effect_pp + mix_effect_pp across the values of one dimension = total_change_pp.
+-- rate_effect_pp + mix_effect_pp across the values of one dimension = the window's whole change, which
+-- fn_drop_impact returns as final_rate_change_pp. No row carries that total: each row is one segment.
 -- p_dimension keeps one dimension (NULL keeps all six); rows come ordered from the lowest window rate.
 -- pp_below_next: how far each value's window rate sits below the next higher value of the same dimension.
 WITH scope AS (
@@ -74,7 +75,6 @@ SELECT
   round(100 * ((coalesce(w.n, 0) / nullif(t.n_win, 0)) * (coalesce(w.rate, 0) - coalesce(b.rate, t.rate_base))
              + (coalesce(w.n, 0) / nullif(t.n_win, 0) - coalesce(b.n, 0) / nullif(t.n_base, 0))
                * (coalesce(b.rate, t.rate_base) - t.rate_base)), 2) AS total_effect_pp,
-  round(100 * (t.rate_win - t.rate_base), 2) AS total_change_pp,
   round(100 * (lead(round(w.rate, 4)) OVER (PARTITION BY coalesce(w.dimension, b.dimension)
                                               ORDER BY w.rate ASC NULLS LAST, coalesce(w.segment_value, b.segment_value))
                - round(w.rate, 4)), 2) AS pp_below_next

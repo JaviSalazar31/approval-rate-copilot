@@ -21,14 +21,15 @@ CREATE OR REPLACE FUNCTION fn_approval_drivers(
   p_baseline_days INT DEFAULT 14 COMMENT 'Days before the window used as baseline',
   p_dimension STRING DEFAULT NULL COMMENT 'acquirer, issuer, card_brand, three_ds_authenticated, merchant_segment or routing_rule_version; NULL for all six'
 )
-RETURNS TABLE (dimension STRING, segment_value STRING, baseline_payments BIGINT, window_payments BIGINT, baseline_share DOUBLE, window_share DOUBLE, baseline_rate DOUBLE, window_rate DOUBLE, rate_effect_pp DOUBLE, mix_effect_pp DOUBLE, total_effect_pp DOUBLE, total_change_pp DOUBLE, pp_below_next DOUBLE)
-COMMENT 'Explains a change in final approval for a country (and card type) between a baseline and an incident window, usually hours or a few days: contribution of each acquirer, issuer, card brand, 3DS, merchant segment and routing version, split into rate effect and mix effect, in percentage points. Pass p_dimension to get only the rows of one dimension, ordered from the lowest window_rate, with pp_below_next (how far each value is below the next one); NULL returns all six dimensions. It is built to diagnose a window against its baseline: to rank or compare segments over whole days or months, query the daily tables or the metric views instead, as in the examples. Domestic payments only.'
+RETURNS TABLE (dimension STRING, segment_value STRING, baseline_payments BIGINT, window_payments BIGINT, baseline_share DOUBLE, window_share DOUBLE, baseline_rate DOUBLE, window_rate DOUBLE, rate_effect_pp DOUBLE, mix_effect_pp DOUBLE, total_effect_pp DOUBLE, pp_below_next DOUBLE)
+COMMENT 'Explains a change in final approval for a country (and card type) between a baseline and an incident window, usually hours or a few days: contribution of each acquirer, issuer, card brand, 3DS, merchant segment and routing version, split into rate effect and mix effect, in percentage points. Pass p_dimension to get only the rows of one dimension, ordered from the lowest window_rate, with pp_below_next (how far each value is below the next one); NULL returns all six dimensions. Each row is one segment: its own contribution is total_effect_pp, and the window\'s whole change is final_rate_change_pp in fn_drop_impact. To name the lowest value, keep it and the next two (ORDER BY window_rate LIMIT 3). It is built to diagnose a window against its baseline: to rank or compare segments over whole days or months, query the daily tables or the metric views instead, as in the examples. Domestic payments only.'
 RETURN
 -- Explains a change in final approval between a baseline period and a window.
 -- For each dimension value, splits its contribution into:
 --   rate_effect_pp: the segment approved more/less than before (weighted by its share in the window)
 --   mix_effect_pp:  traffic moved into/out of a segment that was better/worse than average
--- rate_effect_pp + mix_effect_pp across the values of one dimension = total_change_pp.
+-- rate_effect_pp + mix_effect_pp across the values of one dimension = the window's whole change, which
+-- fn_drop_impact returns as final_rate_change_pp. No row carries that total: each row is one segment.
 -- p_dimension keeps one dimension (NULL keeps all six); rows come ordered from the lowest window rate.
 -- pp_below_next: how far each value's window rate sits below the next higher value of the same dimension.
 WITH scope AS (
@@ -100,7 +101,6 @@ SELECT
   round(100 * ((coalesce(w.n, 0) / nullif(t.n_win, 0)) * (coalesce(w.rate, 0) - coalesce(b.rate, t.rate_base))
              + (coalesce(w.n, 0) / nullif(t.n_win, 0) - coalesce(b.n, 0) / nullif(t.n_base, 0))
                * (coalesce(b.rate, t.rate_base) - t.rate_base)), 2) AS total_effect_pp,
-  round(100 * (t.rate_win - t.rate_base), 2) AS total_change_pp,
   round(100 * (lead(round(w.rate, 4)) OVER (PARTITION BY coalesce(w.dimension, b.dimension)
                                               ORDER BY w.rate ASC NULLS LAST, coalesce(w.segment_value, b.segment_value))
                - round(w.rate, 4)), 2) AS pp_below_next
@@ -187,14 +187,17 @@ CREATE OR REPLACE FUNCTION fn_cascade_health(
   p_start_local STRING COMMENT 'Window start, local time, as \'YYYY-MM-DD HH:MM:SS\'',
   p_end_local STRING COMMENT 'Window end (exclusive), local time, as \'YYYY-MM-DD HH:MM:SS\'',
   p_card_type STRING DEFAULT NULL COMMENT 'credit, debit, or NULL for both',
-  p_baseline_days INT DEFAULT 14 COMMENT 'Days before the window used as baseline'
+  p_baseline_days INT DEFAULT 14 COMMENT 'Days before the window used as baseline',
+  p_issuer STRING DEFAULT NULL COMMENT 'Issuer code such as \'BR-ISS-03\', or NULL for all issuers'
 )
-RETURNS TABLE (acquirer_id STRING, reason_code STRING, baseline_failures BIGINT, baseline_cascade_rate DOUBLE, baseline_recovery_rate DOUBLE, baseline_mapped_as STRING, window_failures BIGINT, window_cascade_rate DOUBLE, window_recovery_rate DOUBLE, window_mapped_as STRING, window_mapping_versions STRING, baseline_retryable STRING, window_retryable STRING, lost_recoveries DOUBLE)
-COMMENT 'For failed first attempts: share retried on another acquirer (cascade), share recovered, how the normalization map classified each reason (soft/hard) and whether it allowed a retry (retryable), in baseline vs window. A code the map does not allow to retry is never cascaded. lost_recoveries is the number of recoveries the window missed at the baseline recovery rate of the same acquirer and code: it sizes what stopped retries cost, which is not the segment\'s whole drop. Domestic payments only.'
+RETURNS TABLE (acquirer_id STRING, reason_code STRING, baseline_failures BIGINT, baseline_cascade_rate DOUBLE, baseline_recovery_rate DOUBLE, baseline_mapped_as STRING, window_failures BIGINT, window_cascade_rate DOUBLE, window_recovery_rate DOUBLE, window_mapped_as STRING, window_mapping_versions STRING, baseline_retryable STRING, window_retryable STRING, lost_recoveries DOUBLE, acquirer_history_mapping_versions STRING, acquirer_history_retryable STRING, map_stopped_retries BOOLEAN)
+COMMENT 'For failed first attempts: share retried on another acquirer (cascade), share recovered, how the normalization map classified each reason (soft/hard) and whether it allowed a retry (retryable), in baseline vs window. A code the map does not allow to retry is never cascaded. lost_recoveries is the number of recoveries the window missed at the baseline recovery rate of the same acquirer and code: it sizes what stopped retries cost, which is not the segment\'s whole drop. map_stopped_retries is true when the map allowed a retry for that acquirer and code in the acquirer\'s own history (all its traffic in the baseline period, acquirer_history_retryable) and no longer does in the window: a decline-map change stopped the retries, which is a cause to report, not a correct classification. Pass p_issuer to look at one issuer, for example during an issuer outage or maintenance. Domestic payments only.'
 RETURN
 -- Did failed first attempts get retried on another acquirer, and did the retries work?
 -- Shows how the normalization map classified each reason in each period, and whether it allowed a retry.
 -- lost_recoveries: recoveries the window missed at the baseline recovery rate of the same acquirer and code.
+-- map_stopped_retries: the map allowed a retry for this acquirer and code in the acquirer's own history (all its
+-- traffic in the baseline period) and no longer does in the window, so a decline-map change stopped the retries.
 WITH scope AS (
   SELECT *
   FROM workspace.approval_copilot.silver_payments
@@ -203,6 +206,7 @@ WITH scope AS (
     AND NOT first_attempt_approved
     AND country = p_country
     AND (p_card_type IS NULL OR upper(trim(p_card_type)) IN ('NULL', '') OR card_type = p_card_type)
+    AND (p_issuer IS NULL OR upper(trim(p_issuer)) IN ('NULL', '') OR issuer_id = p_issuer)
 ),
 win AS (
   SELECT * FROM scope
@@ -212,6 +216,16 @@ base AS (
   SELECT * FROM scope
   WHERE created_ts_local >= timestampadd(DAY, -p_baseline_days, CAST(p_start_local AS TIMESTAMP))
     AND created_ts_local < CAST(p_start_local AS TIMESTAMP)
+),
+hist AS (
+  SELECT first_acquirer_id AS acquirer_id, coalesce(first_iso_code, first_status) AS reason_code,
+         concat_ws(',', sort_array(collect_set(first_mapping_version))) AS mapping_versions,
+         concat_ws(',', sort_array(collect_set(CAST(first_retryable AS STRING)))) AS retryable
+  FROM workspace.approval_copilot.silver_payments
+  WHERE sent_to_acquirer AND NOT first_attempt_approved
+    AND created_ts_local >= timestampadd(DAY, -p_baseline_days, CAST(p_start_local AS TIMESTAMP))
+    AND created_ts_local < CAST(p_start_local AS TIMESTAMP)
+  GROUP BY first_acquirer_id, coalesce(first_iso_code, first_status)
 ),
 cw AS (
   SELECT first_acquirer_id AS acquirer_id, coalesce(first_iso_code, first_status) AS reason_code,
@@ -246,9 +260,16 @@ SELECT
   b.retryable AS baseline_retryable,
   w.retryable AS window_retryable,
   CASE WHEN b.failures > 0
-       THEN round(coalesce(w.failures, 0) * b.recovered / b.failures - coalesce(w.recovered, 0), 1) END AS lost_recoveries
+       THEN round(coalesce(w.failures, 0) * b.recovered / b.failures - coalesce(w.recovered, 0), 1) END AS lost_recoveries,
+  h.mapping_versions AS acquirer_history_mapping_versions,
+  h.retryable AS acquirer_history_retryable,
+  coalesce(w.failures, 0) > 0
+    AND coalesce(array_contains(split(h.retryable, ','), 'true'), false)
+    AND NOT coalesce(array_contains(split(w.retryable, ','), 'true'), false) AS map_stopped_retries
 FROM cw w
-FULL OUTER JOIN cb b ON w.acquirer_id = b.acquirer_id AND w.reason_code = b.reason_code;
+FULL OUTER JOIN cb b ON w.acquirer_id = b.acquirer_id AND w.reason_code = b.reason_code
+LEFT JOIN hist h ON h.acquirer_id = coalesce(w.acquirer_id, b.acquirer_id)
+                AND h.reason_code = coalesce(w.reason_code, b.reason_code);
 
 -- COMMAND ----------
 
@@ -296,46 +317,106 @@ WHERE (c.scope = 'ALL'
 
 CREATE OR REPLACE FUNCTION fn_drop_impact(
   p_country STRING COMMENT 'Country code: MX, CO or BR',
-  p_start_local STRING COMMENT 'Window start, local time, as \'YYYY-MM-DD HH:MM:SS\'',
-  p_end_local STRING COMMENT 'Window end (exclusive), local time, as \'YYYY-MM-DD HH:MM:SS\'',
+  p_start_local STRING DEFAULT NULL COMMENT 'Window start, local time, as \'YYYY-MM-DD HH:MM:SS\'; leave it out when you pass p_incident_date',
+  p_end_local STRING DEFAULT NULL COMMENT 'Window end (exclusive), local time, as \'YYYY-MM-DD HH:MM:SS\'',
   p_card_type STRING DEFAULT NULL COMMENT 'credit, debit, or NULL for both',
-  p_baseline_days INT DEFAULT 14 COMMENT 'Days before the window used as baseline'
+  p_baseline_days INT DEFAULT 14 COMMENT 'Days before the window used as baseline',
+  p_incident_date STRING DEFAULT NULL COMMENT 'Date of the change that started an incident, as \'YYYY-MM-DD\': the window is read from the change log'
 )
-RETURNS TABLE (window_payments BIGINT, baseline_payments BIGINT, baseline_first_attempt_rate DOUBLE, window_first_attempt_rate DOUBLE, baseline_final_rate DOUBLE, window_final_rate DOUBLE, final_rate_change_pp DOUBLE, window_approvals BIGINT, expected_approvals_at_baseline DOUBLE, lost_approvals DOUBLE, window_attempted_usd DOUBLE, window_approved_usd DOUBLE, lost_approved_usd DOUBLE, window_fees_usd DOUBLE)
-COMMENT 'Size of an approval drop versus the baseline rate: lost approvals, lost approved volume (USD) and fees paid in the window. Pass the window of the drop, from the change or hour it started to the change or hour it ended, not a calendar day: normal hours in the window understate the drop. lost_approvals and lost_approved_usd are expected minus actual at the baseline rates: positive means the window approved less than its baseline predicts, negative means it approved more. The two can differ in sign, because one counts payments and the other weighs them by amount. Domestic payments only.'
+RETURNS TABLE (window_start_local STRING, window_end_local STRING, window_source STRING, window_payments BIGINT, baseline_payments BIGINT, baseline_first_attempt_rate DOUBLE, window_first_attempt_rate DOUBLE, baseline_final_rate DOUBLE, window_final_rate DOUBLE, final_rate_change_pp DOUBLE, window_approvals BIGINT, expected_approvals_at_baseline DOUBLE, lost_approvals DOUBLE, window_attempted_usd DOUBLE, window_approved_usd DOUBLE, lost_approved_usd DOUBLE, window_fees_usd DOUBLE, baseline_conversion_rate DOUBLE, window_conversion_rate DOUBLE, conversion_change_pp DOUBLE, baseline_risk_block_rate DOUBLE, window_risk_block_rate DOUBLE, baseline_3ds_abandon_rate DOUBLE, window_3ds_abandon_rate DOUBLE)
+COMMENT 'Size of an incident or a drop versus the baseline: lost approvals, lost approved volume (USD) and fees paid in the window, plus the payment funnel of the same segment (conversion, risk blocks and 3DS abandonment). For an incident named by its date, pass p_incident_date and leave the start and end out: the window then runs from the first production change of that date in the country to the next change there (a rollback, a fix or a tuning), and window_start_local, window_end_local and window_source say which window was sized. Otherwise pass the window of the drop, from the change or hour it started to the change or hour it ended, never a calendar day: normal hours in the window understate the drop. lost_approvals and lost_approved_usd are expected minus actual at the baseline rates: positive means the window approved less than its baseline predicts, negative means it approved more. The two can differ in sign, because one counts payments and the other weighs them by amount. final_rate_change_pp is the change in approval of the payments sent to an acquirer; conversion_change_pp is the change over all payment intents, so a conversion drop with a flat approval rate comes from risk blocks or 3DS abandonment, not from the acquirers. Domestic payments only.'
 RETURN
--- Size of a drop: approvals and approved volume lost versus the baseline rate,
--- and acquirer fees paid in the window.
-WITH scope AS (
-  SELECT *
-  FROM workspace.approval_copilot.silver_payments
-  WHERE sent_to_acquirer
-    AND NOT is_cross_border
-    AND country = p_country
-    AND (p_card_type IS NULL OR upper(trim(p_card_type)) IN ('NULL', '') OR card_type = p_card_type)
+-- Size of a drop: approvals and approved volume lost versus the baseline rate, acquirer fees paid in the window,
+-- and the payment funnel of the same segment (risk blocks, 3DS abandonment, conversion).
+-- The window is the one given. With p_incident_date and no start or end, it runs from the first production change
+-- of that date in the country (gold_change_log, local time) to the next change in the country, usually a rollback,
+-- a fix or a tuning; with no change that date, it is the calendar day.
+WITH chg AS (
+  SELECT change_id, change_type,
+         CASE p_country WHEN 'MX' THEN changed_at_mexico_city
+                           WHEN 'CO' THEN changed_at_bogota
+                           WHEN 'BR' THEN changed_at_sao_paulo END AS at_local
+  FROM workspace.approval_copilot.gold_change_log
+  WHERE scope = 'ALL' OR array_contains(split(scope, ','), p_country)
 ),
-win AS (
-  SELECT * FROM scope
-  WHERE created_ts_local >= CAST(p_start_local AS TIMESTAMP) AND created_ts_local < CAST(p_end_local AS TIMESTAMP)
+day AS (
+  SELECT try_cast(p_incident_date AS DATE) AS d
 ),
-base AS (
-  SELECT * FROM scope
-  WHERE created_ts_local >= timestampadd(DAY, -p_baseline_days, CAST(p_start_local AS TIMESTAMP))
-    AND created_ts_local < CAST(p_start_local AS TIMESTAMP)
+started AS (
+  SELECT c.change_id, c.at_local
+  FROM chg c CROSS JOIN day
+  WHERE c.change_type NOT IN ('rollback', 'external_notice') AND to_date(c.at_local) = day.d
+  ORDER BY c.at_local, c.change_id
+  LIMIT 1
+),
+ended AS (
+  SELECT c.change_id, c.at_local
+  FROM chg c CROSS JOIN started s
+  WHERE c.at_local > s.at_local
+  ORDER BY c.at_local, c.change_id
+  LIMIT 1
+),
+bounds AS (
+  SELECT
+    CASE WHEN CAST(p_start_local AS TIMESTAMP) IS NOT NULL THEN CAST(p_start_local AS TIMESTAMP)
+         WHEN s.at_local IS NOT NULL THEN s.at_local
+         ELSE CAST(day.d AS TIMESTAMP) END AS ws,
+    CASE WHEN CAST(p_start_local AS TIMESTAMP) IS NOT NULL THEN CAST(p_end_local AS TIMESTAMP)
+         WHEN s.at_local IS NOT NULL THEN coalesce(e.at_local, s.at_local + INTERVAL 24 HOURS)
+         ELSE CAST(date_add(day.d, 1) AS TIMESTAMP) END AS we,
+    CASE WHEN CAST(p_start_local AS TIMESTAMP) IS NOT NULL THEN 'as given'
+         WHEN s.at_local IS NOT NULL
+           THEN concat('change log: from ', s.change_id, ' to ', coalesce(e.change_id, '24 hours later'))
+         WHEN day.d IS NOT NULL THEN 'calendar day: no change in the country that date'
+         ELSE 'no window: pass a start and end, or p_incident_date' END AS source
+  FROM day
+  LEFT JOIN started s ON true
+  LEFT JOIN ended e ON true
+),
+intents AS (
+  SELECT p.*
+  FROM workspace.approval_copilot.silver_payments p
+  WHERE NOT p.is_cross_border
+    AND p.country = p_country
+    AND (p_card_type IS NULL OR upper(trim(p_card_type)) IN ('NULL', '') OR p.card_type = p_card_type)
+),
+win_all AS (
+  SELECT i.* FROM intents i CROSS JOIN bounds
+  WHERE i.created_ts_local >= bounds.ws AND i.created_ts_local < bounds.we
+),
+base_all AS (
+  SELECT i.* FROM intents i CROSS JOIN bounds
+  WHERE i.created_ts_local >= timestampadd(DAY, -p_baseline_days, bounds.ws)
+    AND i.created_ts_local < bounds.ws
 ),
 w AS (
   SELECT count(*) AS payments, sum(CAST(final_approved AS INT)) AS approved,
          sum(CAST(first_attempt_approved AS INT)) AS first_approved,
          sum(amount_usd) AS attempted_usd, sum(approved_usd) AS approved_usd, sum(fee_usd) AS fees_usd
-  FROM win
+  FROM win_all WHERE sent_to_acquirer
 ),
 b AS (
   SELECT count(*) AS payments, avg(CAST(final_approved AS INT)) AS final_rate,
          avg(CAST(first_attempt_approved AS INT)) AS first_rate,
          sum(approved_usd) / sum(amount_usd) AS volume_rate
-  FROM base
+  FROM base_all WHERE sent_to_acquirer
+),
+wf AS (
+  SELECT count(*) AS intents, sum(CAST(final_approved AS INT)) AS approved,
+         sum(CAST(final_status = 'BLOCKED_BY_RISK' AS INT)) AS blocked,
+         sum(CAST(final_status = 'ABANDONED' AS INT)) AS abandoned
+  FROM win_all
+),
+bf AS (
+  SELECT count(*) AS intents, sum(CAST(final_approved AS INT)) AS approved,
+         sum(CAST(final_status = 'BLOCKED_BY_RISK' AS INT)) AS blocked,
+         sum(CAST(final_status = 'ABANDONED' AS INT)) AS abandoned
+  FROM base_all
 )
 SELECT
+  date_format(bounds.ws, 'yyyy-MM-dd HH:mm:ss') AS window_start_local,
+  date_format(bounds.we, 'yyyy-MM-dd HH:mm:ss') AS window_end_local,
+  bounds.source AS window_source,
   w.payments AS window_payments,
   b.payments AS baseline_payments,
   round(b.first_rate, 4) AS baseline_first_attempt_rate,
@@ -349,8 +430,15 @@ SELECT
   round(w.attempted_usd, 2) AS window_attempted_usd,
   round(w.approved_usd, 2) AS window_approved_usd,
   round(w.attempted_usd * b.volume_rate - w.approved_usd, 2) AS lost_approved_usd,
-  round(w.fees_usd, 2) AS window_fees_usd
-FROM w CROSS JOIN b;
+  round(w.fees_usd, 2) AS window_fees_usd,
+  round(bf.approved / nullif(bf.intents, 0), 4) AS baseline_conversion_rate,
+  round(wf.approved / nullif(wf.intents, 0), 4) AS window_conversion_rate,
+  round(100 * (wf.approved / nullif(wf.intents, 0) - bf.approved / nullif(bf.intents, 0)), 2) AS conversion_change_pp,
+  round(bf.blocked / nullif(bf.intents, 0), 4) AS baseline_risk_block_rate,
+  round(wf.blocked / nullif(wf.intents, 0), 4) AS window_risk_block_rate,
+  round(bf.abandoned / nullif(bf.intents, 0), 4) AS baseline_3ds_abandon_rate,
+  round(wf.abandoned / nullif(wf.intents, 0), 4) AS window_3ds_abandon_rate
+FROM bounds CROSS JOIN w CROSS JOIN b CROSS JOIN wf CROSS JOIN bf;
 
 -- COMMAND ----------
 

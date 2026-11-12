@@ -1,0 +1,44 @@
+# Unity Catalog metric view over gold_funnel_daily. Created by notebook 09.
+# The table holds one row per day, country and card type, so a country's rate must sum both card types:
+# the measures do that for any grouping.
+version: 1.1
+comment: Payment funnel per day, country and card type, from checkout intent to approval, including payments the risk engine blocked and 3DS challenges the customer abandoned. Covers domestic and cross-border payments. Every rate is a ratio of sums over the rows in scope.
+source: workspace.approval_copilot.gold_funnel_daily
+dimensions:
+  - name: business_date
+    expr: business_date
+    comment: Local calendar date of the payment intent (country time zone)
+  - name: month
+    expr: date_trunc('MONTH', business_date)
+    comment: First day of the local calendar month
+  - name: country
+    expr: country
+    comment: "Country code: 'MX', 'CO' or 'BR'"
+  - name: card_type
+    expr: card_type
+    comment: "'credit' or 'debit'. Leave it out to get a country's rate over both card types"
+measures:
+  - name: payment_intents
+    expr: SUM(payment_intents)
+    comment: Payments created at checkout
+  - name: blocked_by_risk
+    expr: SUM(blocked_by_risk)
+    comment: Intents blocked by the risk engine, including review timeouts
+  - name: abandoned_3ds
+    expr: SUM(abandoned_3ds)
+    comment: Intents abandoned by the customer in the 3DS challenge
+  - name: sent_to_acquirer
+    expr: SUM(sent_to_acquirer)
+    comment: Intents that reached an acquirer
+  - name: approved
+    expr: SUM(approved)
+    comment: Intents finally approved
+  - name: conversion_rate
+    expr: SUM(approved) / SUM(payment_intents)
+    comment: Share of payment intents finally approved
+  - name: risk_block_rate
+    expr: SUM(blocked_by_risk) / SUM(payment_intents)
+    comment: Share of payment intents the risk engine blocked
+  - name: abandoned_3ds_rate
+    expr: SUM(abandoned_3ds) / SUM(payment_intents)
+    comment: Share of payment intents abandoned in the 3DS challenge
