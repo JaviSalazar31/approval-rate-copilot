@@ -14,7 +14,9 @@ this server lets an assistant outside the workspace run the same method and get 
 
 Every tool takes a country (MX, CO or BR) and a window in the country's local time, and compares it with the days
 before it. Instead of the window, every tool can take `incident_date`, the date of the change that started an
-incident, and then reads the window from the change log, from that change to the next one in the country. The answer is a table: its columns, its rows and whether it was cut at 200 rows.
+incident, and then reads the window from the change log, from that change to the next change that affects the country:
+one of its own, or one of an acquirer that serves it. The answer is a table: its columns, its rows and whether it was
+cut at 200 rows.
 
 ## How it stays read-only
 

@@ -16,7 +16,7 @@ same wording as in the evaluation.
 | 0:50–1:40 | Genie: "Why did the approval rate for debit cards in Colombia drop on 13 August 2026?" Let it run, scroll the answer and open "Show code" once | "I ask the copilot why. It has five SQL functions for this: the size of the drop, which segments moved, which decline codes grew, whether retries still worked, and what changed in production. It finds that a routing change sent all Colombian debit to Acquirer B to save forty basis points. B approved less, and a decline-map change a week earlier had stopped its 'do not honor' declines from being retried on another acquirer. In twenty-two hours, that cost about eleven points of approval, a hundred and ten approvals and around six thousand four hundred dollars in approved sales. I can open the query behind every number." |
 | 1:40–2:00 | Genie, new conversation: "Was there any early warning before the Colombia debit incident of 13 August 2026?" | "There was an early warning. Retries for B's 'do not honor' declines collapsed on August sixth, a week before the incident, and the retry alert flagged them every day from then on. In the scenario, the alert had no owner, so nobody acted on it." |
 | 2:00–2:12 | Genie, new conversation: "Which real bank is issuer CO-ISS-03?" | "When I ask which real bank an issuer code belongs to, it says the issuers are fictional codes and doesn't guess. It refuses to delete data, and asked straight out for a forecast, it declines." |
-| 2:12–2:42 | Eval results table | "I tested it on twenty questions with scoring rules. The Genie agent passed thirteen at first. After I moved more of the method into its functions, the seventh release passed nineteen, the eighth and ninth seventeen, and the tenth and last, nineteen. On six sets of new questions, committed to the repo before each run and asked three times each, it got twenty-six to thirty-five answers right out of thirty-nine, and thirty-one on the last two. Every answer and every failure is published." |
+| 2:12–2:42 | Eval results table | "I tested it on twenty questions with scoring rules. The Genie agent passed thirteen at first. Later releases scored between fourteen and nineteen, and the last one, nineteen. On six sets of new questions, committed to the repo before each run and asked three times each, it got twenty-six to thirty-five answers right out of thirty-nine, and thirty-one on the last two. Every answer and every failure is published." |
 | 2:42–3:05 | Project page or README top | "I built it with an AI coding assistant: I wrote the brief and reviewed the work against it. The same five functions also work from other AI assistants, through an MCP server. Next, I'd add hourly alerts and a guardrail that checks routing changes against approved volume instead of fee savings. The PRD, the postmortem and the code are linked below." |
 
 ## 60 to 90 second cut
@@ -48,6 +48,10 @@ over 90 seconds, the first cut is the 0:42 segment.
   honor' declines as acquirer-side, recommend no map fix that the hotfix of 15 August already made, and state
   nothing that its own query results contradict. If it doesn't, start a new conversation and ask again. A retake is
   fine because the pass rate is published. Never edit an answer.
+- The early-warning question also passed two of three samples in the last benchmark run; the one that failed explained
+  the warning with retries of retries, which its own results contradict. Keep a take only if it dates the retry alert
+  from 6 August, ties it to the decline-map change of that day and says that B's 'do not honor' declines stopped being
+  retried.
 - Read Genie's answer before recording the voice-over. If its wording or numbers differ from the script, say what
   Genie showed, or keep the line general ("it finds the routing change..."). Never read a number it did not show.
 - Cut the waiting time in editing, and keep the answer on screen long enough to read (3–4 seconds per paragraph).

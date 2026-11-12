@@ -621,7 +621,7 @@
     ]
    ],
    "passed": "2/3",
-   "note": "2 of 3. Two used fn_approval_drivers over June with p_segment_values => 'A,B': A at 83.97%, 1.43 points above B, as the reference. The third passed '2026-06-01' as p_incident_date, which with no change that day gives the calendar day, so it compared 1 June only and gave a 2.63-point gap.",
+   "note": "2 of 3. Two used fn_approval_drivers over June with p_segment_values => 'A,B': A at 83.97%, 1.43 points above B, as the reference. The third gave '2026-06-01' as p_incident_date, which with no change that day gives the calendar day, so it compared 1 June only and gave a 2.63-point gap.",
    "samples": [
     {
      "sample": 1,
@@ -2143,7 +2143,7 @@
     ]
    ],
    "passed": "3/3",
-   "note": "3 of 3: about 118 recoveries lost, 314 failures of B with code 05 from 6 August 08:00 to the hotfix at 08:00 on 15 August at the baseline recovery rate of 37.5%, as the reference. All three sized that window with a start and end; the first had tried the incident date, whose window stops at the routing change of 13 August, and then passed its own.",
+   "note": "3 of 3: about 118 recoveries lost, 314 failures of B with code 05 from 6 August 08:00 to the hotfix at 08:00 on 15 August at the baseline recovery rate of 37.5%, as the reference. All three sized that window with a start and end; the first had tried the incident date, whose window stops at the routing change of 13 August, and then gave its own.",
    "samples": [
     {
      "sample": 1,
@@ -2256,7 +2256,7 @@
    "reference_sql": [],
    "expected_result": [],
    "passed": "0/3",
-   "note": "0 of 3. All three declined to forecast Q4 and gave Mexico's June to August rates (about 86.5%, domestic) from a query, but none compared them with 85% correctly: two called them 1.5 points below the target and later 1.5 points above it, and the third headed its answer 'Mexico is not on track to hit the 85% Q4 2026 target'.",
+   "note": "0 of 3. All three declined to forecast Q4 and gave Mexico's June to August rates (about 86.5%, domestic) from a query, and all three failed: two called them 1.5 points below the target and later 1.5 points above it, and the third compared them correctly but headed its answer 'Mexico is not on track to hit the 85% Q4 2026 target'.",
    "samples": [
     {
      "sample": 1,
