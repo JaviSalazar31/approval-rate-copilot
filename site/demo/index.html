@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Approval Rate Copilot: 87-second demo</title>
+<meta name="description" content="A Databricks Genie agent explains a drop in card approval from one question, with the SQL behind every number. 100% synthetic data.">
+<meta property="og:title" content="Approval Rate Copilot: 87-second demo">
+<meta property="og:description" content="A Databricks Genie agent explains a drop in card approval from one question, with the SQL behind every number. 100% synthetic data.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://javisalazar31.github.io/approval-rate-copilot/demo/">
+<meta property="og:image" content="https://javisalazar31.github.io/approval-rate-copilot/demo/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="627">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,500..800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root {
+  --paper: #f6f7f4;
+  --panel: #eceee9;
+  --ink: #131a21;
+  --ink-2: #434e58;
+  --muted: #5d6871;
+  --rule: #d6dbd5;
+  --accent: #0b6a61;
+  --font-display: "Archivo", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #0f1418;
+    --panel: #172027;
+    --ink: #e8ecea;
+    --ink-2: #b7c0c6;
+    --muted: #8e99a2;
+    --rule: #26313a;
+    --accent: #5cc6b9;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+a { color: var(--accent); text-underline-offset: 3px; text-decoration-thickness: 1px; }
+a:hover { text-decoration-thickness: 2px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
+.frame { max-width: 1120px; margin-inline: auto; }
+.topbar {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 1.5rem;
+  padding-block: 1.1rem 0.9rem; border-bottom: 1px solid var(--rule);
+  font-size: 0.8125rem; color: var(--ink-2);
+}
+.topbar strong { color: var(--ink); font-weight: 600; }
+main { padding-block: 2.6rem 3.5rem; }
+.eyebrow { font-family: var(--font-mono); font-size: 0.8125rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+h1 {
+  font-family: var(--font-display); font-size: clamp(2.5rem, 6.5vw, 4.2rem); line-height: 0.95; font-weight: 800;
+  font-stretch: 75%; letter-spacing: -0.02em; margin: 0.8rem 0 0;
+}
+.lede { font-size: 1.25rem; line-height: 1.5; margin: 1.2rem 0 0; max-width: 46ch; }
+.player { margin-top: 2rem; }
+video {
+  display: block; width: 100%; height: auto; aspect-ratio: 16 / 9;
+  background: var(--panel); border: 1px solid var(--rule); border-radius: 6px;
+}
+.sub { color: var(--ink-2); margin: 1.2rem 0 0; max-width: 66ch; }
+.links { margin: 0.9rem 0 0; font-size: 0.9375rem; color: var(--muted); }
+.links a { white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="frame">
+  <header class="topbar">
+    <div><strong>Javier Salazar</strong> · Case study · Payments, data and AI</div>
+  </header>
+  <main>
+    <div class="eyebrow">Demo · 1 min 27 s · 100% synthetic data</div>
+    <h1>Approval Rate Copilot</h1>
+    <p class="lede">A Databricks Genie agent explains a drop in card approval from one question, with the SQL behind every number.</p>
+    <div class="player">
+      <video controls preload="metadata" playsinline poster="poster.jpg" width="1920" height="1080">
+        <source src="approval-rate-copilot-demo.mp4" type="video/mp4">
+      </video>
+    </div>
+    <p class="sub">The data is synthetic: a fictional payment orchestrator in Mexico, Colombia and Brazil.</p>
+    <p class="links">
+      <a href="../">Case study</a> ·
+      <a href="https://github.com/JaviSalazar31/approval-rate-copilot/blob/main/docs/PRD.md">PRD</a> ·
+      <a href="https://github.com/JaviSalazar31/approval-rate-copilot/blob/main/docs/postmortem_INC-0814.md">Postmortem</a> ·
+      <a href="https://github.com/JaviSalazar31/approval-rate-copilot/blob/main/evals/README.md">Evaluation</a> ·
+      <a href="https://github.com/JaviSalazar31/approval-rate-copilot">Code</a>
+    </p>
+  </main>
+</div>
+</body>
+</html>

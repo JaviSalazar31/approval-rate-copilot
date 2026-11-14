@@ -1,4 +1,4 @@
-# Publishes the project page (site/index.html) with GitHub Pages.
+# Publishes the project page (site/index.html) and the demo page (site/demo/) with GitHub Pages.
 # One-time setup: repository Settings > Pages > Build and deployment > Source: GitHub Actions.
 name: Publish the project page
 
@@ -30,6 +30,7 @@ jobs:
           mkdir _site
           cp site/index.html _site/
           if [ -f site/og.png ]; then cp site/og.png _site/; fi
+          if [ -d site/demo ]; then cp -r site/demo _site/; fi
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
