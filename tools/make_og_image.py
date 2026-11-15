@@ -1,7 +1,7 @@
 """
 Renders site/og.png (1200 x 627), the image LinkedIn and other sites show when the project page is shared.
-It is a screenshot of the top of site/index.html, so run tools/build_site.py first. The byline under the hero
-is hidden for the screenshot, because at this height it would be cut in half. The page loads its fonts from Google
+It is a screenshot of the top of site/index.html, so run tools/build_site.py first. The video links and the byline
+under the hero are hidden for the screenshot, because at this height they would be cut in half. The page loads its fonts from Google
 Fonts: render with network access, or the title falls back to a system font.
 
   pip install playwright && playwright install chromium
@@ -21,7 +21,7 @@ with sync_playwright() as p:
     browser = p.chromium.launch()
     page = browser.new_page(viewport={"width": 1200, "height": 627}, device_scale_factor=1, color_scheme="light")
     page.goto("file://" + PAGE, wait_until="load")
-    page.add_style_tag(content=".byline { display: none !important; }")
+    page.add_style_tag(content=".watch, .byline { display: none !important; }")
     page.evaluate("document.fonts.ready")
     page.wait_for_timeout(800)
     page.screenshot(path=OUT, clip={"x": 0, "y": 0, "width": 1200, "height": 627})
