@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Author | Javier Salazar (Senior Product Owner, payments) · personal project |
+| Author | Javier Salazar (Product Owner, payments) · personal project |
 | Status | v1 built on synthetic data, evaluated offline and deployed on Databricks Free Edition (29 Oct 2026) · Genie benchmark 19/20 on the tenth run, after the last release, and on the seventh (13/20 on the first, 15/20 on the fifth and sixth, 17/20 on the eighth and ninth) · held-out questions: 11/14 on the first set, then 26/39, 35/39, 32/39, 32/39, 31/39 and 31/39 answers on the second to seventh (13 questions each, three samples each) · agent frozen at the tenth release · a change guardrail, rebuilt daily, that scores every production change hour by hour for its first day · gold layer in dbt, metric views, evaluations tracked in MLflow, deploys and evaluations from GitHub Actions, the five functions offered over MCP, a late-data test with AUTO CDC (Nov 2026) · pilot on real data not started |
 | Scope | Card payments of a fictional LATAM orchestrator: Mexico, Colombia, Brazil · Acquirers A, B, C |
 
